@@ -21,8 +21,8 @@ export const configureLLM$ = (config: LlmEngineConfig): Observable<boolean> => {
         subscriber.next(true);
         subscriber.complete();
       })
-      .catch((err) => {
-        subscriber.error(new Error('ERR_LLM', err));
+      .catch((err: string) => {
+        subscriber.error(new Error(err));
       });
   });
 };
@@ -43,8 +43,8 @@ export const generateLLM$ = (
       }
     );
 
-    const errorListener = emitter.addListener('onError', (error) => {
-      subscriber.error(new Error('ERR_INFER', error));
+    const errorListener = emitter.addListener('onError', (error: string) => {
+      subscriber.error(new Error(error));
       subscriber.complete();
     });
 

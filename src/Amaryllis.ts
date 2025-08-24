@@ -1,4 +1,8 @@
-import { NativeModules, NativeEventEmitter } from 'react-native';
+import {
+  NativeModules,
+  NativeEventEmitter,
+  type EmitterSubscription,
+} from 'react-native';
 import type {
   LlmEngine,
   LlmEngineConfig,
@@ -20,7 +24,7 @@ export class LlmPipe implements LlmEngine {
     });
   }
 
-  async generateSync(params: LlmRequestParams): Promise<string> {
+  async generate(params: LlmRequestParams): Promise<string> {
     return await LlmNative.generateSync({
       prompt: params.prompt,
       maxTokens: params.maxTokens ?? 512,
@@ -35,14 +39,37 @@ export class LlmPipe implements LlmEngine {
   generateAsync(params: LlmRequestParams, callbacks?: LlmCallbacks): void {
     // Register streaming callbacks
     if (callbacks) {
+      let partialListener: EmitterSubscription | null = null;
+      let finalListener: EmitterSubscription | null = null;
+      let errorListener: EmitterSubscription | null = null;
+
       if (callbacks.onPartialResult) {
-        llmEmitter.addListener('onPartialResult', callbacks.onPartialResult);
+        partialListener = llmEmitter.addListener(
+          'onPartialResult',
+          (result: string) => {
+            callbacks.onPartialResult?.(result);
+          }
+        );
       }
+
       if (callbacks.onFinalResult) {
-        llmEmitter.addListener('onFinalResult', callbacks.onFinalResult);
+        finalListener = llmEmitter.addListener(
+          'onFinalResult',
+          (result: string) => {
+            callbacks.onFinalResult?.(result);
+            finalListener?.remove();
+            partialListener?.remove();
+            errorListener?.remove();
+          }
+        );
       }
       if (callbacks.onError) {
-        llmEmitter.addListener('onError', callbacks.onError);
+        errorListener = llmEmitter.addListener('onError', (error: string) => {
+          callbacks.onError?.(new Error(error));
+          errorListener?.remove();
+          finalListener?.remove();
+          partialListener?.remove();
+        });
       }
     }
 

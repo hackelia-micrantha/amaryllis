@@ -47,7 +47,7 @@ export interface LlmEngine {
   /**
    * Generate a response synchronously (blocking).
    */
-  generateSync(params: LlmRequestParams): Promise<string>;
+  generate(params: LlmRequestParams): Promise<string>;
 
   /**
    * Generate a response asynchronously (streaming).
