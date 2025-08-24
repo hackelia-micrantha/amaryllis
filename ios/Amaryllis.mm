@@ -2,11 +2,6 @@
 #import <MediaPipeTasksGenAI/MediaPipeTasksGenAI.h>
 #import <MediaPipeTasksVision/MediaPipeTasksVision.h>
 
-@interface AmaryllisModule ()
-
-@property(nonatomic, strong) MPPLLMInference *MPPLLMInference;
-@property(nonatomic, strong) MPPLLMInferenceSession *session;
-
 static NSString *const EVENT_ON_PARTIAL_RESULT = @"onPartialResult";
 static NSString *const EVENT_ON_FINAL_RESULT = @"OnFinalResult";
 static NSString *const EVENT_ON_ERROR = @"onError";
@@ -25,6 +20,11 @@ static NSString *const PARAM_LORA_PATH = @"loraPath";
 static NSString *const PARAM_TOP_K = @"topK";
 static NSString *const PARAM_TOP_P = @"topP";
 static NSString *const PARAM_NEW_SESSION = @"newSession";
+
+@interface AmaryllisModule ()
+
+@property(nonatomic, strong) MPPLLMInference *llmInference;
+@property(nonatomic, strong) MPPLLMInferenceSession *session;
 
 @end
 

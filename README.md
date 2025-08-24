@@ -39,10 +39,20 @@ yarn add react-native-amaryllis
 import { Amaryllis } from 'react-native-amaryllis';
 
 await Amaryllis.init({
-  modelPath: '/path/to/model.on/device',
-  maxTopK: 10,
-  enableVision: true,
-  maxNumImages: 5,
+  modelPath: '/path/to/model.on/device', // gen model
+  visionEncoderPath: '/path/to/visual.model', // vision encoder
+  visionAdapterPath: '/path/to/visual.adapter', // vision model
+  maxTopK: 10, // limit to top results
+  maxTokens: 1024, // limit tokens
+  maxNumImages: 5, // limit images
+  newSession: { // set to start a new session
+    enableVisionModality: true, // use vision models
+    randomSeed: 123432,
+    loraPath: '/path/to/model/weights',
+    topK: 40,
+    topP: 0.75,
+    temperature: 0.999
+  }
 });
 ```
 
@@ -51,12 +61,11 @@ await Amaryllis.init({
 ```js
 const result = await Amaryllis.generate({
   prompt: 'Your prompt here',
-  maxTokens: 1024,
-  topK: 10,
-  temperature: 0.99,
-  randomSeed: 123432,
+  newSession: {
+    enableImageModality: true
+    // session params
+  }
   images: [{ uri: 'file:///path/to/image', width: 128, height: 128 }],
-  loraPath: '/path/to/model/weights',
 });
 ```
 
@@ -65,7 +74,6 @@ const result = await Amaryllis.generate({
 ```js
 Amaryllis.generateAsync({
   prompt: 'Your prompt here',
-  // ...other params
   callbacks: {
     onPartialResult: (partial) => { /* handle partial */ },
     onFinalResult: (final) => { /* handle final */ },
@@ -92,7 +100,7 @@ import { LLMProvider } from 'react-native-amaryllis';
 
 <LLMProvider config={{
   modelPath: '/data/tmp/models/gemma3',
-  enableVision: true,
+  // .. other init args
 }}>
   {/* children */}
 </LLMProvider>
