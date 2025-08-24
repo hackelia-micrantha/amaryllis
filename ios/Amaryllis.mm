@@ -53,7 +53,8 @@ RCT_EXPORT_MODULE(Amaryllis)
 
       CGImageRef image = [self imageFromPath:path];
       [session addImageWithImage: image error: error];
-      if (error) break;
+      CGImageRelease(image);
+      if (error && *error) break;
     }
   }
 }
@@ -100,7 +101,7 @@ RCT_EXPORT_MODULE(Amaryllis)
   UIGraphicsEndImageContext();
 
   // Convert to MLImage
-  return resized.CGImage;
+  return CFImageRetain(resized.CGImage);
 }
 
 #pragma mark - Configure Engine
@@ -115,21 +116,21 @@ RCT_REMAP_METHOD(init,
     taskOptions.modelPath = config[PARAM_MODEL_PATH];
     taskOptions.maxTopk = [config[PARAM_MAX_TOP_K] intValue];
     taskOptions.maxTokens = [config[PARAM_MAX_TOKENS] intValue];
-    taskOptions.maxImages = [config[PARAM_MAX_NUM_IMAGES] floatValue];
+    taskOptions.maxImages = [config[PARAM_MAX_NUM_IMAGES] intValue];
     taskOptions.visionAdapterPath = config[PARAM_VISION_ADAPTER];
     taskOptions.visionEncoderPath = config[PARAM_VISION_ENCODER];
 
     self.llmInference = [[MPPLLMInference alloc] initWithOptions: taskOptions error: &error];
 
     if (error) {
-      reject(ERROR_CODE_INFER, @"unable to initialize inference", error);
+      reject(ERROR_CODE_INFER, @"unable to initialize inference", error.localizedDescription);
       return;
     }
 
     self.session = [self newSessionFromParams: config[PARAM_NEW_SESSION] withError:&error];
 
     if (error) {
-      reject(@"ERR_INFER", @"unable to create session", error);
+      reject(@"ERR_INFER", @"unable to create session", error.localizedDescription);
       return;
     }
 
@@ -147,15 +148,15 @@ RCT_REMAP_METHOD(generate,
                 rejecter : (RCTPromiseRejectBlock) reject) {
   @try {
     NSError *error = nil;
-    self.session = [self updateOrInitSessionFromParams:params withError:&error];
+    MPPLLMInferenceSession *session = [self updateOrInitSessionFromParams:params withError:&error];
     if (error) {
-      reject(ERROR_CODE_INFER, @"unable to update or create session", error);
+      reject(ERROR_CODE_INFER, @"unable to update or create session", error.localizedDescription);
       return;
     }
 
-    NSString *result = [self.session generateResponseAndReturnError: &error];
+    NSString *result = [session generateResponseAndReturnError: &error];
     if (error) {
-      reject(ERROR_CODE_INFER, @"unable to generate response", error);
+      reject(ERROR_CODE_INFER, @"unable to generate response", error.localizedDescription);
       return;
     }
     resolve(result);
@@ -172,18 +173,19 @@ RCT_REMAP_METHOD(generateAsync,
                 rejecter : (RCTPromiseRejectBlock) reject) {
   @try {
     NSError *error = nil;
-    self.session = [self updateOrInitSessionFromParams:params withError: &error];
+
+    MPPLLMInferenceSession *session = [self updateOrInitSessionFromParams:params withError: &error];
 
     if (error) {
-      [self sendEventWithName:EVENT_ON_ERROR body:error];
+      [self sendEventWithName:EVENT_ON_ERROR body:error.localizedDescription];
       reject(ERROR_CODE_INFER, @"unable to update or create session", error);
       return;
     }
-    [self.session generateResponseAsyncAndReturnError: &error progress: ^(NSString *result, NSError *err) {
+    [session generateResponseAsyncAndReturnError: &error progress: ^(NSString *result, NSError *err) {
       if (!err) {
         [self sendEventWithName:EVENT_ON_PARTIAL_RESULT body:result];
       } else {
-        [self sendEventWithName:EVENT_ON_ERROR body:err];
+        [self sendEventWithName:EVENT_ON_ERROR body:err.localizedDescription];
       }
     } completion: ^{
       [self sendEventWithName:EVENT_ON_FINAL_RESULT body:nil];
