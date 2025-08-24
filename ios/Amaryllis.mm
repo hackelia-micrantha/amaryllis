@@ -1,6 +1,6 @@
-#import "AmaryllisModule.h"
-#import <MLImage/MLImage.h>                 // MediaPipe MLImage
-#import <LLMInference/LLMInference.h>       // MediaPipe LLMInference framework
+#import "Amaryllis.h"
+#import <MediaPipeTasksGenAI.h>
+#import <MediaPipeTasksVision.h>
 
 @interface AmaryllisModule ()
 
@@ -16,37 +16,33 @@ RCT_EXPORT_MODULE(Amaryllis)
 #pragma mark - Event Emitter
 
 - (NSArray<NSString *> *)supportedEvents {
-  return @[@"onPartialResult", @"onError"];
+  return @[ @"onPartialResult", @"onError", @"OnFinalResult" ];
 }
 
 #pragma mark - Configure Engine
 
-RCT_REMAP_METHOD(init,
-                 config:(NSDictionary *)config
-                 resolver:(RCTPromiseResolveBlock)resolve
-                 rejecter:(RCTPromiseRejectBlock)reject)
-{
+RCT_REMAP_METHOD(
+    init, config : (NSDictionary *)config resolver : (RCTPromiseResolveBlock)
+              resolve rejecter : (RCTPromiseRejectBlock)reject) {
   @try {
     // Build LlmInferenceOptions
-    LlmInferenceOptions *taskOptions = [[[[LlmInferenceOptions builder]
-                                          setModelPath:config[@"modelPath"]]
-                                         setMaxTopK:[config[@"maxTopK"] intValue]]
-                                        build];
+    LlmInferenceOptions *taskOptions =
+        [[[[LlmInferenceOptions builder] setModelPath:config[@"modelPath"]]
+            setMaxTopK:[config[@"maxTopK"] intValue]] build];
 
     self.llmInference = [LlmInference createFromOptions:taskOptions];
 
     // Build GraphOptions for vision modality
     GraphOptions *graphOptions = [[[GraphOptions builder]
-                                   setEnableVisionModality:[config[@"enableVision"] boolValue]]
-                                  build];
+        setEnableVisionModality:[config[@"enableVision"] boolValue]] build];
 
     // Build LlmInferenceSessionOptions
-    LlmInferenceSessionOptions *sessionOptions = [[[[LlmInferenceSessionOptions builder]
-                                                     setGraphOptions:graphOptions]
-                                                    setTopK:[config[@"maxTopK"] intValue]]
-                                                   build];
+    LlmInferenceSessionOptions *sessionOptions =
+        [[[[LlmInferenceSessionOptions builder] setGraphOptions:graphOptions]
+            setTopK:[config[@"maxTopK"] intValue]] build];
 
-    self.session = [LlmInferenceSession createFromOptions:self.llmInference options:sessionOptions];
+    self.session = [LlmInferenceSession createFromOptions:self.llmInference
+                                                  options:sessionOptions];
 
     resolve(nil);
   } @catch (NSException *exception) {
@@ -57,10 +53,9 @@ RCT_REMAP_METHOD(init,
 #pragma mark - Generate Sync
 
 RCT_REMAP_METHOD(generateSync,
-                 params:(NSDictionary *)params
-                 resolver:(RCTPromiseResolveBlock)resolve
-                 rejecter:(RCTPromiseRejectBlock)reject)
-{
+                 params : (NSDictionary *)
+                     params resolver : (RCTPromiseResolveBlock)
+                         resolve rejecter : (RCTPromiseRejectBlock)reject) {
   @try {
     NSString *prompt = params[@"prompt"] ?: @"";
     [self.session addQueryChunk:prompt];
@@ -82,9 +77,7 @@ RCT_REMAP_METHOD(generateSync,
 
 #pragma mark - Generate Async
 
-RCT_REMAP_METHOD(generateAsync,
-                 params:(NSDictionary *)params)
-{
+RCT_REMAP_METHOD(generateAsync, params : (NSDictionary *)params) {
   NSString *prompt = params[@"prompt"] ?: @"";
   [self.session addQueryChunk:prompt];
 
@@ -99,36 +92,42 @@ RCT_REMAP_METHOD(generateAsync,
   [self.session generateResponseAsync:^(NSString *partialResult, BOOL done) {
     if (!done) {
       [self sendEventWithName:@"onPartialResult" body:partialResult];
+    } else {
+      [self sendEventWithName:@"OnFinalResult" body:partialResult];
     }
   }];
 }
 
 #pragma mark - Close Engine
 
-RCT_EXPORT_METHOD(close)
-{
+RCT_EXPORT_METHOD(close) {
   [self.session close];
   [self.llmInference close];
   self.session = nil;
   self.llmInference = nil;
 }
 
+RCT_EXPORT_METHOD(cancelAsync) { [self.session cancelAsync]; }
+
 #pragma mark - Helpers
 
 - (NSArray<MLImage *> *)preprocessImages:(NSArray<NSString *> *)paths {
   NSMutableArray<MLImage *> *images = [NSMutableArray array];
   for (NSString *path in paths) {
-    if (![path isKindOfClass:[NSString class]]) continue;
+    if (![path isKindOfClass:[NSString class]])
+      continue;
 
     MLImage *mlImage = [self mlImageFromPath:path];
-    if (mlImage) [images addObject:mlImage];
+    if (mlImage)
+      [images addObject:mlImage];
   }
   return images;
 }
 
 - (MLImage *)mlImageFromPath:(NSString *)path {
   UIImage *uiImage = [UIImage imageWithContentsOfFile:path];
-  if (!uiImage) return nil;
+  if (!uiImage)
+    return nil;
 
   // Resize to 512x512 if necessary
   CGSize targetSize = CGSizeMake(512, 512);
