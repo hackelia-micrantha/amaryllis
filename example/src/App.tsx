@@ -29,7 +29,16 @@ export default function App() {
       config={{
         modelPath: '/data/local/tmp/llm/model_version.task',
         maxTopK: 64,
-        enableVision: true,
+        maxNumImages: 1,
+        maxTokens: 512,
+        visionEncoderPath: '/data/local/tmp/llm/vision_encoder.model',
+        visionAdapterPath: '/data/local/tmp/llm/vision_adapter.model',
+        newSession: {
+          enableVisionModality: true,
+          randomSeed: 13933,
+          loraPath: '/data/local/tmp/llm/lora.model',
+          temperature: 0.795,
+        },
       }}
     >
       <LLMPrompt />

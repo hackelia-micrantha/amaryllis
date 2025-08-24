@@ -1,11 +1,30 @@
 #import "Amaryllis.h"
-#import <MediaPipeTasksGenAI.h>
-#import <MediaPipeTasksVision.h>
+#import <MediaPipeTasksGenAI/MediaPipeTasksGenAI.h>
+#import <MediaPipeTasksVision/MediaPipeTasksVision.h>
 
 @interface AmaryllisModule ()
 
-@property(nonatomic, strong) LlmInference *llmInference;
-@property(nonatomic, strong) LlmInferenceSession *session;
+@property(nonatomic, strong) MPPLLMInference *MPPLLMInference;
+@property(nonatomic, strong) MPPLLMInferenceSession *session;
+
+static NSString *const EVENT_ON_PARTIAL_RESULT = @"onPartialResult";
+static NSString *const EVENT_ON_FINAL_RESULT = @"OnFinalResult";
+static NSString *const EVENT_ON_ERROR = @"onError";
+static NSString *const ERROR_CODE_INFER = @"ERR_INFER";
+static NSString *const PARAM_IMAGES = @"images";
+static NSString *const PARAM_PROMPT = @"prompt";
+static NSString *const PARAM_MAX_TOP_K = @"maxTopK";
+static NSString *const PARAM_MAX_TOKENS = @"maxTokens";
+static NSString *const PARAM_MAX_NUM_IMAGES = @"maxNumImages";
+static NSString *const PARAM_VISION_ENCODER = @"visionEncoderPath";
+static NSString *const PARAM_VISION_ADAPTER = @"visionAdapterPath";
+static NSString *const PARAM_MODEL_PATH = @"modelPath";
+static NSString *const PARAM_TEMPERATURE = @"temperature";
+static NSString *const PARAM_RANDOM_SEED = @"randomSeed";
+static NSString *const PARAM_LORA_PATH = @"loraPath";
+static NSString *const PARAM_TOP_K = @"topK";
+static NSString *const PARAM_TOP_P = @"topP";
+static NSString *const PARAM_NEW_SESSION = @"newSession";
 
 @end
 
@@ -16,7 +35,8 @@ RCT_EXPORT_MODULE(Amaryllis)
 #pragma mark - Event Emitter
 
 - (NSArray<NSString *> *)supportedEvents {
-  return @[ @"onPartialResult", @"onError", @"OnFinalResult" ];
+  return @[ EVENT_ON_PARTIAL_RESULT, EVENT_ON_FINAL_RESULT,
+           EVENT_ON_ERROR ];
 }
 
 #pragma mark - Configure Engine
@@ -25,28 +45,33 @@ RCT_REMAP_METHOD(
     init, config : (NSDictionary *)config resolver : (RCTPromiseResolveBlock)
               resolve rejecter : (RCTPromiseRejectBlock)reject) {
   @try {
-    // Build LlmInferenceOptions
-    LlmInferenceOptions *taskOptions =
-        [[[[LlmInferenceOptions builder] setModelPath:config[@"modelPath"]]
-            setMaxTopK:[config[@"maxTopK"] intValue]] build];
+    NSError *error = nil;
+    // Build MPPLLMInferenceOptions
+    MPPLLMInferenceOptions *taskOptions = [MPPLLMInferenceOptions init];
+    taskOptions.modelPath = config[PARAM_MODEL_PATH];
+    taskOptions.maxTopK = [config[PARAM_MAX_TOP_K] intValue];
+    taskOptions.maxTokens = [config[PARAM_MAX_TOKENS] intValue];
+    taskOptions.maxNumImages = [config[PARAM_MAX_NUM_IMAGES] floatValue];
+    taskOptions.visionAdapterPath = config[PARAM_VISION_ADAPTER];
+    taskOptions.visionEncoderPath = config[PARAM_VISION_ENCODER];
 
-    self.llmInference = [LlmInference createFromOptions:taskOptions];
+    self.llmInference = [MPPLLMInference initWithOptions:taskOptions error: &error];
 
-    // Build GraphOptions for vision modality
-    GraphOptions *graphOptions = [[[GraphOptions builder]
-        setEnableVisionModality:[config[@"enableVision"] boolValue]] build];
+    if (error) {
+      reject(ERROR_CODE_INFER, @"unable to initialize inference", error);
+      return;
+    }
 
-    // Build LlmInferenceSessionOptions
-    LlmInferenceSessionOptions *sessionOptions =
-        [[[[LlmInferenceSessionOptions builder] setGraphOptions:graphOptions]
-            setTopK:[config[@"maxTopK"] intValue]] build];
+    self.session = [self initSessionFromParams:config error:&error];
 
-    self.session = [LlmInferenceSession createFromOptions:self.llmInference
-                                                  options:sessionOptions];
+    if (error) {
+      reject(@"ERR_INFER", @"unable to create session", error);
+      return;
+    }
 
     resolve(nil);
   } @catch (NSException *exception) {
-    reject(@"ERR_INFER", @"unable to configure", nil);
+    reject(ERROR_CODE_INFER, @"unable to configure", nil);
   }
 }
 
@@ -57,43 +82,35 @@ RCT_REMAP_METHOD(generateSync,
                      params resolver : (RCTPromiseResolveBlock)
                          resolve rejecter : (RCTPromiseRejectBlock)reject) {
   @try {
-    NSString *prompt = params[@"prompt"] ?: @"";
-    [self.session addQueryChunk:prompt];
-
-    NSArray *imagesArray = params[@"images"];
-    if (imagesArray) {
-      NSArray<MLImage *> *mlImages = [self preprocessImages:imagesArray];
-      for (MLImage *image in mlImages) {
-        [self.session addImage:image];
-      }
+    NSError *error = nil;
+    self.session = [self updateOrInitSessionFromParams:params error:&error];
+    if (error) {
+      reject(ERROR_CODE_INFER, @"unable to update or create session", error);
+      return;
     }
 
     NSString *result = [self.session generateResponse];
     resolve(result);
   } @catch (NSException *exception) {
-    reject(@"ERR_INFER", @"unable to generate response", nil);
+    reject(ERROR_CODE_INFER, @"unable to generate response", nil);
   }
 }
 
 #pragma mark - Generate Async
 
 RCT_REMAP_METHOD(generateAsync, params : (NSDictionary *)params) {
-  NSString *prompt = params[@"prompt"] ?: @"";
-  [self.session addQueryChunk:prompt];
+  NSError *error = nil;
+  self.session = [self updateOrInitSessionFromParams:params];
 
-  NSArray *imagesArray = params[@"images"];
-  if (imagesArray) {
-    NSArray<MLImage *> *mlImages = [self preprocessImages:imagesArray];
-    for (MLImage *image in mlImages) {
-      [self.session addImage:image];
-    }
+  if (error) {
+    [self sendEventWithName:EVENT_ON_ERROR body:error.localizedDescription];
+    return;
   }
-
   [self.session generateResponseAsync:^(NSString *partialResult, BOOL done) {
     if (!done) {
-      [self sendEventWithName:@"onPartialResult" body:partialResult];
+      [self sendEventWithName:EVENT_ON_PARTIAL_RESULT body:partialResult];
     } else {
-      [self sendEventWithName:@"OnFinalResult" body:partialResult];
+      [self sendEventWithName:EVENT_ON_FINAL_RESULT body:partialResult];
     }
   }];
 }
@@ -109,22 +126,87 @@ RCT_EXPORT_METHOD(close) {
 
 RCT_EXPORT_METHOD(cancelAsync) { [self.session cancelAsync]; }
 
+RCT_EXPORT_METHOD(constantsToExport : (NSDictionary *)constants) {
+  return @{
+     // events
+    @"EVENT_ON_PARTIAL_RESULT": EVENT_ON_PARTIAL_RESULT,
+    @"EVENT_ON_FINAL_RESULT": EVENT_ON_FINAL_RESULT,
+    @"EVENT_ON_ERROR": EVENT_ON_ERROR,
+    // errors
+    @"ERROR_CODE_INFER": ERROR_CODE_INFER,
+    // params
+    @"PARAM_IMAGES": PARAM_IMAGES,
+    @"PARAM_PROMPT": PARAM_PROMPT,
+    @"PARAM_MAX_TOP_K": PARAM_MAX_TOP_K,
+    @"PARAM_MAX_TOKENS": PARAM_MAX_TOKENS,
+    @"PARAM_MAX_NUM_IMAGES": PARAM_MAX_NUM_IMAGES,
+    @"PARAM_VISION_ENCODER": PARAM_VISION_ENCODER,
+    @"PARAM_VISION_ADAPTER": PARAM_VISION_ADAPTER,
+    @"PARAM_MODEL_PATH": PARAM_MODEL_PATH,
+    @"PARAM_TEMPERATURE": PARAM_TEMPERATURE,
+    @"PARAM_RANDOM_SEED": PARAM_RANDOM_SEED,
+    @"PARAM_LORA_PATH": PARAM_LORA_PATH,
+    @"PARAM_TOP_K": PARAM_TOP_K,
+    @"PARAM_TOP_P": PARAM_TOP_P,
+    @"PARAM_NEW_SESSION": PARAM_NEW_SESSION
+  };
+}
+
 #pragma mark - Helpers
 
-- (NSArray<MLImage *> *)preprocessImages:(NSArray<NSString *> *)paths {
-  NSMutableArray<MLImage *> *images = [NSMutableArray array];
+- (void) updateSessionFromParams: (MPPLLMSession *) session params: (NSDictionary *)params {
+  [session addQueryChunk:params[PARAM_PROMPT] ?: @""];
+
+  NSArray *imagesArray = params[@"images"];
+  session.enableVisionModality = ([imagesArray count] > 0);
+
+  if (imagesArray) {
+    NSArray<CGImageRef> *images = [self preprocessImages:imagesArray];
+    for (CGImageRef image in images) {
+      [session addImageWithImage:image];
+    }
+  }
+}
+
+- (MPPLLMInferenceSession *)initSessionFromParams: (NSDictionary *)params error: (NSError **)error {
+  MPPLLMInferenceSessionOptions *sessionOptions = [MPPInferenceSessionOptions init];
+  sessionOptions.topK = [params[PARAM_TOP_K] intValue];
+  sessionOptions.topP = [params[PARAM_TOP_P] floatValue];
+  sessionOptions.temperature = [params[PARAM_TEMPERATURE] floatValue];
+  sessionOptions.loraPath = params[PARAM_LORA_PATH];
+  sessionOptions.randomSeed = [params[PARAM_RANDOM_SEED] intValue];
+
+  MPPLLMSession * session = [MPPLLMInferenceSession initWithLLMInference:self.llmInference
+                                                  options:sessionOptions error:&error];
+
+  [self updateSessionFromParams:session params:params];
+  return session
+}
+
+- (MPPLLMInferenceSession *) updateOrInitSessionFromParams:(NSDictionary *)params error: (NSError **)error {
+  if ([params[PARAM_NEW_SESSION] boolValue] || !self.session) {
+    MPPLLMSession * session = [self initSessionFromParams:params error:&error];
+    [self updateSessionFromParams:session params:params];
+    return session;
+  }
+  [self updateSessionFromParams:self.session params:params];
+  return self.session;
+}
+
+- (NSArray<CGImageRef> *)preprocessImages:(NSArray<NSString *> *)paths {
+  NSMutableArray<CGImageRef> *images = [NSMutableArray array];
   for (NSString *path in paths) {
     if (![path isKindOfClass:[NSString class]])
       continue;
 
-    MLImage *mlImage = [self mlImageFromPath:path];
-    if (mlImage)
-      [images addObject:mlImage];
+    CGImageRef *image = [self imageFromPath:path];
+    if (image)
+      [images addObject:image];
   }
   return images;
 }
 
-- (MLImage *)mlImageFromPath:(NSString *)path {
+- (CGImageRef *)imageFromPath:(NSString *)path {
   UIImage *uiImage = [UIImage imageWithContentsOfFile:path];
   if (!uiImage)
     return nil;
@@ -137,7 +219,7 @@ RCT_EXPORT_METHOD(cancelAsync) { [self.session cancelAsync]; }
   UIGraphicsEndImageContext();
 
   // Convert to MLImage
-  return [[MLImage alloc] initWithUIImage:resized];
+  return resized.CGImage;
 }
 
 @end

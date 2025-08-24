@@ -16,25 +16,31 @@ export interface LlmRequestParams {
   // Required
   prompt: string;
 
-  // Optional generation settings
-  maxTokens?: number; // default: 512
-  topK?: number; // default: 40
-  temperature?: number; // default: 0.8
-  randomSeed?: number; // default: 0
-
   // Multimodal support
   images?: LlmImageInput[];
 
-  // LoRA customization (GPU only)
-  loraPath?: string;
+  newSession?: LlmSessionParams; // default: false
+}
+
+export interface LlmSessionParams {
+  // Optional generation settings
+  topK?: number; // default: 40
+  topP?: number; // default: 0.95
+  temperature?: number; // default: 0.8
+  randomSeed?: number; // default: 0
+  loraPath?: string; // LoRA customization (GPU only)
+  enableVisionModality?: boolean;
 }
 
 // Initialization/configuration for the engine
 export interface LlmEngineConfig {
   modelPath: string; // Required: .task model path on device
   maxTopK?: number; // default: 64 (for session initialization)
-  enableVision?: boolean; // default: false
   maxNumImages?: number; // default: 1
+  maxTokens?: number; // default: 512
+  visionEncoderPath?: string; // Optional: vision encoder model path for multimodal
+  visionAdapterPath?: string; // Optional: vision adapter model path for multimodal
+  newSession?: LlmSessionParams;
 }
 
 // Unified LLM interface

@@ -5,19 +5,24 @@ export interface Spec extends TurboModule {
   init(config: {
     modelPath: string; // Required: .task model path on device
     maxTopK?: number; // default: 64 (for session initialization)
-    enableVision?: boolean; // default: false
     maxNumImages?: number; // default: 1
+    maxTokens?: number; // default: 512
+    visionEncoderPath?: string; // Optional: vision encoder model path for multimodal
+    visionAdapterPath?: string; // Optional: vision adapter model path for multimodal
   }): Promise<void>;
 
   generate(params: {
     // Required
     prompt: string;
-
-    // Optional generation settings
-    maxTokens?: number; // default: 512
-    topK?: number; // default: 40
-    temperature?: number; // default: 0.8
-    randomSeed?: number; // default: 0
+    newSession?: {
+      // Optional generation settings
+      topK?: number; // default: 40
+      topP?: number; // default: 0.95
+      temperature?: number; // default: 0.8
+      randomSeed?: number; // default: 0
+      loraPath?: string; // LoRA customization (GPU only)
+      enableVisionModality?: boolean;
+    };
 
     // Multimodal support
     images?: {
@@ -25,20 +30,20 @@ export interface Spec extends TurboModule {
       width?: number; // Optional: image width
       height?: number; // Optional: image height
     }[];
-
-    // LoRA customization (GPU only)
-    loraPath?: string;
   }): Promise<string>;
 
   generateAsync(params: {
     // Required
     prompt: string;
-
-    // Optional generation settings
-    maxTokens?: number; // default: 512
-    topK?: number; // default: 40
-    temperature?: number; // default: 0.8
-    randomSeed?: number; // default: 0
+    newSession?: {
+      // Optional generation settings
+      topK?: number; // default: 40
+      topP?: number; // default: 0.95
+      temperature?: number; // default: 0.8
+      randomSeed?: number; // default: 0
+      loraPath?: string; // LoRA customization (GPU only)
+      enableVisionModality?: boolean;
+    };
 
     // Multimodal support
     images?: {
@@ -46,9 +51,6 @@ export interface Spec extends TurboModule {
       width?: number; // Optional: image width
       height?: number; // Optional: image height
     }[];
-
-    // LoRA customization (GPU only)
-    loraPath?: string;
   }): Promise<void>;
 
   close(): void;

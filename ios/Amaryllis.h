@@ -1,5 +1,5 @@
 #import <AmaryllisSpec/AmaryllisSpec.h>
 
-@interface Amaryllis : NSObject <NativeAmaryllisSpec>
+@interface AmaryllisModule : NSObject <NativeAmaryllisSpec>
 
 @end

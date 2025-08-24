@@ -14,12 +14,49 @@ import type {
 const { Amaryllis: LlmNative } = NativeModules;
 const llmEmitter = new NativeEventEmitter(LlmNative);
 
+const setupAsyncCallbacks = (callbacks: LlmCallbacks) => {
+  const subscriptions: EmitterSubscription[] = [];
+
+  if (callbacks.onPartialResult) {
+    subscriptions.push(
+      llmEmitter.addListener(
+        LlmNative.EVENT_ON_PARTIAL_RESULT,
+        (result: string) => {
+          callbacks.onPartialResult?.(result);
+        }
+      )
+    );
+  }
+
+  if (callbacks.onFinalResult) {
+    subscriptions.push(
+      llmEmitter.addListener(
+        LlmNative.EVENT_ON_FINAL_RESULT,
+        (result: string) => {
+          callbacks.onFinalResult?.(result);
+          subscriptions.forEach((sub) => sub.remove());
+        }
+      )
+    );
+  }
+  if (callbacks.onError) {
+    subscriptions.push(
+      llmEmitter.addListener(LlmNative.EVENT_ON_ERROR, (error: string) => {
+        callbacks.onError?.(new Error(error));
+        subscriptions.forEach((sub) => sub.remove());
+      })
+    );
+  }
+};
+
 export class LlmPipe implements LlmEngine {
   async init(config: LlmEngineConfig): Promise<void> {
     await LlmNative.init({
       modelPath: config.modelPath,
       maxTopK: config.maxTopK ?? 64,
-      enableVision: config.enableVision ?? false,
+      maxTokens: config.maxTokens ?? 512,
+      visionEncoderPath: config.visionEncoderPath,
+      visionAdapterPath: config.visionAdapterPath,
       maxNumImages: config.maxNumImages ?? 1,
     });
   }
@@ -27,60 +64,21 @@ export class LlmPipe implements LlmEngine {
   async generate(params: LlmRequestParams): Promise<string> {
     return await LlmNative.generateSync({
       prompt: params.prompt,
-      maxTokens: params.maxTokens ?? 512,
-      topK: params.topK ?? 40,
-      temperature: params.temperature ?? 0.8,
-      randomSeed: params.randomSeed ?? 0,
+      newSession: params.newSession,
       images: params.images?.map((img: LlmImageInput) => img.uri) ?? [],
-      loraPath: params.loraPath,
     });
   }
 
   generateAsync(params: LlmRequestParams, callbacks?: LlmCallbacks): void {
     // Register streaming callbacks
     if (callbacks) {
-      let partialListener: EmitterSubscription | null = null;
-      let finalListener: EmitterSubscription | null = null;
-      let errorListener: EmitterSubscription | null = null;
-
-      if (callbacks.onPartialResult) {
-        partialListener = llmEmitter.addListener(
-          'onPartialResult',
-          (result: string) => {
-            callbacks.onPartialResult?.(result);
-          }
-        );
-      }
-
-      if (callbacks.onFinalResult) {
-        finalListener = llmEmitter.addListener(
-          'onFinalResult',
-          (result: string) => {
-            callbacks.onFinalResult?.(result);
-            finalListener?.remove();
-            partialListener?.remove();
-            errorListener?.remove();
-          }
-        );
-      }
-      if (callbacks.onError) {
-        errorListener = llmEmitter.addListener('onError', (error: string) => {
-          callbacks.onError?.(new Error(error));
-          errorListener?.remove();
-          finalListener?.remove();
-          partialListener?.remove();
-        });
-      }
+      setupAsyncCallbacks(callbacks);
     }
 
     LlmNative.generateAsync({
       prompt: params.prompt,
-      maxTokens: params.maxTokens ?? 512,
-      topK: params.topK ?? 40,
-      temperature: params.temperature ?? 0.8,
-      randomSeed: params.randomSeed ?? 0,
+      newSession: params.newSession,
       images: params.images?.map((img) => img.uri) ?? [],
-      loraPath: params.loraPath,
     });
   }
 
