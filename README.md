@@ -1,6 +1,10 @@
 # react-native-amaryllis
 
-A AI module for native mobile in react
+![amaryllis](docs/amaryllis-128.png)
+
+A AI module for native mobile in react.
+
+> *Amaryllis Hippeastrum*: Amaryllis flowers often bloom during the colder months, which gives them a connotation of hope and emergence, representing new life or energy even in tough conditions.
 
 ## Installation
 
@@ -60,5 +64,3 @@ const LLMPrompt = () => {
 ## License
 
 MIT
-
-
