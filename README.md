@@ -12,15 +12,44 @@ npm install react-native-amaryllis
 
 ## Usage
 
+Setup a provider in your root app:
 
 ```js
-import { multiply } from 'react-native-amaryllis';
+import { LLMProvider, useInference } from 'react-native-amaryllis';
 
 // ...
+  <LLMProvider config={{
+     modelPath="/data/tmp/models/gemma3"
+     enableVision=true
+  >
 
-const result = multiply(3, 7);
+  </LLMProvider>
 ```
 
+Setup an inference call in a component:
+
+```js
+const LLMPrompt = () => {
+  const [prompt, setPrompt] = useState<string>('');
+  const { results, generate, error, isLoading } = useInference();
+
+  const infer = useCallback(() => generate({ prompt }), [prompt, generate]);
+
+  return (
+    <View style={styles.container}>
+      <TextInput
+        value={prompt}
+        onChangeText={setPrompt}
+        placeholder="Enter prompt..."
+      />
+      <Button title="Prompt" onPress={infer} />
+      <Text>
+        Result: {error ? error.message : isLoading ? 'Loading...' : results}
+      </Text>
+    </View>
+  );
+};
+```
 
 ## Contributing
 
@@ -32,6 +61,4 @@ const result = multiply(3, 7);
 
 MIT
 
----
 
-Made with [create-react-native-library](https://github.com/callstack/react-native-builder-bob)
