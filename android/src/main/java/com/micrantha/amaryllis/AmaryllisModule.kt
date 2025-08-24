@@ -69,6 +69,7 @@ class AmaryllisModule(private val reactContext: ReactApplicationContext) :
       }
       promise.resolve(null)
     } catch (e: Throwable) {
+      sendEvent(EVENT_ON_ERROR, "unable to generate response")
       promise.reject(ERROR_CODE_INFER, "unable to generate response", e)
     }
   }

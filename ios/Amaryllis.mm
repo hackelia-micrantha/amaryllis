@@ -59,7 +59,7 @@ RCT_EXPORT_MODULE(Amaryllis)
 }
 
 - (MPPLLMInferenceSession *) newSessionFromParams: (NSDictionary *)params withError: (NSError **)error {
-  MPPLLMInferenceSessionOptions *sessionOptions = [MPPLLMInferenceSessionOptions init];
+  MPPLLMInferenceSessionOptions *sessionOptions = [[MPPLLMInferenceSessionOptions alloc] init];
   sessionOptions.topk = [params[PARAM_TOP_K] intValue];
   sessionOptions.topp = [params[PARAM_TOP_P] floatValue];
   sessionOptions.temperature = [params[PARAM_TEMPERATURE] floatValue];
@@ -67,10 +67,10 @@ RCT_EXPORT_MODULE(Amaryllis)
   sessionOptions.randomSeed = [params[PARAM_RANDOM_SEED] intValue];
   sessionOptions.enableVisionModality = [params[PARAM_ENABLE_VISION] boolValue];
 
-  MPPLLMInferenceSession * session = [[MPPLLMInferenceSession init] initWithLlmInference: self.llmInference
+  MPPLLMInferenceSession * session = [[MPPLLMInferenceSession alloc] initWithLlmInference: self.llmInference
                                                   options:sessionOptions error: error];
 
-  if (error) return session;
+  if (error && *error) return session;
 
   [self updateSession: session fromParams: params withError:error];
   return session;
@@ -111,7 +111,7 @@ RCT_REMAP_METHOD(init,
     rejecter : (RCTPromiseRejectBlock)reject) {
   @try {
     NSError *error = nil;
-    MPPLLMInferenceOptions *taskOptions = [MPPLLMInferenceOptions init];
+    MPPLLMInferenceOptions *taskOptions = [[MPPLLMInferenceOptions alloc] init];
     taskOptions.modelPath = config[PARAM_MODEL_PATH];
     taskOptions.maxTopk = [config[PARAM_MAX_TOP_K] intValue];
     taskOptions.maxTokens = [config[PARAM_MAX_TOKENS] intValue];
@@ -119,7 +119,7 @@ RCT_REMAP_METHOD(init,
     taskOptions.visionAdapterPath = config[PARAM_VISION_ADAPTER];
     taskOptions.visionEncoderPath = config[PARAM_VISION_ENCODER];
 
-    self.llmInference = [[MPPLLMInference init] initWithOptions: taskOptions error: &error];
+    self.llmInference = [[MPPLLMInference alloc] initWithOptions: taskOptions error: &error];
 
     if (error) {
       reject(ERROR_CODE_INFER, @"unable to initialize inference", error);
@@ -155,7 +155,7 @@ RCT_REMAP_METHOD(generate,
 
     NSString *result = [self.session generateResponseAndReturnError: &error];
     if (error) {
-      reject(ERROR_CODE_INFER, @"unable to generate response", error];
+      reject(ERROR_CODE_INFER, @"unable to generate response", error);
       return;
     }
     resolve(result);
