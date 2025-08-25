@@ -1,23 +1,12 @@
 import type { TurboModule } from 'react-native';
 import { TurboModuleRegistry } from 'react-native';
-import type {
-  LlmEngineConfig,
-  LlmSessionParams,
-  LlmRequestParams,
-} from './Types';
 
 export interface Spec extends TurboModule {
-  init(config: LlmEngineConfig, newSession?: LlmSessionParams): Promise<void>;
+  init(config: Object, newSession?: Object): Promise<void>;
 
-  generate(
-    params: LlmRequestParams,
-    newSession?: LlmSessionParams
-  ): Promise<string>;
+  generate(params: Object, newSession?: Object): Promise<string>;
 
-  generateAsync(
-    params: LlmRequestParams,
-    newSession?: LlmSessionParams
-  ): Promise<void>;
+  generateAsync(params: Object, newSession?: Object): Promise<void>;
 
   close(): void;
 

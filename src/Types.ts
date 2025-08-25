@@ -1,9 +1,3 @@
-export type LlmImageInput = {
-  uri: string; // Local file path or asset path
-  width?: number; // Optional: image width
-  height?: number; // Optional: image height
-};
-
 export type LlmCallbacks = {
   // Async streaming callbacks
   onPartialResult?: (result: string) => void;
@@ -16,7 +10,7 @@ export type LlmRequestParams = {
   // Required
   prompt: string;
   // Multimodal support
-  images?: LlmImageInput[];
+  images?: string[];
 };
 
 export type LlmSessionParams = {

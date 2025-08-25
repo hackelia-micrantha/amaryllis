@@ -1,5 +1,6 @@
 #import <AmaryllisSpec/AmaryllisSpec.h>
+#import <React/RCTEventEmitter.h>
 
-@interface AmaryllisModule : NSObject <NativeAmaryllisSpec>
+@interface AmaryllisModule : RCTEventEmitter <NativeAmaryllisSpec>
 
 @end

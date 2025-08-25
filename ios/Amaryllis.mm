@@ -39,6 +39,98 @@ RCT_EXPORT_MODULE(Amaryllis)
   return @[ EVENT_ON_PARTIAL_RESULT, EVENT_ON_FINAL_RESULT, EVENT_ON_ERROR ];
 }
 
+#pragma mark - Configure Engine
+
+- (void)init:(nonnull NSDictionary *)config newSession:(nonnull NSDictionary *)newSession resolve:(nonnull RCTPromiseResolveBlock)resolve reject:(nonnull RCTPromiseRejectBlock)reject {
+  @try {
+    NSError *error = nil;
+    MPPLLMInferenceOptions *taskOptions = [[MPPLLMInferenceOptions alloc] initWithModelPath: config[PARAM_MODEL_PATH]];
+    taskOptions.maxTopk = [config[PARAM_MAX_TOP_K] intValue];
+    taskOptions.maxTokens = [config[PARAM_MAX_TOKENS] intValue];
+    taskOptions.maxImages = [config[PARAM_MAX_NUM_IMAGES] intValue];
+    taskOptions.visionAdapterPath = config[PARAM_VISION_ADAPTER];
+    taskOptions.visionEncoderPath = config[PARAM_VISION_ENCODER];
+
+    self.llmInference = [[MPPLLMInference alloc] initWithOptions: taskOptions error: &error];
+
+    if (error) {
+      reject(ERROR_CODE_INFER, @"unable to initialize inference", error);
+      return;
+    }
+
+    self.session = [self newSessionFromParams: config[PARAM_NEW_SESSION] withError:&error];
+
+    if (error) {
+      reject(@"ERR_INFER", @"unable to create session", error);
+      return;
+    }
+
+    resolve(nil);
+  } @catch (NSException *exception) {
+    reject(ERROR_CODE_INFER, @"unable to configure", nil);
+  }
+}
+
+#pragma mark - Generate Sync
+
+- (void)generate:(nonnull NSDictionary *)params newSession:(nonnull NSDictionary *)newSession resolve:(nonnull RCTPromiseResolveBlock)resolve reject:(nonnull RCTPromiseRejectBlock)reject {
+  @try {
+    NSError *error = nil;
+    MPPLLMInferenceSession *session = [self updateOrInitSessionFromParams:params withError:&error];
+    if (error) {
+      reject(ERROR_CODE_INFER, @"unable to update or create session", error);
+      return;
+    }
+
+    NSString *result = [session generateResponseAndReturnError: &error];
+    if (error) {
+      reject(ERROR_CODE_INFER, @"unable to generate response", error);
+      return;
+    }
+    resolve(result);
+  } @catch (NSException *exception) {
+    reject(ERROR_CODE_INFER, @"unable to generate response", nil);
+  }
+}
+
+#pragma mark - Generate Async
+
+- (void)generateAsync:(nonnull NSDictionary *)params newSession:(nonnull NSDictionary *)newSession resolve:(nonnull RCTPromiseResolveBlock)resolve reject:(nonnull RCTPromiseRejectBlock)reject {
+  @try {
+    NSError *error = nil;
+
+    MPPLLMInferenceSession *session = [self updateOrInitSessionFromParams:params withError: &error];
+
+    if (error) {
+      [self sendEventWithName: EVENT_ON_ERROR body:error];
+      reject(ERROR_CODE_INFER, @"unable to update or create session", error);
+      return;
+    }
+    [session generateResponseAsyncAndReturnError: &error progress: ^(NSString *result, NSError *err) {
+      if (!err) {
+        [self sendEventWithName: EVENT_ON_PARTIAL_RESULT body:result];
+      } else {
+        [self sendEventWithName: EVENT_ON_ERROR body:err];
+      }
+    } completion: ^{
+      [self sendEventWithName: EVENT_ON_FINAL_RESULT body:nil];
+    }];
+    resolve(nil);
+  } @catch(NSException *exception) {
+    [self sendEventWithName: EVENT_ON_ERROR body: nil];
+    reject(ERROR_CODE_INFER, @"unable to generate response", nil);
+  }
+}
+
+#pragma mark - Close Engine
+
+RCT_EXPORT_METHOD(close) {
+  self.session = nil;
+  self.llmInference = nil;
+}
+
+RCT_EXPORT_METHOD(cancelAsync) { }
+
 #pragma mark - Helpers
 
 - (void) updateSession: (MPPLLMInferenceSession *) session fromParams: (NSDictionary *) params withError: (NSError **) error {
@@ -101,110 +193,8 @@ RCT_EXPORT_MODULE(Amaryllis)
   UIGraphicsEndImageContext();
 
   // Convert to MLImage
-  return CFImageRetain(resized.CGImage);
+  return CGImageRetain(resized.CGImage);
 }
-
-#pragma mark - Configure Engine
-
-RCT_REMAP_METHOD(init,
-    initWithConfig : (NSDictionary *)config
-    resolver : (RCTPromiseResolveBlock) resolve
-    rejecter : (RCTPromiseRejectBlock)reject) {
-  @try {
-    NSError *error = nil;
-    MPPLLMInferenceOptions *taskOptions = [[MPPLLMInferenceOptions alloc] init];
-    taskOptions.modelPath = config[PARAM_MODEL_PATH];
-    taskOptions.maxTopk = [config[PARAM_MAX_TOP_K] intValue];
-    taskOptions.maxTokens = [config[PARAM_MAX_TOKENS] intValue];
-    taskOptions.maxImages = [config[PARAM_MAX_NUM_IMAGES] intValue];
-    taskOptions.visionAdapterPath = config[PARAM_VISION_ADAPTER];
-    taskOptions.visionEncoderPath = config[PARAM_VISION_ENCODER];
-
-    self.llmInference = [[MPPLLMInference alloc] initWithOptions: taskOptions error: &error];
-
-    if (error) {
-      reject(ERROR_CODE_INFER, @"unable to initialize inference", error.localizedDescription);
-      return;
-    }
-
-    self.session = [self newSessionFromParams: config[PARAM_NEW_SESSION] withError:&error];
-
-    if (error) {
-      reject(@"ERR_INFER", @"unable to create session", error.localizedDescription);
-      return;
-    }
-
-    resolve(nil);
-  } @catch (NSException *exception) {
-    reject(ERROR_CODE_INFER, @"unable to configure", nil);
-  }
-}
-
-#pragma mark - Generate Sync
-
-RCT_REMAP_METHOD(generate,
-                generateWithParams: (NSDictionary *) params
-                resolver : (RCTPromiseResolveBlock) resolve
-                rejecter : (RCTPromiseRejectBlock) reject) {
-  @try {
-    NSError *error = nil;
-    MPPLLMInferenceSession *session = [self updateOrInitSessionFromParams:params withError:&error];
-    if (error) {
-      reject(ERROR_CODE_INFER, @"unable to update or create session", error.localizedDescription);
-      return;
-    }
-
-    NSString *result = [session generateResponseAndReturnError: &error];
-    if (error) {
-      reject(ERROR_CODE_INFER, @"unable to generate response", error.localizedDescription);
-      return;
-    }
-    resolve(result);
-  } @catch (NSException *exception) {
-    reject(ERROR_CODE_INFER, @"unable to generate response", nil);
-  }
-}
-
-#pragma mark - Generate Async
-
-RCT_REMAP_METHOD(generateAsync,
-                generateAsyncWithParams: (NSDictionary *) params
-                resolver : (RCTPromiseResolveBlock) resolve
-                rejecter : (RCTPromiseRejectBlock) reject) {
-  @try {
-    NSError *error = nil;
-
-    MPPLLMInferenceSession *session = [self updateOrInitSessionFromParams:params withError: &error];
-
-    if (error) {
-      [self sendEventWithName:EVENT_ON_ERROR body:error.localizedDescription];
-      reject(ERROR_CODE_INFER, @"unable to update or create session", error);
-      return;
-    }
-    [session generateResponseAsyncAndReturnError: &error progress: ^(NSString *result, NSError *err) {
-      if (!err) {
-        [self sendEventWithName:EVENT_ON_PARTIAL_RESULT body:result];
-      } else {
-        [self sendEventWithName:EVENT_ON_ERROR body:err.localizedDescription];
-      }
-    } completion: ^{
-      [self sendEventWithName:EVENT_ON_FINAL_RESULT body:nil];
-    }];
-    resolve(nil);
-  } @catch(NSException *exception) {
-    [self sendEventWithName:EVENT_ON_ERROR body: nil];
-    reject(ERROR_CODE_INFER, @"unable to generate response", nil);
-  }
-}
-
-#pragma mark - Close Engine
-
-RCT_EXPORT_METHOD(close) {
-  self.session = nil;
-  self.llmInference = nil;
-}
-
-RCT_EXPORT_METHOD(cancelAsync) { }
 
 - (NSDictionary *) constantsToExport {
   return @{
@@ -231,7 +221,5 @@ RCT_EXPORT_METHOD(cancelAsync) { }
     @"PARAM_ENABLE_VISION": PARAM_ENABLE_VISION,
   };
 }
-
-
 
 @end
