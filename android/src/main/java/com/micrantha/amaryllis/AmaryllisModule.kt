@@ -22,7 +22,7 @@ class AmaryllisModule(private val reactContext: ReactApplicationContext) :
   override fun getName() = NAME
 
   @ReactMethod
-  override fun init(config: ReadableMap, promise: Promise): Unit = try {
+  override fun init(config: ReadableMap, newSession: ReadableMap?, promise: Promise): Unit = try {
     val taskOptions = LlmInference.LlmInferenceOptions.builder()
       .setModelPath(config.getString(PARAM_MODEL_PATH))
       .setMaxTopK(config.getInt(PARAM_MAX_TOP_K))
@@ -36,7 +36,7 @@ class AmaryllisModule(private val reactContext: ReactApplicationContext) :
 
     llmInference = LlmInference.createFromOptions(reactContext, taskOptions)
 
-    this.session = this.initSession(config.getMap(PARAM_NEW_SESSION))
+    this.initSession(newSession)
 
     promise.resolve(null)
   } catch (e: Throwable) {
@@ -44,9 +44,9 @@ class AmaryllisModule(private val reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
-  override fun generate(params: ReadableMap, promise: Promise) {
+  override fun generate(params: ReadableMap, newSession: ReadableMap?, promise: Promise) {
     try {
-      this.updateOrInitSession(params) { session ->
+      this.updateOrInitSession(params, newSession) { session ->
         val result = session.generateResponse()
         promise.resolve(result)
       }
@@ -56,9 +56,9 @@ class AmaryllisModule(private val reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
-  override fun generateAsync(params: ReadableMap, promise: Promise) {
+  override fun generateAsync(params: ReadableMap, newSession: ReadableMap?, promise: Promise) {
     try {
-      this.updateOrInitSession(params) { session ->
+      this.updateOrInitSession(params, newSession) { session ->
         session.generateResponseAsync { partialResult, done ->
           if (!done) {
             sendEvent(EVENT_ON_PARTIAL_RESULT, partialResult)
@@ -93,7 +93,7 @@ class AmaryllisModule(private val reactContext: ReactApplicationContext) :
       .emit(event, data)
   }
 
-  private fun initSession(config: ReadableMap?): LlmInferenceSession {
+  private fun initSession(config: ReadableMap?) {
     val sessionOptions = LlmInferenceSession.LlmInferenceSessionOptions.builder()
 
     config?.getInt(PARAM_TOP_K)?.let { sessionOptions.setTopK(it) }
@@ -109,24 +109,24 @@ class AmaryllisModule(private val reactContext: ReactApplicationContext) :
       )
     }
 
-    return LlmInferenceSession.createFromOptions(llmInference!!, sessionOptions.build())
+    LlmInferenceSession.createFromOptions(llmInference!!, sessionOptions.build()).also {
+      this.session = it
+    }
   }
 
-  private fun updateOrInitSession(params: ReadableMap, onSessionReady: (LlmInferenceSession) -> Unit) {
-    val newSession = params.getMap(PARAM_NEW_SESSION)
-
-    val session = if (session == null || newSession != null) {
+  private fun updateOrInitSession(params: ReadableMap, newSession: ReadableMap?, onSessionReady: (LlmInferenceSession) -> Unit) {
+    if (session == null || newSession != null) {
       this.session?.close()
       this.initSession(newSession)
-    } else this.session!!
+    }
 
-    session.addQueryChunk(params.getString(PARAM_PROMPT) ?: "")
+    session?.addQueryChunk(params.getString(PARAM_PROMPT) ?: "")
     params.getArray(PARAM_IMAGES)?.run {
       preprocessImages(this).forEach {
-        session.addImage(it)
+        session?.addImage(it)
       }
     }
-    onSessionReady(session)
+    session?.let { onSessionReady(it) }
   }
 
   override fun getConstants() = mapOf(
@@ -150,18 +150,20 @@ class AmaryllisModule(private val reactContext: ReactApplicationContext) :
     "PARAM_LORA_PATH" to PARAM_LORA_PATH,
     "PARAM_TOP_K" to PARAM_TOP_K,
     "PARAM_TOP_P" to PARAM_TOP_P,
-    "PARAM_NEW_SESSION" to PARAM_NEW_SESSION,
     "PARAM_ENABLE_VISION" to PARAM_ENABLE_VISION
   )
 
   companion object {
     const val NAME = "Amaryllis"
+
     // Events
     const val EVENT_ON_PARTIAL_RESULT = "onPartialResult"
     const val EVENT_ON_FINAL_RESULT = "onFinalResult"
     const val EVENT_ON_ERROR = "onError"
+
     // Errors
     const val ERROR_CODE_INFER = "ERR_INFER"
+
     // Params
     const val PARAM_IMAGES = "images"
     const val PARAM_PROMPT = "prompt"
@@ -176,26 +178,6 @@ class AmaryllisModule(private val reactContext: ReactApplicationContext) :
     const val PARAM_LORA_PATH = "loraPath"
     const val PARAM_TOP_K = "topK"
     const val PARAM_TOP_P = "topP"
-    const val PARAM_NEW_SESSION = "newSession"
     const val PARAM_ENABLE_VISION = "enableVisionModality"
-
-
-    fun LlmInferenceSession.LlmInferenceSessionOptions.Builder.from(params: ReadableMap?): LlmInferenceSession.LlmInferenceSessionOptions {
-      if (params == null) return build()
-
-      if (params.hasKey(PARAM_TEMPERATURE)) setTemperature(params.getDouble(PARAM_TEMPERATURE).toFloat())
-      if (params.hasKey(PARAM_TOP_K)) setTopK(params.getInt(PARAM_TOP_K))
-      if (params.hasKey(PARAM_TOP_P)) setTopP(params.getDouble(PARAM_TOP_P).toFloat())
-      if (params.hasKey(PARAM_RANDOM_SEED)) setRandomSeed(params.getInt(PARAM_RANDOM_SEED))
-      params.getString(PARAM_LORA_PATH)?.let { setLoraPath(it) }
-      if (params.hasKey(PARAM_ENABLE_VISION)) {
-        setGraphOptions(
-          GraphOptions.builder()
-            .setEnableVisionModality(params.getBoolean(PARAM_ENABLE_VISION))
-            .build()
-        )
-      }
-      return build()
-    }
   }
 }

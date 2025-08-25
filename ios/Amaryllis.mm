@@ -19,7 +19,6 @@ static NSString *const PARAM_RANDOM_SEED = @"randomSeed";
 static NSString *const PARAM_LORA_PATH = @"loraPath";
 static NSString *const PARAM_TOP_K = @"topK";
 static NSString *const PARAM_TOP_P = @"topP";
-static NSString *const PARAM_NEW_SESSION = @"newSession";
 static NSString *const PARAM_ENABLE_VISION = @"enableVisionModality";
 
 @interface AmaryllisModule ()
@@ -58,7 +57,7 @@ RCT_EXPORT_MODULE(Amaryllis)
       return;
     }
 
-    self.session = [self newSessionFromParams: config[PARAM_NEW_SESSION] withError:&error];
+    [self newSessionFromParams: newSession withError:&error];
 
     if (error) {
       reject(@"ERR_INFER", @"unable to create session", error);
@@ -151,7 +150,7 @@ RCT_EXPORT_METHOD(cancelAsync) { }
   }
 }
 
-- (MPPLLMInferenceSession *) newSessionFromParams: (NSDictionary *)params withError: (NSError **)error {
+- (void) newSessionFromParams: (NSDictionary *)params withError: (NSError **)error {
   MPPLLMInferenceSessionOptions *sessionOptions = [[MPPLLMInferenceSessionOptions alloc] init];
   sessionOptions.topk = [params[PARAM_TOP_K] intValue];
   sessionOptions.topp = [params[PARAM_TOP_P] floatValue];
@@ -166,14 +165,14 @@ RCT_EXPORT_METHOD(cancelAsync) { }
   if (error && *error) return session;
 
   [self updateSession: session fromParams: params withError:error];
-  return session;
+
+  self.session = session;
 }
 
 - (MPPLLMInferenceSession *) updateOrInitSessionFromParams:(NSDictionary *)params withError: (NSError **)error {
   NSDictionary *newSession = params[PARAM_NEW_SESSION];
   if (newSession || !self.session) {
-    MPPLLMInferenceSession * session = [self newSessionFromParams: newSession withError:error];
-    [self updateSession: session fromParams: params withError:error];
+    [self newSessionFromParams: newSession withError:error];
     return session;
   }
   [self updateSession: self.session fromParams: params withError:error];

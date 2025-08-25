@@ -20,12 +20,12 @@ class AmaryllisPackage : BaseReactPackage() {
     return ReactModuleInfoProvider {
       val moduleInfos: MutableMap<String, ReactModuleInfo> = HashMap()
       moduleInfos[AmaryllisModule.NAME] = ReactModuleInfo(
-        AmaryllisModule.NAME,
-        AmaryllisModule.NAME,
-        false,  // canOverrideExistingModule
-        false,  // needsEagerInit
-        false,  // isCxxModule
-        true // isTurboModule
+        name = AmaryllisModule.NAME,
+        className =AmaryllisModule.NAME,
+        canOverrideExistingModule = false,
+        needsEagerInit = false,
+        isCxxModule = false,
+        isTurboModule = true
       )
       moduleInfos
     }
