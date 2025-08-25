@@ -33,12 +33,12 @@ export default function App() {
         maxTokens: 512,
         visionEncoderPath: '/data/local/tmp/llm/vision_encoder.model',
         visionAdapterPath: '/data/local/tmp/llm/vision_adapter.model',
-        newSession: {
-          enableVisionModality: true,
-          randomSeed: 13933,
-          loraPath: '/data/local/tmp/llm/lora.model',
-          temperature: 0.795,
-        },
+      }}
+      newSession={{
+        enableVisionModality: true,
+        randomSeed: 13933,
+        loraPath: '/data/local/tmp/llm/lora.model',
+        temperature: 0.795,
       }}
     >
       <LLMPrompt />
