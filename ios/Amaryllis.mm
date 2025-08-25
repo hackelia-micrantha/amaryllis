@@ -1,4 +1,5 @@
 #import "Amaryllis.h"
+#import <ReactCommon/RCTTurboModule.h>
 #import <MediaPipeTasksGenAI/MediaPipeTasksGenAI.h>
 #import <MediaPipeTasksVision/MediaPipeTasksVision.h>
 
@@ -32,6 +33,11 @@ static NSString *const PARAM_ENABLE_VISION = @"enableVisionModality";
 
 RCT_EXPORT_MODULE(Amaryllis)
 
+- (std::shared_ptr<facebook::react::TurboModule>)
+    getTurboModule:(const facebook::react::ObjCTurboModule::InitParams &)params
+{
+  return std::make_shared<facebook::react::NativeAmaryllisSpecJSI>(params);
+}
 #pragma mark - Event Emitter
 
 - (NSArray *)supportedEvents {
@@ -75,13 +81,13 @@ RCT_EXPORT_MODULE(Amaryllis)
 - (void)generate:(nonnull NSDictionary *)params newSession:(nonnull NSDictionary *)newSession resolve:(nonnull RCTPromiseResolveBlock)resolve reject:(nonnull RCTPromiseRejectBlock)reject {
   @try {
     NSError *error = nil;
-    MPPLLMInferenceSession *session = [self updateOrInitSessionFromParams:params withError:&error];
+    [self updateOrInitSessionFromParams:params orNewSession: newSession withError:&error];
     if (error) {
       reject(ERROR_CODE_INFER, @"unable to update or create session", error);
       return;
     }
 
-    NSString *result = [session generateResponseAndReturnError: &error];
+    NSString *result = [self.session generateResponseAndReturnError: &error];
     if (error) {
       reject(ERROR_CODE_INFER, @"unable to generate response", error);
       return;
@@ -98,14 +104,14 @@ RCT_EXPORT_MODULE(Amaryllis)
   @try {
     NSError *error = nil;
 
-    MPPLLMInferenceSession *session = [self updateOrInitSessionFromParams:params withError: &error];
+    [self updateOrInitSessionFromParams:params orNewSession: newSession withError: &error];
 
     if (error) {
       [self sendEventWithName: EVENT_ON_ERROR body:error];
       reject(ERROR_CODE_INFER, @"unable to update or create session", error);
       return;
     }
-    [session generateResponseAsyncAndReturnError: &error progress: ^(NSString *result, NSError *err) {
+    [self.session generateResponseAsyncAndReturnError: &error progress: ^(NSString *result, NSError *err) {
       if (!err) {
         [self sendEventWithName: EVENT_ON_PARTIAL_RESULT body:result];
       } else {
@@ -162,21 +168,20 @@ RCT_EXPORT_METHOD(cancelAsync) { }
   MPPLLMInferenceSession * session = [[MPPLLMInferenceSession alloc] initWithLlmInference: self.llmInference
                                                   options:sessionOptions error: error];
 
-  if (error && *error) return session;
+  if (error && *error) return;
 
   [self updateSession: session fromParams: params withError:error];
+
+  if (error && *error) return;
 
   self.session = session;
 }
 
-- (MPPLLMInferenceSession *) updateOrInitSessionFromParams:(NSDictionary *)params withError: (NSError **)error {
-  NSDictionary *newSession = params[PARAM_NEW_SESSION];
+- (void) updateOrInitSessionFromParams:(NSDictionary *)params orNewSession: (NSDictionary *) newSession withError: (NSError **)error {
   if (newSession || !self.session) {
     [self newSessionFromParams: newSession withError:error];
-    return session;
   }
   [self updateSession: self.session fromParams: params withError:error];
-  return self.session;
 }
 
 - (CGImageRef)imageFromPath:(NSString *)path {
@@ -216,7 +221,6 @@ RCT_EXPORT_METHOD(cancelAsync) { }
     @"PARAM_LORA_PATH": PARAM_LORA_PATH,
     @"PARAM_TOP_K": PARAM_TOP_K,
     @"PARAM_TOP_P": PARAM_TOP_P,
-    @"PARAM_NEW_SESSION": PARAM_NEW_SESSION,
     @"PARAM_ENABLE_VISION": PARAM_ENABLE_VISION,
   };
 }

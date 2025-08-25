@@ -2494,7 +2494,7 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
-  Amaryllis: d2459eaa9365d63ad8d04ca0960b35ee597f605b
+  Amaryllis: 0cb20da09981aeef66f6de589e25a7c065a390e8
   boost: 7e761d76ca2ce687f7cc98e698152abd03a18f90
   DoubleConversion: cb417026b2400c8f53ae97020b2be961b59470cb
   fast_float: b32c788ed9c6a8c584d114d0047beda9664e7cc6
@@ -2567,7 +2567,7 @@ SPEC CHECKSUMS:
   React-timing: 25e8229ad1cf6874e9f0711515213cb2bc322215
   React-utils: 068cec677032ba78ca0700f2dcbe6d08a0939647
   ReactAppDependencyProvider: c91900fa724baee992f01c05eeb4c9e01a807f78
-  ReactCodegen: 2e4712d08453e3fecfe0d0715bd9b2cc60e5fbf4
+  ReactCodegen: a55799cae416c387aeaae3aabc1bc0289ac19cee
   ReactCommon: 116d6ee71679243698620d8cd9a9042541e44aa6
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   Yoga: 00013dd9cde63a2d98e8002fcc4f5ddb66c10782
