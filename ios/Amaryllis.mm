@@ -50,7 +50,6 @@ RCT_EXPORT_MODULE(Amaryllis)
 #pragma mark - Configure Engine
 
 - (void)init:(nonnull NSDictionary *)config
-    newSession:(nonnull NSDictionary *)newSession
        resolve:(nonnull RCTPromiseResolveBlock)resolve
         reject:(nonnull RCTPromiseRejectBlock)reject {
   @try {
@@ -76,7 +75,7 @@ RCT_EXPORT_MODULE(Amaryllis)
     self.session =
         [[MPPLLMInferenceSession alloc] initWithLlmInference:self.llmInference
                                                      options:sessionOptions
-                                                       error:error];
+                                                       error:&error];
 
     if (error) {
       reject(@"ERR_INFER", @"unable to create session", error);
@@ -92,6 +91,8 @@ RCT_EXPORT_MODULE(Amaryllis)
 - (void)newSession:(NSDictionary *)params
            resolve:(nonnull RCTPromiseResolveBlock)resolve
             reject:(nonnull RCTPromiseRejectBlock)reject {
+  NSError *error = nil;
+
   @try {
     if (self.llmInference == nil) {
       reject(ERROR_CODE_SESSION, @"please initialize the engine first", nil);
@@ -111,8 +112,8 @@ RCT_EXPORT_MODULE(Amaryllis)
     self.session =
         [[MPPLLMInferenceSession alloc] initWithLlmInference:self.llmInference
                                                      options:sessionOptions
-                                                       error:error];
-    resolve(null);
+                                                       error:&error];
+    resolve(nil);
   } @catch (NSException *exception) {
     reject(ERROR_CODE_SESSION, @"unable to create session", nil);
   }
@@ -125,7 +126,7 @@ RCT_EXPORT_MODULE(Amaryllis)
           reject:(nonnull RCTPromiseRejectBlock)reject {
   @try {
     NSError *error = nil;
-    NSString *result = null;
+    NSString *result = nil;
 
     if (self.llmInference == nil) {
       reject(ERROR_CODE_SESSION, @"please initialize the engine first", nil);
@@ -144,8 +145,8 @@ RCT_EXPORT_MODULE(Amaryllis)
       }
 
       result =
-          [self.llmInference generateResponseWithPrompt:params[PARAM_PROMPT]
-                                                  error:&error];
+          [self.llmInference generateResponseWithInputText:params[PARAM_PROMPT]
+                                                     error:&error];
     }
     if (error) {
       reject(ERROR_CODE_INFER, @"unable to generate response", error);
@@ -160,7 +161,6 @@ RCT_EXPORT_MODULE(Amaryllis)
 #pragma mark - Generate Async
 
 - (void)generateAsync:(nonnull NSDictionary *)params
-           newSession:(nonnull NSDictionary *)newSession
               resolve:(nonnull RCTPromiseResolveBlock)resolve
                reject:(nonnull RCTPromiseRejectBlock)reject {
   @try {
@@ -198,11 +198,10 @@ RCT_EXPORT_MODULE(Amaryllis)
       if (![self validateNoSession:params reject:reject]) {
         return;
       }
-
-      [self.llmInference generateResponseAsyncWithPrompt:params[PARAM_PROMPT]
-                                                progress:progress
-                                              completion:completion
-                                                   error:&error];
+      [self.llmInference generateResponseAsyncWithInputText:params[PARAM_PROMPT]
+                                                      error:&error
+                                                   progress:progress
+                                                 completion:completion];
 
       if (error) {
         [self sendEventWithName:EVENT_ON_ERROR body:error];
@@ -219,12 +218,12 @@ RCT_EXPORT_MODULE(Amaryllis)
 
 #pragma mark - Close Engine
 
-RCT_EXPORT_METHOD(close) {
+- (void) close {
   self.session = nil;
   self.llmInference = nil;
 }
 
-RCT_EXPORT_METHOD(cancelAsync) {}
+- (void) cancelAsync {}
 
 #pragma mark - Helpers
 
@@ -234,12 +233,12 @@ RCT_EXPORT_METHOD(cancelAsync) {}
     [self sendEventWithName:EVENT_ON_ERROR body:nil];
     reject(ERROR_CODE_SESSION, @"please create a session before sending images",
            nil);
-    return NO
+    return NO;
   }
   return YES;
 }
 
-- (void)updateSessionFromParams:(NSDictionary *)params
+- (BOOL)updateSessionFromParams:(NSDictionary *)params
                          reject:(nonnull RCTPromiseRejectBlock)reject {
 
   NSString *prompt = params ? params[PARAM_PROMPT] : nil;
@@ -253,62 +252,63 @@ RCT_EXPORT_METHOD(cancelAsync) {}
     return NO;
   }
 
-  [self.session addQueryChunkWithInputText:prompt error:error];
+  [self.session addQueryChunkWithInputText:prompt error:&error];
 
   if (images) {
     for (NSString *path in images) {
       CGImageRef image = [self imageFromPath:path];
-      [self.session addImageWithImage:image error:error];
+      [self.session addImageWithImage:image error:&error];
       CGImageRelease(image);
-      if (error && *error) {
+      if (error) {
         [self sendEventWithName:EVENT_ON_ERROR body:error];
         reject(ERROR_CODE_SESSION, @"unable to add image to session", error);
         return NO;
       }
     }
-    return YES;
   }
+  return YES;
+}
 
-  -(CGImageRef)imageFromPath : (NSString *)path {
-    UIImage *uiImage = [UIImage imageWithContentsOfFile:path];
-    if (!uiImage)
-      return nil;
+- (CGImageRef)imageFromPath:(NSString *)path {
+  UIImage *uiImage = [UIImage imageWithContentsOfFile:path];
+  if (!uiImage)
+    return nil;
 
-    // Resize to 512x512 if necessary
-    CGSize targetSize = CGSizeMake(512, 512);
-    UIGraphicsBeginImageContextWithOptions(targetSize, NO, 1.0);
-    [uiImage drawInRect:CGRectMake(0, 0, targetSize.width, targetSize.height)];
-    UIImage *resized = UIGraphicsGetImageFromCurrentImageContext();
-    UIGraphicsEndImageContext();
+  // Resize to 512x512 if necessary
+  CGSize targetSize = CGSizeMake(512, 512);
+  UIGraphicsBeginImageContextWithOptions(targetSize, NO, 1.0);
+  [uiImage drawInRect:CGRectMake(0, 0, targetSize.width, targetSize.height)];
+  UIImage *resized = UIGraphicsGetImageFromCurrentImageContext();
+  UIGraphicsEndImageContext();
 
-    // Convert to MLImage
-    return CGImageRetain(resized.CGImage);
-  }
+  // Convert to MLImage
+  return CGImageRetain(resized.CGImage);
+}
 
-  -(NSDictionary *)constantsToExport {
-    return @{
-      @"EVENT_ON_PARTIAL_RESULT" : EVENT_ON_PARTIAL_RESULT,
-      @"EVENT_ON_FINAL_RESULT" : EVENT_ON_FINAL_RESULT,
-      @"EVENT_ON_ERROR" : EVENT_ON_ERROR,
-      // errors
-      @"ERROR_CODE_INFER" : ERROR_CODE_INFER,
-      @"ERROR_CODE_SESSION" : ERROR_CODE_SESSION,
-      // params
-      @"PARAM_IMAGES" : PARAM_IMAGES,
-      @"PARAM_PROMPT" : PARAM_PROMPT,
-      @"PARAM_MAX_TOP_K" : PARAM_MAX_TOP_K,
-      @"PARAM_MAX_TOKENS" : PARAM_MAX_TOKENS,
-      @"PARAM_MAX_NUM_IMAGES" : PARAM_MAX_NUM_IMAGES,
-      @"PARAM_VISION_ENCODER" : PARAM_VISION_ENCODER,
-      @"PARAM_VISION_ADAPTER" : PARAM_VISION_ADAPTER,
-      @"PARAM_MODEL_PATH" : PARAM_MODEL_PATH,
-      @"PARAM_TEMPERATURE" : PARAM_TEMPERATURE,
-      @"PARAM_RANDOM_SEED" : PARAM_RANDOM_SEED,
-      @"PARAM_LORA_PATH" : PARAM_LORA_PATH,
-      @"PARAM_TOP_K" : PARAM_TOP_K,
-      @"PARAM_TOP_P" : PARAM_TOP_P,
-      @"PARAM_ENABLE_VISION" : PARAM_ENABLE_VISION,
-    };
-  }
+- (NSDictionary *)constantsToExport {
+  return @{
+    @"EVENT_ON_PARTIAL_RESULT" : EVENT_ON_PARTIAL_RESULT,
+    @"EVENT_ON_FINAL_RESULT" : EVENT_ON_FINAL_RESULT,
+    @"EVENT_ON_ERROR" : EVENT_ON_ERROR,
+    // errors
+    @"ERROR_CODE_INFER" : ERROR_CODE_INFER,
+    @"ERROR_CODE_SESSION" : ERROR_CODE_SESSION,
+    // params
+    @"PARAM_IMAGES" : PARAM_IMAGES,
+    @"PARAM_PROMPT" : PARAM_PROMPT,
+    @"PARAM_MAX_TOP_K" : PARAM_MAX_TOP_K,
+    @"PARAM_MAX_TOKENS" : PARAM_MAX_TOKENS,
+    @"PARAM_MAX_NUM_IMAGES" : PARAM_MAX_NUM_IMAGES,
+    @"PARAM_VISION_ENCODER" : PARAM_VISION_ENCODER,
+    @"PARAM_VISION_ADAPTER" : PARAM_VISION_ADAPTER,
+    @"PARAM_MODEL_PATH" : PARAM_MODEL_PATH,
+    @"PARAM_TEMPERATURE" : PARAM_TEMPERATURE,
+    @"PARAM_RANDOM_SEED" : PARAM_RANDOM_SEED,
+    @"PARAM_LORA_PATH" : PARAM_LORA_PATH,
+    @"PARAM_TOP_K" : PARAM_TOP_K,
+    @"PARAM_TOP_P" : PARAM_TOP_P,
+    @"PARAM_ENABLE_VISION" : PARAM_ENABLE_VISION,
+  };
+}
 
-  @end
+@end
