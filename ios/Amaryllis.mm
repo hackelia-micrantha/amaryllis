@@ -1,7 +1,6 @@
 #import "Amaryllis.h"
 #import <ReactCommon/RCTTurboModule.h>
 #import <MediaPipeTasksGenAI/MediaPipeTasksGenAI.h>
-#import <MediaPipeTasksVision/MediaPipeTasksVision.h>
 
 static NSString *const EVENT_ON_PARTIAL_RESULT = @"onPartialResult";
 static NSString *const EVENT_ON_FINAL_RESULT = @"onFinalResult";

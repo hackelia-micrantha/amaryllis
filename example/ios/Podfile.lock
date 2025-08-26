@@ -7,7 +7,6 @@ PODS:
     - glog
     - hermes-engine
     - MediaPipeTasksGenAI
-    - MediaPipeTasksVision
     - RCT-Folly
     - RCT-Folly/Fabric
     - RCTRequired
@@ -38,12 +37,9 @@ PODS:
   - hermes-engine (0.81.0):
     - hermes-engine/Pre-built (= 0.81.0)
   - hermes-engine/Pre-built (0.81.0)
-  - MediaPipeTasksCommon (0.10.21)
   - MediaPipeTasksGenAI (0.10.24):
     - MediaPipeTasksGenAIC (= 0.10.24)
   - MediaPipeTasksGenAIC (0.10.24)
-  - MediaPipeTasksVision (0.10.21):
-    - MediaPipeTasksCommon (= 0.10.21)
   - RCT-Folly (2024.11.18.00):
     - boost
     - DoubleConversion
@@ -2340,10 +2336,8 @@ DEPENDENCIES:
 
 SPEC REPOS:
   trunk:
-    - MediaPipeTasksCommon
     - MediaPipeTasksGenAI
     - MediaPipeTasksGenAIC
-    - MediaPipeTasksVision
     - SocketRocket
 
 EXTERNAL SOURCES:
@@ -2494,7 +2488,7 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
-  Amaryllis: 0cb20da09981aeef66f6de589e25a7c065a390e8
+  Amaryllis: 8303bc6ec774bf80e4b5aaf7a6b721efd1ccce14
   boost: 7e761d76ca2ce687f7cc98e698152abd03a18f90
   DoubleConversion: cb417026b2400c8f53ae97020b2be961b59470cb
   fast_float: b32c788ed9c6a8c584d114d0047beda9664e7cc6
@@ -2502,10 +2496,8 @@ SPEC CHECKSUMS:
   fmt: a40bb5bd0294ea969aaaba240a927bd33d878cdd
   glog: 5683914934d5b6e4240e497e0f4a3b42d1854183
   hermes-engine: e7491a2038f2618c8cd444ed411a6deb350a3742
-  MediaPipeTasksCommon: 6cfa29170d4900f04d250ad95ec058f14a741f38
   MediaPipeTasksGenAI: 076ba7032a6e9da16db9c7cf0c3b67c751c18bc1
   MediaPipeTasksGenAIC: ec35d9f431f6a6b651a0bc9f67a4ed149ffa575c
-  MediaPipeTasksVision: 7b1c0f5a5820e87e9d96926f5e65d8cd3744fac2
   RCT-Folly: 846fda9475e61ec7bcbf8a3fe81edfcaeb090669
   RCTDeprecation: 0735ab4f6b3ec93a7f98187b5da74d7916e2cf4c
   RCTRequired: 8fcc7801bfc433072287b0f24a662e2816e89d0c
