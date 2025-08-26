@@ -1,17 +1,15 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import type { LlmEngineConfig, LlmSessionParams } from './Types';
-import { configureLLM$ } from './AmaryllisRx';
+import React, { createContext, useContext, useEffect, useMemo } from 'react';
+import type { LlmEngineConfig } from './Types';
+import { LlmPipe } from './Amaryllis';
 
 interface LLMContextValue {
   config: LlmEngineConfig | null;
-  newSession?: LlmSessionParams;
-  error: Error | null;
+  controller?: LlmPipe;
   isReady: boolean;
 }
 
 const LLMContext = createContext<LLMContextValue>({
   config: null,
-  error: null,
   isReady: false,
 });
 
@@ -19,7 +17,6 @@ export const useLLMContext = () => useContext(LLMContext);
 
 interface LLMProviderProps {
   config: LlmEngineConfig;
-  newSession?: LlmSessionParams;
   children: React.ReactNode;
 }
 
@@ -27,25 +24,23 @@ interface LLMProviderProps {
  * Provides LLM configuration state to child components.
  * Configures LLM once on mount.
  */
-export const LLMProvider = ({
-  config,
-  newSession,
-  children,
-}: LLMProviderProps) => {
-  const [isReady, setIsReady] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
+export const LLMProvider = ({ config, children }: LLMProviderProps) => {
+  const controller = useMemo(() => new LlmPipe(), []);
 
   useEffect(() => {
-    const subscription = configureLLM$(config, newSession).subscribe({
-      next: () => setIsReady(true),
-      error: (err: Error) => setError(err),
-    });
-
-    return () => subscription.unsubscribe();
-  }, [config, newSession]);
+    const start = async () => await controller.init(config);
+    start();
+    return () => controller.close();
+  }, [config, controller]);
 
   return (
-    <LLMContext.Provider value={{ config, newSession, error, isReady }}>
+    <LLMContext.Provider
+      value={{
+        config,
+        controller,
+        isReady: config !== null && controller !== undefined,
+      }}
+    >
       {children}
     </LLMContext.Provider>
   );

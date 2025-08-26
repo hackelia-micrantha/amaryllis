@@ -38,22 +38,23 @@ export type LlmEngine = {
   /**
    * Initialize the engine (creates LlmInference and LlmInferenceSession internally).
    */
-  init(config: LlmEngineConfig, newSession?: LlmSessionParams): Promise<void>;
+  init(config: LlmEngineConfig): Promise<void>;
+
+  /**
+   * Start a new session.
+   */
+  newSession(params: LlmSessionParams): Promise<void>;
 
   /**
    * Generate a response synchronously (blocking).
    */
-  generate(
-    params: LlmRequestParams,
-    newSession?: LlmSessionParams
-  ): Promise<string>;
+  generate(params: LlmRequestParams): Promise<string>;
 
   /**
    * Generate a response asynchronously (streaming).
    */
   generateAsync(
     params: LlmRequestParams,
-    newSession?: LlmSessionParams,
     callbacks?: LlmCallbacks
   ): Promise<void>;
 

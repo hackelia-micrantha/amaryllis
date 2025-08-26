@@ -45,6 +45,12 @@ await Amaryllis.init({
   maxTopK: 10, // limit to top results
   maxTokens: 1024, // limit tokens
   maxNumImages: 5, // limit images
+);
+```
+
+### Start a new session (new chat)
+
+```js
   newSession: { // set to start a new session
     enableVisionModality: true, // use vision models
     randomSeed: 123432,
@@ -61,19 +67,16 @@ await Amaryllis.init({
 ```js
 const result = await Amaryllis.generate({
   prompt: 'Your prompt here',
-  newSession: {
-    enableImageModality: true
-    // session params
-  }
-  images: [{ uri: 'file:///path/to/image', width: 128, height: 128 }],
+  images: ['file:///path/to/image'],
 });
 ```
 
-### Streaming Inference
+### Streaming Response
 
 ```js
 Amaryllis.generateAsync({
   prompt: 'Your prompt here',
+  images: ['file:///path/to/image'],
   callbacks: {
     onPartialResult: (partial) => { /* handle partial */ },
     onFinalResult: (final) => { /* handle final */ },

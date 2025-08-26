@@ -1,35 +1,46 @@
-import { useState, useCallback } from 'react';
-import type { LlmRequestParams } from './Types';
-import { generateLLM$ } from './AmaryllisRx';
+import { useState, useCallback, useMemo } from 'react';
+import type { LlmCallbacks, LlmRequestParams } from './Types';
 import { useLLMContext } from './AmaryllisContext';
 
 export const useInference = () => {
-  const { config, error: configError } = useLLMContext();
-  const [isLoading, setIsLoading] = useState<boolean>(!config);
-  const [error, setError] = useState<Error | null>(configError);
+  const { controller } = useLLMContext();
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<Error | null>(null);
   const [results, setResults] = useState<string[]>([]);
 
-  const generate = useCallback((params: LlmRequestParams) => {
-    setResults([]);
-    setError(null);
-    setIsLoading(false);
-
-    const subscription = generateLLM$(params).subscribe({
-      next: ({ partial, final }) => {
-        if (partial) setResults((prev) => [...prev, partial]);
-        if (final) setResults((prev) => [...prev, final]);
-      },
-      complete: () => {
+  const callbacks: LlmCallbacks = useMemo(
+    () => ({
+      onPartial: (result: string) => setResults((prev) => [...prev, result]),
+      onFinal: (result: string) => {
+        setResults((prev) => [...prev, result]);
         setIsLoading(false);
       },
-      error: (err) => {
+      onError: (err: Error) => {
         setError(err);
         setIsLoading(false);
       },
-    });
+    }),
+    []
+  );
 
-    return subscription.unsubscribe.bind(subscription);
-  }, []);
+  const generate = useCallback(
+    async (params: LlmRequestParams) => {
+      setResults([]);
+      setError(null);
+      setIsLoading(true);
+
+      try {
+        await controller?.generateAsync(params, callbacks);
+      } catch (err) {
+        setError(
+          err instanceof Error ? err : new Error('An unknown error occurred')
+        );
+      }
+
+      return () => controller?.cancelAsync();
+    },
+    [callbacks, controller]
+  );
 
   return { results, generate, isLoading, error };
 };

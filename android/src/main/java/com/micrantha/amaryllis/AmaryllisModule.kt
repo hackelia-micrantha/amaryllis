@@ -9,8 +9,8 @@ import com.facebook.react.modules.core.DeviceEventManagerModule
 import com.google.mediapipe.tasks.genai.llminference.GraphOptions
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
+import com.google.mediapipe.tasks.genai.llminference.ProgressListener
 import com.google.mediapipe.tasks.genai.llminference.VisionModelOptions
-
 
 @ReactModule(name = AmaryllisModule.NAME)
 class AmaryllisModule(private val reactContext: ReactApplicationContext) :
@@ -22,50 +22,100 @@ class AmaryllisModule(private val reactContext: ReactApplicationContext) :
   override fun getName() = NAME
 
   @ReactMethod
-  override fun init(config: ReadableMap, newSession: ReadableMap?, promise: Promise): Unit = try {
+  override fun init(config: ReadableMap, promise: Promise): Unit = try {
     val taskOptions = LlmInference.LlmInferenceOptions.builder()
       .setModelPath(config.getString(PARAM_MODEL_PATH))
       .setMaxTopK(config.getInt(PARAM_MAX_TOP_K))
       .setMaxTokens(config.getInt(PARAM_MAX_TOKENS))
       .setMaxNumImages(config.getInt(PARAM_MAX_NUM_IMAGES))
-      .setVisionModelOptions(VisionModelOptions.builder()
-        .setAdapterPath(config.getString(PARAM_VISION_ADAPTER))
-        .setEncoderPath(config.getString(PARAM_VISION_ENCODER))
-        .build())
+      .setVisionModelOptions(
+        VisionModelOptions.builder()
+          .setAdapterPath(config.getString(PARAM_VISION_ADAPTER))
+          .setEncoderPath(config.getString(PARAM_VISION_ENCODER))
+          .build()
+      )
       .build()
 
     llmInference = LlmInference.createFromOptions(reactContext, taskOptions)
-
-    this.initSession(newSession)
-
+    val sessionOptions = LlmInferenceSession.LlmInferenceSessionOptions.builder()
+    this.session = LlmInferenceSession.createFromOptions(llmInference!!, sessionOptions.build())
     promise.resolve(null)
   } catch (e: Throwable) {
     promise.reject(ERROR_CODE_INFER, "unable to configure", e)
   }
 
   @ReactMethod
-  override fun generate(params: ReadableMap, newSession: ReadableMap?, promise: Promise) {
+  override fun newSession(params: ReadableMap?, promise: Promise) {
     try {
-      this.updateOrInitSession(params, newSession) { session ->
-        val result = session.generateResponse()
-        promise.resolve(result)
+      val inference = this.llmInference ?: throw IllegalStateException("sdk not configured")
+
+      val sessionOptions = LlmInferenceSession.LlmInferenceSessionOptions.builder()
+
+      params?.getInt(PARAM_TOP_K)?.let { sessionOptions.setTopK(it) }
+      params?.getDouble(PARAM_TOP_P)?.let { sessionOptions.setTopP(it.toFloat()) }
+      params?.getDouble(PARAM_TEMPERATURE)?.let { sessionOptions.setTemperature(it.toFloat()) }
+      params?.getInt(PARAM_RANDOM_SEED)?.let { sessionOptions.setRandomSeed(it) }
+      params?.getString(PARAM_LORA_PATH)?.let { sessionOptions.setLoraPath(it) }
+      params?.getBoolean(PARAM_ENABLE_VISION)?.let {
+        sessionOptions.setGraphOptions(
+          GraphOptions.builder()
+            .setEnableVisionModality(it)
+            .build()
+        )
       }
+
+      this.session = LlmInferenceSession.createFromOptions(
+        inference,
+        sessionOptions.build()
+      )
+    } catch (e: Throwable) {
+      promise.reject(ERROR_CODE_SESSION, "please initialize the sdk first", e)
+    }
+  }
+
+  @ReactMethod
+  override fun generate(params: ReadableMap, promise: Promise) {
+    try {
+      val llm = llmInference ?: throw NotInitializedException()
+
+      val prompt =
+        params.getString(PARAM_PROMPT) ?: throw IllegalArgumentException("prompt is required")
+
+      updateSessionQuery(params)
+
+      val result = if (session == null) {
+        llm.generateResponse(prompt)
+      } else {
+        session?.generateResponse()
+      }
+      promise.resolve(result)
     } catch (e: Throwable) {
       promise.reject(ERROR_CODE_INFER, "unable to generate response", e)
     }
   }
 
   @ReactMethod
-  override fun generateAsync(params: ReadableMap, newSession: ReadableMap?, promise: Promise) {
+  override fun generateAsync(params: ReadableMap, promise: Promise) {
     try {
-      this.updateOrInitSession(params, newSession) { session ->
-        session.generateResponseAsync { partialResult, done ->
-          if (!done) {
-            sendEvent(EVENT_ON_PARTIAL_RESULT, partialResult)
-          } else {
-            sendEvent(EVENT_ON_FINAL_RESULT, partialResult)
-          }
+      val llm = llmInference ?: throw NotInitializedException()
+
+      val prompt =
+        params.getString(PARAM_PROMPT) ?: throw IllegalArgumentException("prompt is required")
+
+      updateSessionQuery(params)
+
+      val listener = ProgressListener<String> { partialResult, done ->
+        if (done) {
+          sendEvent(EVENT_ON_FINAL_RESULT, partialResult ?: "")
+        } else {
+          sendEvent(EVENT_ON_PARTIAL_RESULT, partialResult ?: "")
         }
+      }
+
+      if (session == null) {
+        llm.generateResponseAsync(prompt, listener)
+      } else {
+        session?.generateResponseAsync(listener)
       }
       promise.resolve(null)
     } catch (e: Throwable) {
@@ -93,40 +143,13 @@ class AmaryllisModule(private val reactContext: ReactApplicationContext) :
       .emit(event, data)
   }
 
-  private fun initSession(config: ReadableMap?) {
-    val sessionOptions = LlmInferenceSession.LlmInferenceSessionOptions.builder()
-
-    config?.getInt(PARAM_TOP_K)?.let { sessionOptions.setTopK(it) }
-    config?.getDouble(PARAM_TOP_P)?.let { sessionOptions.setTopP(it.toFloat()) }
-    config?.getDouble(PARAM_TEMPERATURE)?.let { sessionOptions.setTemperature(it.toFloat()) }
-    config?.getInt(PARAM_RANDOM_SEED)?.let { sessionOptions.setRandomSeed(it) }
-    config?.getString(PARAM_LORA_PATH)?.let { sessionOptions.setLoraPath(it) }
-    config?.getBoolean(PARAM_ENABLE_VISION)?.let {
-      sessionOptions.setGraphOptions(
-        GraphOptions.builder()
-          .setEnableVisionModality(it)
-          .build()
-      )
-    }
-
-    LlmInferenceSession.createFromOptions(llmInference!!, sessionOptions.build()).also {
-      this.session = it
-    }
-  }
-
-  private fun updateOrInitSession(params: ReadableMap, newSession: ReadableMap?, onSessionReady: (LlmInferenceSession) -> Unit) {
-    if (session == null || newSession != null) {
-      this.session?.close()
-      this.initSession(newSession)
-    }
-
+  private fun updateSessionQuery(params: ReadableMap) {
     session?.addQueryChunk(params.getString(PARAM_PROMPT) ?: "")
     params.getArray(PARAM_IMAGES)?.run {
       preprocessImages(this).forEach {
         session?.addImage(it)
       }
     }
-    session?.let { onSessionReady(it) }
   }
 
   override fun getConstants() = mapOf(
@@ -136,6 +159,7 @@ class AmaryllisModule(private val reactContext: ReactApplicationContext) :
     "EVENT_ON_ERROR" to EVENT_ON_ERROR,
     // errors
     "ERROR_CODE_INFER" to ERROR_CODE_INFER,
+    "ERROR_CODE_SESSION" to ERROR_CODE_SESSION,
     // params
     "PARAM_IMAGES" to PARAM_IMAGES,
     "PARAM_PROMPT" to PARAM_PROMPT,
@@ -163,6 +187,7 @@ class AmaryllisModule(private val reactContext: ReactApplicationContext) :
 
     // Errors
     const val ERROR_CODE_INFER = "ERR_INFER"
+    const val ERROR_CODE_SESSION = "ERR_SESSION"
 
     // Params
     const val PARAM_IMAGES = "images"
@@ -180,4 +205,6 @@ class AmaryllisModule(private val reactContext: ReactApplicationContext) :
     const val PARAM_TOP_P = "topP"
     const val PARAM_ENABLE_VISION = "enableVisionModality"
   }
+
+  inner class NotInitializedException : Exception()
 }

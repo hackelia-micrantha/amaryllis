@@ -6,6 +6,7 @@ static NSString *const EVENT_ON_PARTIAL_RESULT = @"onPartialResult";
 static NSString *const EVENT_ON_FINAL_RESULT = @"onFinalResult";
 static NSString *const EVENT_ON_ERROR = @"onError";
 static NSString *const ERROR_CODE_INFER = @"ERR_INFER";
+static NSString *const ERROR_CODE_SESSION = @"ERR_SESSION";
 static NSString *const PARAM_IMAGES = @"images";
 static NSString *const PARAM_PROMPT = @"prompt";
 static NSString *const PARAM_MAX_TOP_K = @"maxTopK";
@@ -62,7 +63,9 @@ RCT_EXPORT_MODULE(Amaryllis)
       return;
     }
 
-    [self newSessionFromParams: newSession withError:&error];
+    MPPLLMInferenceSessionOptions *sessionOptions = [[MPPLLMInferenceSessionOptions alloc] init];
+    self.session = [[MPPLLMInferenceSession alloc] initWithLlmInference: self.llmInference
+                                                    options:sessionOptions error: error];
 
     if (error) {
       reject(@"ERR_INFER", @"unable to create session", error);
@@ -72,6 +75,29 @@ RCT_EXPORT_MODULE(Amaryllis)
     resolve(nil);
   } @catch (NSException *exception) {
     reject(ERROR_CODE_INFER, @"unable to configure", nil);
+  }
+}
+
+- (void) newSession: (NSDictionary *)params resolve:(nonnull RCTPromiseResolveBlock)resolve reject:(nonnull RCTPromiseRejectBlock)reject {
+  @try {
+    if (self.llmInference == nil) {
+      reject(ERROR_CODE_SESSION, @"please initialize the engine first", nil);
+      return;
+    }
+
+    MPPLLMInferenceSessionOptions *sessionOptions = [[MPPLLMInferenceSessionOptions alloc] init];
+    sessionOptions.topk = [params[PARAM_TOP_K] intValue];
+    sessionOptions.topp = [params[PARAM_TOP_P] floatValue];
+    sessionOptions.temperature = [params[PARAM_TEMPERATURE] floatValue];
+    sessionOptions.loraPath = params[PARAM_LORA_PATH];
+    sessionOptions.randomSeed = [params[PARAM_RANDOM_SEED] intValue];
+    sessionOptions.enableVisionModality = [params[PARAM_ENABLE_VISION] boolValue];
+
+    self.session = [[MPPLLMInferenceSession alloc] initWithLlmInference: self.llmInference
+                                                    options:sessionOptions error: error];
+    resolve(null);
+  } @catch (NSException *exception) {
+    reject(ERROR_CODE_SESSION, @"unable to create session", nil);
   }
 }
 
@@ -155,34 +181,6 @@ RCT_EXPORT_METHOD(cancelAsync) { }
   }
 }
 
-- (void) newSessionFromParams: (NSDictionary *)params withError: (NSError **)error {
-  MPPLLMInferenceSessionOptions *sessionOptions = [[MPPLLMInferenceSessionOptions alloc] init];
-  sessionOptions.topk = [params[PARAM_TOP_K] intValue];
-  sessionOptions.topp = [params[PARAM_TOP_P] floatValue];
-  sessionOptions.temperature = [params[PARAM_TEMPERATURE] floatValue];
-  sessionOptions.loraPath = params[PARAM_LORA_PATH];
-  sessionOptions.randomSeed = [params[PARAM_RANDOM_SEED] intValue];
-  sessionOptions.enableVisionModality = [params[PARAM_ENABLE_VISION] boolValue];
-
-  MPPLLMInferenceSession * session = [[MPPLLMInferenceSession alloc] initWithLlmInference: self.llmInference
-                                                  options:sessionOptions error: error];
-
-  if (error && *error) return;
-
-  [self updateSession: session fromParams: params withError:error];
-
-  if (error && *error) return;
-
-  self.session = session;
-}
-
-- (void) updateOrInitSessionFromParams:(NSDictionary *)params orNewSession: (NSDictionary *) newSession withError: (NSError **)error {
-  if (newSession || !self.session) {
-    [self newSessionFromParams: newSession withError:error];
-  }
-  [self updateSession: self.session fromParams: params withError:error];
-}
-
 - (CGImageRef)imageFromPath:(NSString *)path {
   UIImage *uiImage = [UIImage imageWithContentsOfFile:path];
   if (!uiImage)
@@ -206,6 +204,7 @@ RCT_EXPORT_METHOD(cancelAsync) { }
     @"EVENT_ON_ERROR": EVENT_ON_ERROR,
     // errors
     @"ERROR_CODE_INFER": ERROR_CODE_INFER,
+    @"ERROR_CODE_SESSION": ERROR_CODE_SESSION,
     // params
     @"PARAM_IMAGES": PARAM_IMAGES,
     @"PARAM_PROMPT": PARAM_PROMPT,

@@ -17,23 +17,20 @@ const llmEmitter = new NativeEventEmitter(LlmNative);
 export class LlmPipe implements LlmEngine {
   subscriptions: EmitterSubscription[] = [];
 
-  async init(
-    config: LlmEngineConfig,
-    newSession?: LlmSessionParams
-  ): Promise<void> {
-    await LlmNative.init(config, newSession);
+  async init(params: LlmEngineConfig): Promise<void> {
+    await LlmNative.init(params);
   }
 
-  async generate(
-    params: LlmRequestParams,
-    newSession?: LlmSessionParams
-  ): Promise<string> {
-    return await LlmNative.generateSync(params, newSession);
+  newSession(params: LlmSessionParams): Promise<void> {
+    return LlmNative.newSession(params);
+  }
+
+  async generate(params: LlmRequestParams): Promise<string> {
+    return await LlmNative.generateSync(params);
   }
 
   async generateAsync(
     params: LlmRequestParams,
-    newSession?: LlmSessionParams,
     callbacks?: LlmCallbacks
   ): Promise<void> {
     // Register streaming callbacks
@@ -41,7 +38,7 @@ export class LlmPipe implements LlmEngine {
       this.setupAsyncCallbacks(callbacks);
     }
 
-    return await LlmNative.generateAsync(params, newSession);
+    return await LlmNative.generateAsync(params);
   }
 
   close(): void {
