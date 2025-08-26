@@ -1,7 +1,7 @@
 package com.micrantha.amaryllis
 
-import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.Promise
+import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.module.annotations.ReactModule
@@ -47,7 +47,7 @@ class AmaryllisModule(private val reactContext: ReactApplicationContext) :
   @ReactMethod
   override fun newSession(params: ReadableMap?, promise: Promise) {
     try {
-      val inference = this.llmInference ?: throw IllegalStateException("sdk not configured")
+      val inference = this.llmInference ?: throw NotInitializedException()
 
       val sessionOptions = LlmInferenceSession.LlmInferenceSessionOptions.builder()
 
@@ -78,15 +78,14 @@ class AmaryllisModule(private val reactContext: ReactApplicationContext) :
     try {
       val llm = llmInference ?: throw NotInitializedException()
 
-      val prompt =
-        params.getString(PARAM_PROMPT) ?: throw IllegalArgumentException("prompt is required")
-
-      updateSessionQuery(params)
+      val prompt = params.validateAndGetPrompt()
 
       val result = if (session == null) {
+        params.validateNoSession()
         llm.generateResponse(prompt)
       } else {
-        session?.generateResponse()
+        this.session?.updateQueryFromParams(params)
+        this.session?.generateResponse()
       }
       promise.resolve(result)
     } catch (e: Throwable) {
@@ -99,10 +98,7 @@ class AmaryllisModule(private val reactContext: ReactApplicationContext) :
     try {
       val llm = llmInference ?: throw NotInitializedException()
 
-      val prompt =
-        params.getString(PARAM_PROMPT) ?: throw IllegalArgumentException("prompt is required")
-
-      updateSessionQuery(params)
+      val prompt = params.validateAndGetPrompt()
 
       val listener = ProgressListener<String> { partialResult, done ->
         if (done) {
@@ -113,9 +109,11 @@ class AmaryllisModule(private val reactContext: ReactApplicationContext) :
       }
 
       if (session == null) {
+        params.validateNoSession()
         llm.generateResponseAsync(prompt, listener)
       } else {
-        session?.generateResponseAsync(listener)
+        this.session?.updateQueryFromParams(params)
+        this.session?.generateResponseAsync(listener)
       }
       promise.resolve(null)
     } catch (e: Throwable) {
@@ -143,13 +141,24 @@ class AmaryllisModule(private val reactContext: ReactApplicationContext) :
       .emit(event, data)
   }
 
-  private fun updateSessionQuery(params: ReadableMap) {
-    session?.addQueryChunk(params.getString(PARAM_PROMPT) ?: "")
+  private fun LlmInferenceSession.updateQueryFromParams(params: ReadableMap): LlmInferenceSession {
+    addQueryChunk(params.getString(PARAM_PROMPT) ?: "")
     params.getArray(PARAM_IMAGES)?.run {
       preprocessImages(this).forEach {
-        session?.addImage(it)
+        addImage(it)
       }
     }
+    return this
+  }
+
+  private fun ReadableMap.validateNoSession() {
+    if (getArray(PARAM_IMAGES) != null) {
+      throw SessionRequiredException()
+    }
+  }
+
+  private fun ReadableMap.validateAndGetPrompt(): String {
+    return getString(PARAM_PROMPT) ?: throw IllegalArgumentException("prompt is required")
   }
 
   override fun getConstants() = mapOf(
@@ -207,4 +216,5 @@ class AmaryllisModule(private val reactContext: ReactApplicationContext) :
   }
 
   inner class NotInitializedException : Exception()
+  inner class SessionRequiredException : Exception()
 }
