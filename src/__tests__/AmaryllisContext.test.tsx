@@ -1,7 +1,6 @@
-import { render, act } from '@testing-library/react-native';
 import { Text, View } from 'react-native';
 import { LLMProvider, useLLMContext } from '../AmaryllisContext';
-import type { LlmEngine, LlmEngineConfig } from '../Types';
+import { mockPipe, config, render, act } from './test-utils';
 
 const TestConsumer = () => {
   const ctx = useLLMContext();
@@ -22,17 +21,6 @@ const TestConsumer = () => {
 };
 
 describe('LLMProvider', () => {
-  const config: LlmEngineConfig = { modelPath: 'foo' } as LlmEngineConfig;
-
-  const mockPipe = {
-    init: jest.fn(() => Promise.resolve()),
-    newSession: jest.fn(() => Promise.resolve()),
-    generate: jest.fn(() => Promise.resolve('result')),
-    generateAsync: jest.fn(() => Promise.resolve()),
-    close: jest.fn(),
-    cancelAsync: jest.fn(),
-  } as LlmEngine;
-
   beforeEach(() => {
     jest.clearAllMocks();
   });
