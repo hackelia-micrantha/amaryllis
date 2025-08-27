@@ -1,8 +1,3 @@
-import {
-  NativeModules,
-  NativeEventEmitter,
-  type EmitterSubscription,
-} from 'react-native';
 import type {
   LlmEngine,
   LlmEngineConfig,
@@ -10,52 +5,75 @@ import type {
   LlmCallbacks,
   LlmRequestParams,
 } from './Types';
+import type { Spec } from './NativeAmaryllis';
 
-const { Amaryllis: LlmNative } = NativeModules;
-const llmEmitter = new NativeEventEmitter(LlmNative);
+export type LlmNativeEngine = Spec & {
+  EVENT_ON_PARTIAL_RESULT: string;
+  EVENT_ON_FINAL_RESULT: string;
+  EVENT_ON_ERROR: string;
+};
+
+export interface LlmEventSubscription {
+  remove: () => void;
+}
+
+export interface LlmEventEmitter {
+  addListener(event: string, cb: (result: any) => void): LlmEventSubscription;
+}
+
+export interface LlmPipeParams {
+  nativeModule: LlmNativeEngine;
+  eventEmitter: LlmEventEmitter;
+}
 
 export class LlmPipe implements LlmEngine {
-  subscriptions: EmitterSubscription[] = [];
+  subscriptions: LlmEventSubscription[] = [];
+  llmEmitter: LlmEventEmitter;
+  llmNative: LlmNativeEngine;
+
+  constructor(params: LlmPipeParams) {
+    this.llmNative = params.nativeModule;
+    this.llmEmitter = params.eventEmitter;
+  }
 
   async init(params: LlmEngineConfig): Promise<void> {
-    await LlmNative.init(params);
+    await this.llmNative.init(params);
   }
 
   newSession(params: LlmSessionParams): Promise<void> {
-    return LlmNative.newSession(params);
+    return this.llmNative.newSession(params);
   }
 
   async generate(params: LlmRequestParams): Promise<string> {
-    return await LlmNative.generateSync(params);
+    return await this.llmNative.generate(params);
   }
 
   async generateAsync(
     params: LlmRequestParams,
     callbacks?: LlmCallbacks
   ): Promise<void> {
-    // Register streaming callbacks
     if (callbacks) {
       this.setupAsyncCallbacks(callbacks);
     }
 
-    return await LlmNative.generateAsync(params);
+    return await this.llmNative.generateAsync(params);
   }
 
   close(): void {
-    LlmNative.close();
+    this.llmNative.close();
     this.cancelAsync();
   }
 
   cancelAsync(): void {
-    LlmNative.cancelAsync();
+    this.llmNative.cancelAsync();
     this.subscriptions.forEach((sub) => sub.remove());
   }
 
   setupAsyncCallbacks(callbacks: LlmCallbacks): void {
     if (callbacks.onPartialResult) {
       this.subscriptions.push(
-        llmEmitter.addListener(
-          LlmNative.EVENT_ON_PARTIAL_RESULT,
+        this.llmEmitter.addListener(
+          this.llmNative.EVENT_ON_PARTIAL_RESULT,
           (result: string) => {
             callbacks.onPartialResult?.(result);
           }
@@ -65,8 +83,8 @@ export class LlmPipe implements LlmEngine {
 
     if (callbacks.onFinalResult) {
       this.subscriptions.push(
-        llmEmitter.addListener(
-          LlmNative.EVENT_ON_FINAL_RESULT,
+        this.llmEmitter.addListener(
+          this.llmNative.EVENT_ON_FINAL_RESULT,
           (result: string) => {
             callbacks.onFinalResult?.(result);
             this.cancelAsync();
@@ -76,13 +94,16 @@ export class LlmPipe implements LlmEngine {
     }
     if (callbacks.onError) {
       this.subscriptions.push(
-        llmEmitter.addListener(LlmNative.EVENT_ON_ERROR, (error: string) => {
-          callbacks.onError?.(new Error(error));
-          this.cancelAsync();
-        })
+        this.llmEmitter.addListener(
+          this.llmNative.EVENT_ON_ERROR,
+          (error: string) => {
+            callbacks.onError?.(new Error(error));
+            this.cancelAsync();
+          }
+        )
       );
     }
   }
 }
 
-export default new LlmPipe();
+export default LlmPipe;

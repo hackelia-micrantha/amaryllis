@@ -3,9 +3,9 @@ import type { LlmCallbacks, LlmRequestParams } from './Types';
 import { useLLMContext } from './AmaryllisContext';
 
 export const useInference = () => {
-  const { controller } = useLLMContext();
+  const { controller, error: contextError } = useLLMContext();
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<Error | null>(null);
+  const [error, setError] = useState<Error | undefined>(contextError);
   const [results, setResults] = useState<string[]>([]);
 
   const callbacks: LlmCallbacks = useMemo(
@@ -26,7 +26,7 @@ export const useInference = () => {
   const generate = useCallback(
     async (params: LlmRequestParams) => {
       setResults([]);
-      setError(null);
+      setError(undefined);
       setIsLoading(true);
 
       try {

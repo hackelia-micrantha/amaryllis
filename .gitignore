@@ -87,3 +87,7 @@ nitrogen/
 
 **/.env*
 !**/.env*.example
+
+GEMINI.md
+CLAUDE.md
+AGENTS.md

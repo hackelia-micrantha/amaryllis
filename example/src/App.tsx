@@ -6,7 +6,10 @@ const LLMPrompt = () => {
   const [prompt, setPrompt] = useState<string>('');
   const { results, generate, error, isLoading } = useInference();
 
-  const infer = useCallback(() => generate({ prompt }), [prompt, generate]);
+  const infer = useCallback(
+    async () => await generate({ prompt }),
+    [prompt, generate]
+  );
 
   return (
     <View style={styles.container}>

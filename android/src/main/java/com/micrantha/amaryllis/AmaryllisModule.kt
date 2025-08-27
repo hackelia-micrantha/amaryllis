@@ -37,8 +37,6 @@ class AmaryllisModule(private val reactContext: ReactApplicationContext) :
       .build()
 
     llmInference = LlmInference.createFromOptions(reactContext, taskOptions)
-    val sessionOptions = LlmInferenceSession.LlmInferenceSessionOptions.builder()
-    this.session = LlmInferenceSession.createFromOptions(llmInference!!, sessionOptions.build())
     promise.resolve(null)
   } catch (e: Throwable) {
     promise.reject(ERROR_CODE_INFER, "unable to configure", e)

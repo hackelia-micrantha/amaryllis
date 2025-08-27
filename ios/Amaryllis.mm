@@ -70,18 +70,6 @@ RCT_EXPORT_MODULE(Amaryllis)
       return;
     }
 
-    MPPLLMInferenceSessionOptions *sessionOptions =
-        [[MPPLLMInferenceSessionOptions alloc] init];
-    self.session =
-        [[MPPLLMInferenceSession alloc] initWithLlmInference:self.llmInference
-                                                     options:sessionOptions
-                                                       error:&error];
-
-    if (error) {
-      reject(@"ERR_INFER", @"unable to create session", error);
-      return;
-    }
-
     resolve(nil);
   } @catch (NSException *exception) {
     reject(ERROR_CODE_INFER, @"unable to configure", nil);
