@@ -1,30 +1,5 @@
-import { useState, useCallback } from 'react';
-import { Text, View, StyleSheet, TextInput, Button } from 'react-native';
-import { useInference, LLMProvider } from 'react-native-amaryllis';
-
-const LLMPrompt = () => {
-  const [prompt, setPrompt] = useState<string>('');
-  const { results, generate, error, isLoading } = useInference();
-
-  const infer = useCallback(
-    async () => await generate({ prompt }),
-    [prompt, generate]
-  );
-
-  return (
-    <View style={styles.container}>
-      <TextInput
-        value={prompt}
-        onChangeText={setPrompt}
-        placeholder="Enter prompt..."
-      />
-      <Button title="Prompt" onPress={infer} />
-      <Text>
-        Result: {error ? error.message : isLoading ? 'Loading...' : results}
-      </Text>
-    </View>
-  );
-};
+import { LLMProvider } from 'react-native-amaryllis';
+import { LLMPrompt } from './LLMPrompt';
 
 export default function App() {
   return (
@@ -42,11 +17,3 @@ export default function App() {
     </LLMProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
