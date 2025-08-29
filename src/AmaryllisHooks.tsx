@@ -1,12 +1,16 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import type { LlmCallbacks, LlmRequestParams } from './Types';
 import { useLLMContext } from './AmaryllisContext';
 
 export const useInference = () => {
   const { controller, error: contextError } = useLLMContext();
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<Error | undefined>(contextError);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<Error | undefined>(undefined);
   const [results, setResults] = useState<string[]>([]);
+
+  useEffect(() => {
+    setError(contextError);
+  }, [contextError]);
 
   const callbacks: LlmCallbacks = useMemo(
     () => ({
@@ -16,6 +20,7 @@ export const useInference = () => {
         setIsLoading(false);
       },
       onError: (err: Error) => {
+        console.error('Inference error:', err);
         setError(err);
         setIsLoading(false);
       },

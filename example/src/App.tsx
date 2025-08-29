@@ -5,12 +5,12 @@ export default function App() {
   return (
     <LLMProvider
       config={{
-        modelPath: '/data/local/tmp/llm/model_version.task',
+        modelPath: 'gemma3-1b-it-int4.task',
         maxTopK: 64,
         maxNumImages: 1,
         maxTokens: 512,
-        visionEncoderPath: '/data/local/tmp/llm/vision_encoder.model',
-        visionAdapterPath: '/data/local/tmp/llm/vision_adapter.model',
+        // visionEncoderPath: 'vision_encoder.task',
+        // visionAdapterPath: 'vision_adapter.task',
       }}
     >
       <LLMPrompt />

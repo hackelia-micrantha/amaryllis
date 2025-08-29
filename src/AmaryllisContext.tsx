@@ -41,21 +41,27 @@ export const LLMProvider = ({
 }: LLMProviderProps) => {
   const [error, setError] = useState<Error | undefined>();
   const [ready, setReady] = useState(false);
-  const controller = useMemo(() => llmPipe ?? newLlmPipe(), [llmPipe]);
-
-  useEffect(() => {
+  const controller = useMemo(() => {
     try {
-      controller
-        .init(config)
-        .then(() => {
-          setReady(true);
-        })
-        .catch((e) => setError(e));
+      return llmPipe ?? newLlmPipe();
     } catch (e: any) {
       setError(e);
+      return null;
     }
+  }, [llmPipe]);
 
-    return () => controller.close();
+  useEffect(() => {
+    const start = async () => {
+      try {
+        await controller?.init(config);
+        console.log('LLMProvider: Calling controller.init', controller);
+        setReady(true);
+      } catch (e: any) {
+        setError(e);
+      }
+    };
+    start();
+    return () => controller?.close();
   }, [config, controller]);
 
   return (
