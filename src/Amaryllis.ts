@@ -7,11 +7,11 @@ import type {
 } from './Types';
 import type { Spec } from './NativeAmaryllis';
 
-export type LlmNativeEngine = Spec & {
-  EVENT_ON_PARTIAL_RESULT: string;
-  EVENT_ON_FINAL_RESULT: string;
-  EVENT_ON_ERROR: string;
-};
+export type LlmNativeEngine = Spec;
+
+const EVENT_ON_PARTIAL_RESULT = 'onPartialResult';
+const EVENT_ON_FINAL_RESULT = 'onFinalResult';
+const EVENT_ON_ERROR = 'onError';
 
 export interface LlmEventSubscription {
   remove: () => void;
@@ -73,7 +73,7 @@ export class LlmPipe implements LlmEngine {
     if (callbacks.onPartialResult) {
       this.subscriptions.push(
         this.llmEmitter.addListener(
-          this.llmNative.EVENT_ON_PARTIAL_RESULT,
+          EVENT_ON_PARTIAL_RESULT,
           (result: string) => {
             callbacks.onPartialResult?.(result);
           }
@@ -83,24 +83,18 @@ export class LlmPipe implements LlmEngine {
 
     if (callbacks.onFinalResult) {
       this.subscriptions.push(
-        this.llmEmitter.addListener(
-          this.llmNative.EVENT_ON_FINAL_RESULT,
-          (result: string) => {
-            callbacks.onFinalResult?.(result);
-            this.cancelAsync();
-          }
-        )
+        this.llmEmitter.addListener(EVENT_ON_FINAL_RESULT, (result: string) => {
+          callbacks.onFinalResult?.(result);
+          this.cancelAsync();
+        })
       );
     }
     if (callbacks.onError) {
       this.subscriptions.push(
-        this.llmEmitter.addListener(
-          this.llmNative.EVENT_ON_ERROR,
-          (error: string) => {
-            callbacks.onError?.(new Error(error));
-            this.cancelAsync();
-          }
-        )
+        this.llmEmitter.addListener(EVENT_ON_ERROR, (error: string) => {
+          callbacks.onError?.(new Error(error));
+          this.cancelAsync();
+        })
       );
     }
   }

@@ -23,6 +23,11 @@ import com.micrantha.amaryllis.AmaryllisModule.Companion.PARAM_TOP_K
 import com.micrantha.amaryllis.AmaryllisModule.Companion.PARAM_TOP_P
 import com.micrantha.amaryllis.AmaryllisModule.Companion.PARAM_VISION_ADAPTER
 import com.micrantha.amaryllis.AmaryllisModule.Companion.PARAM_VISION_ENCODER
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
+import java.io.InputStream
+
 
 class Amaryllis {
 
@@ -30,11 +35,14 @@ class Amaryllis {
   private var session: LlmInferenceSession? = null
 
   fun init(context: Context, config: ReadableMap) {
+    val modelPath = config.getString(PARAM_MODEL_PATH) ?: throw InvalidModelPathException()
+
     val taskOptions = LlmInference.LlmInferenceOptions.builder()
-      .setModelPath(config.getString(PARAM_MODEL_PATH))
-      .setMaxTopK(config.getInt(PARAM_MAX_TOP_K))
-      .setMaxTokens(config.getInt(PARAM_MAX_TOKENS))
-      .setMaxNumImages(config.getInt(PARAM_MAX_NUM_IMAGES))
+      .setModelPath(copyAssetToDataDir(context, modelPath)).apply {
+        config.getInt(PARAM_MAX_TOP_K)?.let { setMaxTopK(it) }
+        config.getInt(PARAM_MAX_TOKENS)?.let { setMaxTokens(it) }
+        config.getInt(PARAM_MAX_NUM_IMAGES)?.let { setMaxNumImages(it) }
+      }
       .setVisionModelOptions(
         VisionModelOptions.builder().apply {
           config.getString(PARAM_VISION_ADAPTER)?.let {
@@ -137,6 +145,27 @@ class Amaryllis {
     return getString(PARAM_PROMPT) ?: throw IllegalArgumentException("prompt is required")
   }
 
+  @Throws(IOException::class)
+  fun copyAssetToDataDir(context: Context, assetName: String): String {
+    val outFile = File(context.filesDir, assetName) // or use getCacheDir() if preferred
+
+    if (!outFile.exists()) {
+      context.assets.open(assetName).use { `in` ->
+        FileOutputStream(outFile).use { out ->
+          val buffer = ByteArray(1024)
+          var read: Int
+          while ((`in`.read(buffer).also { read = it }) != -1) {
+            out.write(buffer, 0, read)
+          }
+        }
+      }
+    }
+
+    return outFile.getAbsolutePath() // ✅ Full path to use with MediaPipe
+  }
+
+
   inner class NotInitializedException : Exception()
   inner class SessionRequiredException : Exception()
+  inner class InvalidModelPathException : Exception()
 }

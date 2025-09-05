@@ -14,8 +14,10 @@ export const useInference = () => {
 
   const callbacks: LlmCallbacks = useMemo(
     () => ({
-      onPartial: (result: string) => setResults((prev) => [...prev, result]),
-      onFinal: (result: string) => {
+      onPartialResult: (result: string) => {
+        setResults((prev) => [...prev, result]);
+      },
+      onFinalResult: (result: string) => {
         setResults((prev) => [...prev, result]);
         setIsLoading(false);
       },
