@@ -20,7 +20,6 @@ export const useInference = () => {
         setIsLoading(false);
       },
       onError: (err: Error) => {
-        console.error('Inference error:', err);
         setError(err);
         setIsLoading(false);
       },

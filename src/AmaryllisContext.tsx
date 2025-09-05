@@ -54,7 +54,6 @@ export const LLMProvider = ({
     const start = async () => {
       try {
         await controller?.init(config);
-        console.log('LLMProvider: Calling controller.init', controller);
         setReady(true);
       } catch (e: any) {
         setError(e);
