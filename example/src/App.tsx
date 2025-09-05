@@ -1,5 +1,5 @@
 import { LLMProvider } from 'react-native-amaryllis';
-import { LLMPrompt } from './LLMPrompt';
+import { LLMStreamingPrompt } from './LLMStreamingPrompt';
 
 export default function App() {
   return (
@@ -13,7 +13,7 @@ export default function App() {
         // visionAdapterPath: 'vision_adapter.task',
       }}
     >
-      <LLMPrompt />
+      <LLMStreamingPrompt />
     </LLMProvider>
   );
 }
