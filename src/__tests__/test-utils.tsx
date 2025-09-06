@@ -6,8 +6,8 @@ import React from 'react';
 export const mockPipe: LlmEngine = {
   init: jest.fn(() => Promise.resolve()),
   newSession: jest.fn(() => Promise.resolve()),
-  generate: jest.fn(() => Promise.resolve('result')),
-  generateAsync: jest.fn(() => Promise.resolve()),
+  generate: jest.fn(() => Promise.resolve('test response')),
+  generateAsync: jest.fn(),
   close: jest.fn(),
   cancelAsync: jest.fn(),
 };

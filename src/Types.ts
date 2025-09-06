@@ -1,3 +1,8 @@
+import type { Spec } from './NativeAmaryllis';
+import type { Observable } from 'rxjs';
+
+export type LlmNativeEngine = Spec;
+
 export type LlmCallbacks = {
   // Async streaming callbacks
   onPartialResult?: (result: string) => void;
@@ -65,3 +70,46 @@ export type LlmEngine = {
 
   cancelAsync(): void;
 };
+
+export interface LlmEventSubscription {
+  remove: () => void;
+}
+
+export interface LlmEventEmitter {
+  addListener(event: string, cb: (result: any) => void): LlmEventSubscription;
+}
+
+export interface LlmPipeParams {
+  nativeModule: LlmNativeEngine;
+  eventEmitter: LlmEventEmitter;
+}
+
+export interface LLMContextValue {
+  config: LlmEngineConfig | null;
+  controller: LlmEngine | null;
+  error: Error | undefined;
+  isReady: boolean;
+}
+
+export interface LLMProviderProps {
+  config: LlmEngineConfig;
+  llmPipe?: LlmEngine;
+  children: React.ReactNode;
+}
+
+export type InferenceProps = {
+  onGenerate?: () => void;
+  onResult?: (result: string, isFinal: boolean) => void;
+  onError?: (error: Error) => void;
+  onComplete?: () => void;
+};
+
+export interface LLMResult {
+  text: string;
+  isFinal: boolean;
+}
+
+export interface LLMObservableResult {
+  callbacks: LlmCallbacks;
+  observable: Observable<LLMResult>;
+}
