@@ -1,12 +1,12 @@
 import { useCallback, useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useLLMContext } from 'react-native-amaryllis';
-import { usePromptState } from './State';
+import { usePromptContext } from './PromptContext';
 
 export const LLMHeader = () => {
   const { controller, isReady } = useLLMContext();
-  const state = usePromptState();
-  const { setResults, setIsBusy, setError } = state;
+  const { setResults, setIsBusy, setError, setPrompt, setImages } =
+    usePromptContext();
 
   const newSession = useCallback(() => {
     if (isReady) {
@@ -16,8 +16,18 @@ export const LLMHeader = () => {
       setResults([]);
       setIsBusy(false);
       setError(undefined);
+      setPrompt('');
+      setImages([]);
     }
-  }, [controller, isReady, setResults, setIsBusy, setError]);
+  }, [
+    controller,
+    isReady,
+    setResults,
+    setIsBusy,
+    setError,
+    setPrompt,
+    setImages,
+  ]);
 
   useEffect(() => {
     newSession();

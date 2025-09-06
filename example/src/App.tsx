@@ -1,7 +1,8 @@
 import { LLMProvider } from 'react-native-amaryllis';
-import { LLMChatPrompt } from './LLMChatPrompt';
+import { LLMChatPrompt } from './ChatPrompt';
 import { StyleSheet, View } from 'react-native';
-import { LLMHeader } from './LMMHeader';
+import { LLMHeader } from './Header';
+import { PromptProvider } from './PromptContext';
 
 export default function App() {
   return (
@@ -15,10 +16,12 @@ export default function App() {
         visionAdapterPath: 'mobilenet_v3_small.tflite',
       }}
     >
-      <View style={styles.container}>
-        <LLMHeader />
-        <LLMChatPrompt />
-      </View>
+      <PromptProvider>
+        <View style={styles.container}>
+          <LLMHeader />
+          <LLMChatPrompt />
+        </View>
+      </PromptProvider>
     </LLMProvider>
   );
 }

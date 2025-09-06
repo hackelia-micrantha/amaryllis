@@ -3,17 +3,11 @@ import type { LlmRequestParams, InferenceProps } from './Types';
 import { useLLMContext } from './AmaryllisContext';
 import { createLLMObservable } from './AmaryllisRx';
 
-export const useInferenceAsync = (props: InferenceProps) => {
-  const { controller, error } = useLLMContext();
+export const useInferenceAsync = (props: InferenceProps = {}) => {
+  const { controller } = useLLMContext();
   const { onResult, onGenerate, onError, onComplete } = props;
 
   const llm$ = useMemo(() => createLLMObservable(), []);
-
-  useEffect(() => {
-    if (error) {
-      onError?.(error);
-    }
-  }, [error, onError]);
 
   const generate = useCallback(
     async (params: LlmRequestParams) => {
