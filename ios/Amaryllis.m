@@ -88,15 +88,13 @@ static NSString *const ERR_NO_SESSION = @"new session required";
     }
 
     return [self.session generateResponseAndReturnError:error];
-  } else {
-    if (![self validateNoSession:params error:error]) {
-      return nil;
-    }
-
-    return
-        [self.llmInference generateResponseWithInputText:params[PARAM_PROMPT]
-                                                   error:error];
   }
+  
+  if (![self validateNoSession:params error:error]) {
+    return nil;
+  }
+
+  return [self.llmInference generateResponseWithInputText:params[PARAM_PROMPT] error:error];
 }
 
 - (void) generateAsyncWithParams: (NSDictionary *) params error: (NSError **) error response: (PartialResponseHandler) progress completion: (CompletionHandler) completion {

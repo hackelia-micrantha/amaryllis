@@ -95,11 +95,6 @@
     "example"
   ],
   "packageManager": "yarn@3.6.1",
-  "resolutions": {
-    "react": "19.1.0",
-    "react-native": "0.81.0",
-    "react-native-renderer": "19.1.0"
-  },
   "jest": {
     "preset": "react-native",
     "modulePathIgnorePatterns": [

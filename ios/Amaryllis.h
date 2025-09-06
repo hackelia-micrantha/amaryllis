@@ -23,6 +23,7 @@ typedef void (^CompletionHandler)(void);
 @end
 
 extern NSString *_Nonnull const AmaryllisErrorDomain;
+
 extern NSString *_Nonnull const PARAM_IMAGES;
 extern NSString *_Nonnull const PARAM_PROMPT;
 extern NSString *_Nonnull const PARAM_MAX_TOP_K;
