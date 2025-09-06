@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   Text,
   View,
@@ -7,7 +7,7 @@ import {
   StyleSheet,
   ScrollView,
 } from 'react-native';
-import { useInferenceAsync } from 'react-native-amaryllis';
+import { createLLMObservable, useLLMContext } from 'react-native-amaryllis';
 import {
   launchImageLibrary,
   type ImageLibraryOptions,
@@ -19,40 +19,54 @@ export const LLMChatPrompt = () => {
   const {
     prompt,
     setPrompt,
-    results,
-    setResults,
     images,
     setImages,
+    results,
+    setResults,
     isBusy,
     setIsBusy,
     error,
     setError,
   } = usePromptState();
-  const generate = useInferenceAsync({
-    onGenerate: () => {
-      inputTextRef.current?.setSelection(0, prompt.length);
-      setError(undefined);
-      setIsBusy(true);
-    },
-    onResult: (result, isFinal) => {
-      setResults((prev) => [...prev, result]);
-      if (isFinal) {
-        setIsBusy(false);
-      }
-    },
-    onError: (err) => {
-      setError(err);
-      setIsBusy(false);
-    },
-    onComplete: () => {
-      setIsBusy(false);
-    },
-  });
+  const { controller } = useLLMContext();
   const inputTextRef = useRef<TextInput>(null);
 
+  const llm$ = useMemo(() => createLLMObservable(), []);
+
   const infer = useCallback(async () => {
-    await generate({ prompt, images });
-  }, [generate, images, prompt]);
+    setError(undefined);
+    setResults([]);
+    setIsBusy(true);
+    inputTextRef.current?.setSelection(0, prompt.length);
+    console.log(images);
+    await controller?.generateAsync({ prompt, images }, llm$.callbacks);
+  }, [
+    setError,
+    setResults,
+    setIsBusy,
+    prompt,
+    images,
+    controller,
+    llm$.callbacks,
+  ]);
+
+  useEffect(() => {
+    const sub = llm$.observable.subscribe({
+      next: ({ text, isFinal }) => {
+        setResults((prev) => [...prev, text]);
+        if (isFinal) {
+          setIsBusy(false);
+        }
+      },
+      complete: () => {},
+      error: (err) => setError(err),
+    });
+
+    return () => {
+      sub.unsubscribe();
+      controller?.cancelAsync();
+    };
+  }, [llm$.observable, controller, setResults, setIsBusy, setError]);
 
   const selectImage = useCallback(() => {
     const options: ImageLibraryOptions = {

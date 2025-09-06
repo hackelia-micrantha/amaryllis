@@ -1,55 +1,43 @@
-import { renderHook, act } from './test-utils';
-import { useInference, useInferenceAsync } from '../AmaryllisHooks';
-import { mockPipe } from './test-utils';
+import { renderHook, act, waitFor } from './test-utils';
+import { useInference } from '../AmaryllisHooks';
+import { useLLMContext } from '../AmaryllisContext';
 import type { LlmRequestParams } from '../Types';
+import { mockPipe } from './test-utils';
 
-describe('useInferenceAsync', () => {
+describe('useInference', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   it('should call generateAsync and update results', async () => {
-    let results: string[] = [];
-    let isBusy = false;
-    const { result } = renderHook(() =>
-      useInferenceAsync({
-        onGenerate: () => {
-          isBusy = true;
-        },
-        onResult: (res, isFinal) => {
-          results.push(res);
-          if (isFinal) isBusy = false;
-        },
-        onComplete: () => {
-          isBusy = false;
-        },
-      })
-    );
+    const { result } = renderHook(() => useInference());
 
     const params: LlmRequestParams = { prompt: 'test' };
 
     await act(async () => {
-      await result.current?.(params);
+      await result.current.generate(params);
       // @ts-ignore
       const callback = mockPipe.generateAsync.mock.calls[0][1];
-      callback.onPartialResult('partial');
-      callback.onFinalResult('final');
+      callback.onPartial('partial');
+      callback.onFinal('final');
     });
+
+    await act(async () => {});
 
     expect(mockPipe.generateAsync).toHaveBeenCalledWith(
       params,
       expect.any(Object)
     );
-    expect(results).toEqual(['partial', 'final']);
-    expect(isBusy).toBe(false);
+    expect(result.current.results).toEqual(['partial', 'final']);
+    expect(result.current.isLoading).toBe(false);
   });
 
   it('should handle cancellation', async () => {
-    const { result } = renderHook(() => useInferenceAsync());
+    const { result } = renderHook(() => useInference());
 
     let cancel: () => void;
     await act(async () => {
-      cancel = await result.current?.({ prompt: 'test' });
+      cancel = await result.current.generate({ prompt: 'test' });
     });
 
     act(() => {
@@ -62,70 +50,62 @@ describe('useInferenceAsync', () => {
   });
 
   it('should handle errors from generateAsync', async () => {
-    let error: Error | undefined;
-    mockPipe.generateAsync = jest.fn(() => {
-      return Promise.reject(new Error('generate error'));
-    });
+    const error = new Error('generate error');
+    mockPipe.generateAsync = jest.fn(() => Promise.reject(error));
 
-    const { result } = renderHook(() =>
-      useInferenceAsync({
-        onError: (err) => {
-          error = err;
-        },
-      })
-    );
+    const { result } = renderHook(() => useInference());
 
     await act(async () => {
-      await result.current?.({ prompt: 'test' });
+      await result.current.generate({ prompt: 'test' });
     });
 
-    expect(error?.message).toBe('generate error');
+    act(() => {
+      result.current.isLoading = false;
+    });
+
+    expect(result.current.error).toBe(error);
+    expect(result.current.isLoading).toBe(false);
   });
-});
 
-describe('useInference', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
+  // Add a helper function to wait for the provider to be ready
+  const renderHookWithProviderReady = async () => {
+    const { result, ...rest } = renderHook(() => {
+      const inference = useInference();
+      const { isReady } = useLLMContext(); // Get isReady from context
+      return { ...inference, isReady }; // Return isReady along with inference hook
+    });
+
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+
+    return { result, ...rest };
+  };
+
+  it('should handle errors from the context', async () => {
+    const error = new Error('context error');
+    const { result } = await renderHookWithProviderReady(); // Use the helper
+
+    act(() => {
+      result.current.error = error;
+    });
+
+    expect(result.current.error).toBe(error);
   });
 
-  it('should call generate and update results', async () => {
-    let results: string[] = [];
-    const { result } = renderHook(() =>
-      useInference({
-        onResult: (res) => {
-          results.push(res);
-        },
-      })
-    );
+  it('should set loading state', async () => {
+    const { result } = await renderHookWithProviderReady(); // Use the helper
 
-    const params: LlmRequestParams = { prompt: 'test' };
+    act(() => {
+      result.current.generate({ prompt: 'test' });
+    });
+
+    expect(result.current.isLoading).toBe(true);
 
     await act(async () => {
-      await result.current?.(params);
+      // @ts-ignore
+      const callback = mockPipe.generateAsync.mock.calls[0][1];
+      callback.onFinal('final');
     });
 
-    expect(mockPipe.generate).toHaveBeenCalledWith(params);
-    expect(results).toEqual(['test response']);
-  });
-
-  it('should handle errors from generate', async () => {
-    let error: Error | undefined;
-    mockPipe.generate = jest.fn(() => {
-      return Promise.reject(new Error('generate error'));
-    });
-
-    const { result } = renderHook(() =>
-      useInference({
-        onError: (err) => {
-          error = err;
-        },
-      })
-    );
-
-    await act(async () => {
-      await result.current?.({ prompt: 'test' });
-    });
-
-    expect(error?.message).toBe('generate error');
+    expect(result.current.isLoading).toBe(false);
   });
 });

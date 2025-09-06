@@ -1,5 +1,15 @@
-import type { LlmCallbacks, LLMObservableResult, LLMResult } from './Types';
+import type { LlmCallbacks } from './Types';
 import { Observable, Subscriber } from 'rxjs';
+
+export interface LLMResult {
+  text: string;
+  isFinal: boolean;
+}
+
+export interface LLMObservableResult {
+  callbacks: LlmCallbacks;
+  observable: Observable<LLMResult>;
+}
 
 export function createLLMObservable(): LLMObservableResult {
   let subscriber: Subscriber<LLMResult>;

@@ -3,9 +3,8 @@ import type {
   LlmSessionParams,
   LlmRequestParams,
   LlmCallbacks,
-  LlmEventSubscription,
 } from '../Types';
-import { LlmPipe } from '../Amaryllis';
+import { LlmPipe, type LlmEventSubscription } from '../Amaryllis';
 
 let listeners: Record<string, (result: string) => void> = {};
 

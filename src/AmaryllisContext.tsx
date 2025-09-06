@@ -1,6 +1,19 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import type { LLMContextValue, LLMProviderProps } from './Types';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+import type { LlmEngine, LlmEngineConfig } from './Types';
 import { newLlmPipe } from './NativePipe';
+
+interface LLMContextValue {
+  config: LlmEngineConfig | null;
+  controller: LlmEngine | null;
+  error: Error | undefined;
+  isReady: boolean;
+}
 
 const LLMContext = createContext<LLMContextValue>({
   config: null,
@@ -10,6 +23,12 @@ const LLMContext = createContext<LLMContextValue>({
 });
 
 export const useLLMContext = () => useContext(LLMContext);
+
+interface LLMProviderProps {
+  config: LlmEngineConfig;
+  llmPipe?: LlmEngine;
+  children: React.ReactNode;
+}
 
 /**
  * Provides LLM configuration state to child components.

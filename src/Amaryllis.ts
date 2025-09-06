@@ -4,15 +4,27 @@ import type {
   LlmSessionParams,
   LlmCallbacks,
   LlmRequestParams,
-  LlmEventEmitter,
-  LlmEventSubscription,
-  LlmPipeParams,
-  LlmNativeEngine,
 } from './Types';
+import type { Spec } from './NativeAmaryllis';
+
+export type LlmNativeEngine = Spec;
 
 const EVENT_ON_PARTIAL_RESULT = 'onPartialResult';
 const EVENT_ON_FINAL_RESULT = 'onFinalResult';
 const EVENT_ON_ERROR = 'onError';
+
+export interface LlmEventSubscription {
+  remove: () => void;
+}
+
+export interface LlmEventEmitter {
+  addListener(event: string, cb: (result: any) => void): LlmEventSubscription;
+}
+
+export interface LlmPipeParams {
+  nativeModule: LlmNativeEngine;
+  eventEmitter: LlmEventEmitter;
+}
 
 export class LlmPipe implements LlmEngine {
   subscriptions: LlmEventSubscription[] = [];
