@@ -20,7 +20,7 @@ class AmaryllisPackage : BaseReactPackage() {
       val moduleInfos: MutableMap<String, ReactModuleInfo> = HashMap()
       moduleInfos[AmaryllisModule.NAME] = ReactModuleInfo(
         name = AmaryllisModule.NAME,
-        className =AmaryllisModule.NAME,
+        className = AmaryllisModule.NAME,
         canOverrideExistingModule = false,
         needsEagerInit = false,
         isCxxModule = false,

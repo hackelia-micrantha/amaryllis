@@ -21,6 +21,8 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
   override fun init(config: ReadableMap, promise: Promise): Unit = try {
     amaryllis.init(reactApplicationContext.applicationContext, config)
     promise.resolve(null)
+  } catch (e: Amaryllis.InvalidModelPathException) {
+    promise.reject(ERROR_CODE_INFER, "invalid model path", e)
   } catch (e: Throwable) {
     promise.reject(ERROR_CODE_INFER, "unable to configure", e)
   }
@@ -29,7 +31,11 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
   override fun newSession(params: ReadableMap?, promise: Promise) {
     try {
       amaryllis.newSession(params)
+    } catch (e: Amaryllis.NotInitializedException) {
+      Log.e(NAME, "sdk is not initialized", e)
+      promise.reject(ERROR_CODE_INFER, "sdk is not initialized", e)
     } catch (e: Throwable) {
+      Log.e(NAME, "unable to initialize session", e)
       promise.reject(ERROR_CODE_SESSION, "please initialize the sdk first", e)
     }
   }
@@ -39,7 +45,14 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
     try {
       val result = amaryllis.generate(params)
       promise.resolve(result)
+    } catch (e: Amaryllis.SessionRequiredException) {
+      Log.e(NAME, "session is required", e)
+      promise.reject(ERROR_CODE_SESSION, "session is required", e)
+    } catch (e: Amaryllis.NotInitializedException) {
+      Log.e(NAME, "sdk is not initialized", e)
+      promise.reject(ERROR_CODE_INFER, "sdk is not initialized", e)
     } catch (e: Throwable) {
+      Log.e(NAME, "unable to generate response", e)
       promise.reject(ERROR_CODE_INFER, "unable to generate response", e)
     }
   }
@@ -47,7 +60,7 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
   @ReactMethod
   override fun generateAsync(params: ReadableMap, promise: Promise) {
     try {
-      amaryllis.generateAsync(params){ partialResult, done ->
+      amaryllis.generateAsync(params) { partialResult, done ->
         if (done) {
           sendEvent(EVENT_ON_FINAL_RESULT, partialResult ?: "")
         } else {
@@ -55,7 +68,14 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
         }
       }
       promise.resolve(null)
+    } catch (e: Amaryllis.SessionRequiredException) {
+      Log.e(NAME, "session is required", e)
+      promise.reject(ERROR_CODE_SESSION, "session is required", e)
+    } catch (e: Amaryllis.NotInitializedException) {
+      Log.e(NAME, "sdk is not initialized", e)
+      promise.reject(ERROR_CODE_INFER, "sdk is not initialized", e)
     } catch (e: Throwable) {
+      Log.e(NAME, "unable to generate response", e)
       sendEvent(EVENT_ON_ERROR, "unable to generate response")
       promise.reject(ERROR_CODE_INFER, "unable to generate response", e)
     }
@@ -73,7 +93,7 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
   }
 
   @Override
-  fun addListener( eventName: String) {
+  fun addListener(eventName: String) {
     // No-op
   }
 
@@ -84,7 +104,7 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
 
   fun emitEvent(name: String, data: WritableMap) {
     reactApplicationContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
-        .emit(name, data);
+      .emit(name, data)
   }
 
   private fun sendEvent(event: String, data: String) {

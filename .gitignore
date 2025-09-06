@@ -40,6 +40,7 @@ project.xcworkspace
 .settings
 local.properties
 android.iml
+**/android/app/release
 
 # Cocoapods
 #
@@ -91,3 +92,7 @@ nitrogen/
 GEMINI.md
 CLAUDE.md
 AGENTS.md
+
+# Model downloads
+example/models/*
+!example/models/download.sh

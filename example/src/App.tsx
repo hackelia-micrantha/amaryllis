@@ -1,19 +1,38 @@
 import { LLMProvider } from 'react-native-amaryllis';
-import { LLMStreamingPrompt } from './LLMStreamingPrompt';
+import { LLMChatPrompt } from './LLMChatPrompt';
+import { StyleSheet, View } from 'react-native';
+import { LLMHeader } from './LMMHeader';
 
 export default function App() {
   return (
     <LLMProvider
       config={{
         modelPath: 'gemma3-1b-it-int4.task',
-        maxTopK: 64,
-        maxNumImages: 1,
+        maxTopK: 32,
+        maxNumImages: 2,
         maxTokens: 512,
-        // visionEncoderPath: 'vision_encoder.task',
-        // visionAdapterPath: 'vision_adapter.task',
+        visionEncoderPath: 'mobilenet_v3_small.tflite',
+        visionAdapterPath: 'mobilenet_v3_small.tflite',
       }}
     >
-      <LLMStreamingPrompt />
+      <View style={styles.container}>
+        <LLMHeader />
+        <LLMChatPrompt />
+      </View>
     </LLMProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    backgroundColor: '#f0f0f0',
+    padding: 10,
+  },
+});

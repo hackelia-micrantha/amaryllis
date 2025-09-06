@@ -1,10 +1,9 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
-type hf >/dev/null
+# Redirect to Gemma3-1B-IT INT4 .task file (Hugging Face)
+echo "🔗 Opening Gemma3-1B-IT INT4 task file page..."
+xdg-open "https://huggingface.co/litert-community/Gemma3-1B-IT/tree/main" || open "https://huggingface.co/litert-community/Gemma3-1B-IT/tree/main"
 
-if [ $? -ne 0 ]; then
-  echo "Please install huggingface_hub"
-  exit 1
-fi
-
-hf download litert-community/Gemma3-1B-IT gemma3-1b-it-int4.task
+# Redirect to MobileNetV3-Small .tflite model (TensorFlow Hub)
+echo "🔗 Opening MobileNetV3-Small TFLite model page..."
+xdg-open "https://tfhub.dev/google/lite-model/mobilenet_v3_small_100_224/classification/5" || open "https://tfhub.dev/google/lite-model/mobilenet_v3_small_100_224/classification/5"

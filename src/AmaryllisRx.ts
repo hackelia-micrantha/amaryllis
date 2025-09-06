@@ -1,27 +1,29 @@
 import type { LlmCallbacks } from './Types';
 import { Observable, Subscriber } from 'rxjs';
 
+export interface LLMResult {
+  text: string;
+  isFinal: boolean;
+}
+
 export interface LLMObservableResult {
   callbacks: LlmCallbacks;
-  observable: Observable<string>;
+  observable: Observable<LLMResult>;
 }
 
 export function createLLMObservable(): LLMObservableResult {
-  let subscriber: Subscriber<string>;
+  let subscriber: Subscriber<LLMResult>;
 
-  const observable = new Observable<string>((sub) => {
+  const observable = new Observable<LLMResult>((sub) => {
     subscriber = sub;
   });
 
   const callbacks: LlmCallbacks = {
     onPartialResult: (partial) => {
-      subscriber?.next(partial);
+      subscriber?.next({ text: partial, isFinal: false });
     },
     onFinalResult: (final) => {
-      if (final) {
-        subscriber?.next(final);
-      }
-      subscriber?.complete();
+      subscriber?.next({ text: final, isFinal: true });
     },
     onError: (error) => {
       subscriber?.error(error);

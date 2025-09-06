@@ -24,7 +24,9 @@
     "@react-native/metro-config": "0.81.0",
     "@react-native/typescript-config": "0.81.0",
     "@types/react": "^19.1.11",
+    "jotai": "^2.13.1",
     "react-native-builder-bob": "^0.40.13",
+    "react-native-image-picker": "^8.2.1",
     "react-native-monorepo-config": "^0.1.9"
   },
   "engines": {
