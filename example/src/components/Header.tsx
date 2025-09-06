@@ -1,9 +1,9 @@
 import { useCallback, useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useLLMContext } from 'react-native-amaryllis';
-import { usePromptContext } from './PromptContext';
+import { usePromptContext } from '../PromptContext';
 
-export const LLMHeader = () => {
+export const Header = () => {
   const { controller, isReady } = useLLMContext();
   const { setResults, setIsBusy, setError, setPrompt, setImages } =
     usePromptContext();

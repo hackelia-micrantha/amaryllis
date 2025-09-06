@@ -1,7 +1,6 @@
 import { LLMProvider } from 'react-native-amaryllis';
-import { LLMChatPrompt } from './ChatPrompt';
-import { StyleSheet, View } from 'react-native';
-import { LLMHeader } from './Header';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Chat } from './components';
 import { PromptProvider } from './PromptContext';
 
 export default function App() {
@@ -17,25 +16,10 @@ export default function App() {
       }}
     >
       <PromptProvider>
-        <View style={styles.container}>
-          <LLMHeader />
-          <LLMChatPrompt />
-        </View>
+        <SafeAreaProvider>
+          <Chat />
+        </SafeAreaProvider>
       </PromptProvider>
     </LLMProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    backgroundColor: '#f0f0f0',
-    padding: 10,
-  },
-});

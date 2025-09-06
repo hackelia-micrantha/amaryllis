@@ -2,10 +2,12 @@ import { useCallback, useRef, useMemo } from 'react';
 import {
   Text,
   View,
+  KeyboardAvoidingView,
   TextInput,
   Pressable,
   StyleSheet,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { useInferenceAsync, type InferenceProps } from 'react-native-amaryllis';
 import {
@@ -13,9 +15,9 @@ import {
   type ImageLibraryOptions,
   type ImagePickerResponse,
 } from 'react-native-image-picker';
-import { usePromptContext } from './PromptContext';
+import { usePromptContext } from '../PromptContext';
 
-export const LLMChatPrompt = () => {
+export const ChatPrompt = () => {
   const inputTextRef = useRef<TextInput>(null);
 
   const {
@@ -90,31 +92,37 @@ export const LLMChatPrompt = () => {
 
       <Text style={styles.errorText}>{error?.message}</Text>
 
-      <View style={styles.inputContainer}>
-        <TextInput
-          ref={inputTextRef}
-          style={styles.input}
-          value={prompt}
-          onChangeText={setPrompt}
-          placeholder="Enter prompt..."
-        />
+      <KeyboardAvoidingView
+        style={styles.keyboardContainer}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 44 : 0}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <View style={styles.inputContainer}>
+          <TextInput
+            ref={inputTextRef}
+            style={styles.input}
+            value={prompt}
+            onChangeText={setPrompt}
+            placeholder="Enter prompt..."
+          />
 
-        <Pressable
-          disabled={isBusy}
-          style={styles.iconButton}
-          onPress={onInference}
-        >
-          <Text style={styles.icon}>{isBusy ? '⏳' : '➤'}</Text>
-        </Pressable>
+          <Pressable
+            disabled={isBusy}
+            style={styles.iconButton}
+            onPress={onInference}
+          >
+            <Text style={styles.icon}>{isBusy ? '⏳' : '➤'}</Text>
+          </Pressable>
 
-        <Pressable
-          disabled={isBusy}
-          style={styles.iconButton}
-          onPress={onSelectImage}
-        >
-          <Text style={styles.icon}>📷</Text>
-        </Pressable>
-      </View>
+          <Pressable
+            disabled={isBusy}
+            style={styles.iconButton}
+            onPress={onSelectImage}
+          >
+            <Text style={styles.icon}>📷</Text>
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
       <View style={styles.imageContainer}>
         {images.length > 0 && (
           <Text style={styles.imageText}>
@@ -151,6 +159,10 @@ const styles = StyleSheet.create({
     color: '#333',
   },
 
+  keyboardContainer: {
+    flex: 1,
+  },
+
   iconButton: {
     padding: 8,
     marginLeft: 8,
@@ -184,6 +196,7 @@ const styles = StyleSheet.create({
   },
 
   inputContainer: {
+    justifyContent: 'flex-end',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8, // RN 0.71+ supports gap
