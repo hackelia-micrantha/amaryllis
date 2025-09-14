@@ -2,8 +2,7 @@
 
 ![amaryllis](docs/amaryllis-128.png)
 
-[![npm version](https://img.shields.io/npm/v/react-native-amaryllis.svg)](https://www.npmjs.com/package/react-native-amaryllis)
-[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![npm version](https://img.shields.io/npm/v/react-native-amaryllis.svg)](https://www.npmjs.com/package/react-native-amaryllis) [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 > **Amaryllis Hippeastrum**: Symbolizes hope and emergence, blooming even in tough conditions.
 
@@ -33,103 +32,158 @@ yarn add react-native-amaryllis
 
 ## 🛠️ Usage
 
-### Basic Setup
-
-```js
-import { Amaryllis } from 'react-native-amaryllis';
-
-await Amaryllis.init({
-  modelPath: '/path/to/model.on/device', // gen model
-  visionEncoderPath: '/path/to/visual.model', // vision encoder
-  visionAdapterPath: '/path/to/visual.adapter', // vision model
-  maxTopK: 10, // limit to top results
-  maxTokens: 1024, // limit tokens
-  maxNumImages: 5, // limit images
-);
-```
-
-### Start a new session (new chat)
-
-```js
-  newSession: { // set to start a new session
-    enableVisionModality: true, // use vision models
-    randomSeed: 123432,
-    loraPath: '/path/to/model/weights',
-    topK: 40,
-    topP: 0.75,
-    temperature: 0.999
-  }
-});
-```
-
-### Generate Response
-
-```js
-const result = await Amaryllis.generate({
-  prompt: 'Your prompt here',
-  images: ['file:///path/to/image'],
-});
-```
-
-### Streaming Response
-
-```js
-Amaryllis.generateAsync({
-  prompt: 'Your prompt here',
-  images: ['file:///path/to/image'],
-  callbacks: {
-    onPartialResult: (partial) => { /* handle partial */ },
-    onFinalResult: (final) => { /* handle final */ },
-    onError: (err) => { /* handle error */ },
-  },
-});
-```
-
-### Cleanup
-
-```js
-Amaryllis.close();
-Amaryllis.cancelAsync();
-```
-
----
-
-## ⚛️ React Hooks
-
 ### Provider Setup
+
+Wrap your application with `LLMProvider` and provide the necessary model paths. The models should be downloaded to the device.
 
 ```tsx
 import { LLMProvider } from 'react-native-amaryllis';
 
-<LLMProvider config={{
-  modelPath: '/data/tmp/models/gemma3',
-  // .. other init args
-}}>
-  {/* children */}
+<LLMProvider
+  config={{
+    modelPath: 'gemma3-1b-it-int4.task',
+    visionEncoderPath: 'mobilenet_v3_small.tflite',
+    visionAdapterPath: 'mobilenet_v3_small.tflite',
+    maxTopK: 32,
+    maxNumImages: 2,
+    maxTokens: 512,
+  }}
+>
+  {/* Your app components */}
 </LLMProvider>
+```
+
+You can access the LLM controller with a hook. See **Core API**.
+
+```tsx
+const {
+  config, // original config param
+  controller, // native controller
+  error, // any error
+  isReady, // is controller initialized
+} = useLLMContext();
 ```
 
 ### Inference Hook
 
+Use the `useInference` hook to access the LLM's capabilities.
+
 ```tsx
 import { useInference } from 'react-native-amaryllis';
+import { useCallback, useState } from 'react';
+import { View, TextInput, Button, Text } from 'react-native';
 
 const LLMPrompt = () => {
   const [prompt, setPrompt] = useState('');
-  const { results, generate, error, isLoading } = useInference();
+  const [results, setResults] = useState([]);
+  const [images, setImages] = useState([]);
+  const [error, setError] = useState(undefined);
+  const [isBusy, setIsBusy] = useState(false);
 
-  const infer = useCallback(() => generate({ prompt }), [prompt, generate]);
+  const { result, generate, error, isLoading } = useInference({
+    onGenerate: () => {
+      setError(undefined);
+      setIsBusy(true);
+    },
+    onResult: (result, isFinal) => {
+      setResults((prev) => [...prev, result]);
+      if (isFinal) {
+        setIsBusy(false);
+      }
+    },
+    onError: (err) => setError(err)
+  });
+
+  const infer = useCallback(() => {
+    generate({ prompt, images });
+  }, [prompt, generate]);
 
   return (
     <View>
-      <TextInput value={prompt} onChangeText={setPrompt} placeholder="Enter prompt..." />
-      <Button title="Prompt" onPress={infer} />
+      <TextInput
+        value={prompt}
+        onChangeText={setPrompt}
+        placeholder="Enter prompt..."
+      />
+      <Button title="Generate" onPress={infer} />
       <Text>
-        {error ? error.message : isLoading ? 'Loading...' : results.join('\n')}
+        {error ? error.message : results.join('\n')}
       </Text>
+      {/* image controls */}
     </View>
   );
 };
+```
+
+Substitute the `useInferenceAsync` hook to stream the results.
+
+### Core API
+
+For more advanced use cases, you can use the core `Amaryllis` API directly.
+This is the same controller passed from `useLLMContext`.
+
+#### Initialization
+
+```javascript
+import { Amaryllis } from 'react-native-amaryllis';
+
+const amaryllis = new Amaryllis();
+
+await amaryllis.init({
+  modelPath: '/path/to/your/model.task',
+  visionEncoderPath: '/path/to/vision/encoder.tflite',
+  visionAdapterPath: '/path/to/vision/adapter.tflite',
+});
+```
+
+A session is required for working with images.
+
+```javascript
+await amaryllis.newSession({
+  topK: 40, // only top results
+  topP: 0.95, // only top percentage match
+  temperature: 0.8,
+  randomSeed: 0, // for reproducing
+  loraPath: "", // LoRA customization (GPU only)
+  enableVisionModality: true // for vision
+})
+```
+
+#### Generate Response
+
+```javascript
+const result = await amaryllis.generate({
+  prompt: 'Your prompt here',
+  images: ['file:///path/to/image.png'],
+});
+```
+
+#### Streaming Response
+
+```javascript
+amaryllis.generateAsync(
+  {
+    prompt: 'Your prompt here',
+    images: ['file:///path/to/image.png'],
+  },
+  {
+    onPartialResult: (partial) => {
+      console.log('Partial result:', partial);
+    },
+    onFinalResult: (final) => {
+      console.log('Final result:', final);
+    },
+    onError: (err) => {
+      console.error('Error:', err);
+    },
+  }
+);
+```
+
+You can cancel an async generate if needed.
+
+```javascript
+amaryllis.cancelAsync();
 ```
 
 ---
@@ -138,6 +192,7 @@ const LLMPrompt = () => {
 
 - [API Reference](src/Types.ts)
 - [Example App](example/)
+- [Demo Video](docs/demo.mp4)
 - [Development workflow](CONTRIBUTING.md)
 - [Code of Conduct](CODE_OF_CONDUCT.md)
 

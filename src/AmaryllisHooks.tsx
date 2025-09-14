@@ -1,52 +1,78 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
-import type { LlmCallbacks, LlmRequestParams } from './Types';
+import { useCallback, useMemo, useEffect } from 'react';
+import type { LlmRequestParams, InferenceProps } from './Types';
 import { useLLMContext } from './AmaryllisContext';
+import { createLLMObservable } from './AmaryllisRx';
 
-export const useInference = () => {
-  const { controller, error: contextError } = useLLMContext();
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<Error | undefined>(undefined);
-  const [results, setResults] = useState<string[]>([]);
+export const useInferenceAsync = (props: InferenceProps = {}) => {
+  const { controller } = useLLMContext();
+  const { onResult, onGenerate, onError, onComplete } = props;
 
-  useEffect(() => {
-    setError(contextError);
-  }, [contextError]);
-
-  const callbacks: LlmCallbacks = useMemo(
-    () => ({
-      onPartialResult: (result: string) => {
-        setResults((prev) => [...prev, result]);
-      },
-      onFinalResult: (result: string) => {
-        setResults((prev) => [...prev, result]);
-        setIsLoading(false);
-      },
-      onError: (err: Error) => {
-        setError(err);
-        setIsLoading(false);
-      },
-    }),
-    []
-  );
+  const llm$ = useMemo(() => createLLMObservable(), []);
 
   const generate = useCallback(
     async (params: LlmRequestParams) => {
-      setResults([]);
-      setError(undefined);
-      setIsLoading(true);
-
       try {
-        await controller?.generateAsync(params, callbacks);
+        onGenerate?.();
+        await controller?.generateAsync(params, llm$.callbacks);
       } catch (err) {
-        setError(
+        onError?.(
+          err instanceof Error ? err : new Error('An unknown error occurred')
+        );
+      }
+      return () => {
+        controller?.cancelAsync();
+        onComplete?.();
+      };
+    },
+    [controller, llm$.callbacks, onComplete, onGenerate, onError]
+  );
+
+  useEffect(() => {
+    const sub = llm$.observable.subscribe({
+      next: ({ text, isFinal }) => {
+        onResult?.(text, isFinal);
+      },
+      complete: () => onComplete?.(),
+      error: (err) => onError?.(err),
+    });
+
+    return () => {
+      sub.unsubscribe();
+      controller?.cancelAsync();
+    };
+  }, [llm$.observable, controller, onResult, onComplete, onError]);
+  return generate;
+};
+
+export const useInference = (props: InferenceProps = {}) => {
+  const { controller, error: contextError } = useLLMContext();
+  const { onResult, onError, onGenerate, onComplete } = props;
+
+  useEffect(() => {
+    if (contextError) {
+      onError?.(contextError);
+    }
+  }, [contextError, onError]);
+
+  const generate = useCallback(
+    async (params: LlmRequestParams) => {
+      try {
+        onGenerate?.();
+        const response = await controller?.generate(params);
+        onResult?.(response ?? '', true);
+      } catch (err) {
+        onError?.(
           err instanceof Error ? err : new Error('An unknown error occurred')
         );
       }
 
-      return () => controller?.cancelAsync();
+      return () => {
+        controller?.cancelAsync();
+        onComplete?.();
+      };
     },
-    [callbacks, controller]
+    [onGenerate, controller, onResult, onError, onComplete]
   );
 
-  return { results, generate, isLoading, error };
+  return generate;
 };
