@@ -2613,6 +2613,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@kesha-antonov/react-native-background-downloader@npm:^3.2.6":
+  version: 3.2.6
+  resolution: "@kesha-antonov/react-native-background-downloader@npm:3.2.6"
+  peerDependencies:
+    react-native: ">=0.57.0"
+  checksum: 954128d26c297bce94c4b9c9991120ed72b2cf268413e5ae9ef27b33924774c036b814bf99548ecf7269d8d9fa246bd852d624a1b9115d9058a6b47f5bb52432
+  languageName: node
+  linkType: hard
+
 "@napi-rs/wasm-runtime@npm:^0.2.11":
   version: 0.2.12
   resolution: "@napi-rs/wasm-runtime@npm:0.2.12"
@@ -10402,7 +10411,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prop-types@npm:^15.8.1":
+"prop-types@npm:^15.7.2, prop-types@npm:^15.8.1":
   version: 15.8.1
   resolution: "prop-types@npm:15.8.1"
   dependencies:
@@ -10559,6 +10568,7 @@ __metadata:
     "@babel/core": ^7.28.4
     "@babel/preset-env": ^7.28.3
     "@babel/runtime": ^7.28.4
+    "@kesha-antonov/react-native-background-downloader": ^3.2.6
     "@react-native-community/cli": 20.0.1
     "@react-native-community/cli-platform-android": 20.0.1
     "@react-native-community/cli-platform-ios": 20.0.1
@@ -10572,6 +10582,7 @@ __metadata:
     react-native-builder-bob: ^0.40.13
     react-native-image-picker: ^8.2.1
     react-native-monorepo-config: ^0.1.9
+    react-native-progress: ^5.0.1
     react-native-safe-area-context: ^5.6.1
   languageName: unknown
   linkType: soft
@@ -10661,6 +10672,17 @@ __metadata:
     escape-string-regexp: ^5.0.0
     fast-glob: ^3.3.3
   checksum: 6356c362c517c49e17d54ee764c3566ba71491fa0d755618ecf2ca548348668e84fe448c24066645983acbc2bd4c0ed47594f9b3ec9dcc0558c0fd9594d2391e
+  languageName: node
+  linkType: hard
+
+"react-native-progress@npm:^5.0.1":
+  version: 5.0.1
+  resolution: "react-native-progress@npm:5.0.1"
+  dependencies:
+    prop-types: ^15.7.2
+  peerDependencies:
+    react-native-svg: "*"
+  checksum: fc9b68f1ca381b011859f8900c89595d62461cfa5b4faf65527639e8d8247d494cc75d5eb86e6dd393bca8dec18996b451775670d7ef2ae70247fa4079c9a8cf
   languageName: node
   linkType: hard
 

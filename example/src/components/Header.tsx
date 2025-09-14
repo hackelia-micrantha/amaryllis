@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { TouchableHighlight, StyleSheet, Text, View } from 'react-native';
 import { useLLMContext } from 'react-native-amaryllis';
 import { usePromptContext } from '../PromptContext';
 
@@ -30,15 +30,17 @@ export const Header = () => {
   ]);
 
   useEffect(() => {
-    newSession();
-  }, [newSession]);
+    if (isReady) {
+      newSession();
+    }
+  }, [newSession, isReady]);
 
   return (
     <View style={styles.header}>
       <Text style={styles.title}>Amaryllis Chat</Text>
-      <Pressable onPress={newSession} style={styles.iconButton}>
+      <TouchableHighlight onPress={newSession} style={styles.iconButton}>
         <Text style={styles.icon}>➕</Text>
-      </Pressable>
+      </TouchableHighlight>
     </View>
   );
 };

@@ -40,9 +40,9 @@ static NSString *const ERR_NO_SESSION = @"new session required";
 @implementation Amaryllis
 
 - (void) initWithParams: (NSDictionary*) params error: (NSError**) error {
-  
+
   NSString *modelPath = params[PARAM_MODEL_PATH];
-  
+
   MPPLLMInferenceOptions *taskOptions = [[MPPLLMInferenceOptions alloc]
                                          initWithModelPath:modelPath];
   taskOptions.maxTopk = [params[PARAM_MAX_TOP_K] intValue];
@@ -50,7 +50,9 @@ static NSString *const ERR_NO_SESSION = @"new session required";
   taskOptions.maxImages = [params[PARAM_MAX_NUM_IMAGES] intValue];
   taskOptions.visionAdapterPath = params[PARAM_VISION_ADAPTER];
   taskOptions.visionEncoderPath = params[PARAM_VISION_ENCODER];
-  
+
+  NSLog(@"Initializing llm inference")
+
   self.llmInference = [[MPPLLMInference alloc] initWithOptions:taskOptions
                                                          error:error];
 }
@@ -70,6 +72,8 @@ static NSString *const ERR_NO_SESSION = @"new session required";
   sessionOptions.enableVisionModality =
       [params[PARAM_ENABLE_VISION] boolValue];
 
+  NSLog(@"starting new session")
+
   self.session =
       [[MPPLLMInferenceSession alloc] initWithLlmInference:self.llmInference
                                                    options:sessionOptions
@@ -77,7 +81,7 @@ static NSString *const ERR_NO_SESSION = @"new session required";
 }
 
 - (NSString *) generateWithParams: (NSDictionary *) params error: (NSError **) error {
-  
+
   if (![self validateInitialized:error]) {
     return nil;
   }
@@ -89,7 +93,7 @@ static NSString *const ERR_NO_SESSION = @"new session required";
 
     return [self.session generateResponseAndReturnError:error];
   }
-  
+
   if (![self validateNoSession:params error:error]) {
     return nil;
   }
@@ -98,7 +102,7 @@ static NSString *const ERR_NO_SESSION = @"new session required";
 }
 
 - (void) generateAsyncWithParams: (NSDictionary *) params error: (NSError **) error response: (PartialResponseHandler) progress completion: (CompletionHandler) completion {
-  
+
   if (![self validateInitialized:error]) {
     return;
   }
@@ -118,7 +122,7 @@ static NSString *const ERR_NO_SESSION = @"new session required";
     if (![self validateNoSession:params error:error]) {
       return;
     }
-    
+
     [self.llmInference generateResponseAsyncWithInputText:params[PARAM_PROMPT]
                                                     error:error
                                                  progress:progress
@@ -144,7 +148,7 @@ static NSString *const ERR_NO_SESSION = @"new session required";
   }
 
   [self.session addQueryChunkWithInputText:prompt error:error];
-  
+
   if (error) return NO;
 
   if (images) {

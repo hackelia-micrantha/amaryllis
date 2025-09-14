@@ -95,5 +95,4 @@ CLAUDE.md
 AGENTS.md
 
 # Model downloads
-example/models/*
-!example/models/download.sh
+example/assets/models/*

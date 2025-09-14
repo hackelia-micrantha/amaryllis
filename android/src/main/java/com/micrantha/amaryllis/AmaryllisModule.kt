@@ -102,11 +102,6 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
     // No-op
   }
 
-  fun emitEvent(name: String, data: WritableMap) {
-    reactApplicationContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
-      .emit(name, data)
-  }
-
   private fun sendEvent(event: String, data: String) {
     Log.d(NAME, "sending event $event")
     reactApplicationContext
