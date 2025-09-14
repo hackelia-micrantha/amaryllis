@@ -51,7 +51,7 @@ static NSString *const ERR_NO_SESSION = @"new session required";
   taskOptions.visionAdapterPath = params[PARAM_VISION_ADAPTER];
   taskOptions.visionEncoderPath = params[PARAM_VISION_ENCODER];
 
-  NSLog(@"Initializing llm inference")
+  NSLog(@"Initializing llm inference");
 
   self.llmInference = [[MPPLLMInference alloc] initWithOptions:taskOptions
                                                          error:error];
@@ -72,7 +72,7 @@ static NSString *const ERR_NO_SESSION = @"new session required";
   sessionOptions.enableVisionModality =
       [params[PARAM_ENABLE_VISION] boolValue];
 
-  NSLog(@"starting new session")
+  NSLog(@"starting new session");
 
   self.session =
       [[MPPLLMInferenceSession alloc] initWithLlmInference:self.llmInference
