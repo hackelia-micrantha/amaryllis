@@ -37,6 +37,7 @@ export const LLMProvider = ({
         await controller?.init(config);
         setReady(true);
       } catch (e: any) {
+        console.error('unable to start amaryllis', e);
         setError(e);
       }
     };

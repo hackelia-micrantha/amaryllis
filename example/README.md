@@ -49,8 +49,8 @@ yarn example ios
 
 The main application code can be found in `src/App.tsx`. This file contains the primary UI and logic for interacting with the Amaryllis library.
 
-`src/LLMChatPrompt.tsx` displays the chat text and input controls
+`src/ChatPrompt.tsx` displays the chat text and input controls
 
-`src/LLMHeader.tsx` displays the header and controls to create a new session
+`src/Header.tsx` displays the header and controls to create a new session
 
-`src/State.ts` holds shared state for the components
+`src/PromptContext.ts` holds shared state for the components

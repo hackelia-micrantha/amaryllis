@@ -1,38 +1,23 @@
 import { LLMProvider } from 'react-native-amaryllis';
-import { LLMChatPrompt } from './LLMChatPrompt';
-import { StyleSheet, View } from 'react-native';
-import { LLMHeader } from './LMMHeader';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Chat } from './components';
+import { PromptProvider } from './PromptContext';
+import DL from '@kesha-antonov/react-native-background-downloader';
 
 export default function App() {
   return (
     <LLMProvider
       config={{
-        modelPath: 'gemma3-1b-it-int4.task',
-        maxTopK: 32,
+        modelPath: `${DL.directories.documents}/amaryllis.model`,
+        visionEncoderPath: `${DL.directories.documents}/amaryllis.vision`,
         maxNumImages: 2,
-        maxTokens: 512,
-        visionEncoderPath: 'mobilenet_v3_small.tflite',
-        visionAdapterPath: 'mobilenet_v3_small.tflite',
       }}
     >
-      <View style={styles.container}>
-        <LLMHeader />
-        <LLMChatPrompt />
-      </View>
+      <PromptProvider>
+        <SafeAreaProvider>
+          <Chat />
+        </SafeAreaProvider>
+      </PromptProvider>
     </LLMProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    backgroundColor: '#f0f0f0',
-    padding: 10,
-  },
-});

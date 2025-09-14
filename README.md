@@ -16,6 +16,8 @@ A modern AI module for native mobile apps in React Native, supporting multimodal
 npm install react-native-amaryllis
 # or
 yarn add react-native-amaryllis
+# or
+pnpm add react-native-amaryllis
 ```
 
 ---
@@ -53,7 +55,7 @@ import { LLMProvider } from 'react-native-amaryllis';
 </LLMProvider>
 ```
 
-You can access the LLM controller with a hook. See **Core API**.
+You can access the LLM controller with a `useLLMContext` hook. See **Core API** for details on the controller API.
 
 ```tsx
 const {
@@ -69,7 +71,7 @@ const {
 Use the `useInference` hook to access the LLM's capabilities.
 
 ```tsx
-import { useInference } from 'react-native-amaryllis';
+import { useInferenceAsync } from 'react-native-amaryllis';
 import { useCallback, useState } from 'react';
 import { View, TextInput, Button, Text } from 'react-native';
 
@@ -80,7 +82,7 @@ const LLMPrompt = () => {
   const [error, setError] = useState(undefined);
   const [isBusy, setIsBusy] = useState(false);
 
-  const { result, generate, error, isLoading } = useInference({
+  const props = useMemo(() => ({
     onGenerate: () => {
       setError(undefined);
       setIsBusy(true);
@@ -92,11 +94,13 @@ const LLMPrompt = () => {
       }
     },
     onError: (err) => setError(err)
-  });
+  }), [setError, setIsBusy, setResults])
 
-  const infer = useCallback(() => {
-    generate({ prompt, images });
-  }, [prompt, generate]);
+  const generate = useInferenceAsync(props);
+
+  const infer = useCallback(async () => {
+    await generate({ prompt, images });
+  }, [prompt, generate, images]);
 
   return (
     <View>

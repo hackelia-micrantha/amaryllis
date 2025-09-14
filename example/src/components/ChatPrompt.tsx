@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useMemo } from 'react';
 import {
   Text,
   View,
@@ -7,15 +7,17 @@ import {
   StyleSheet,
   ScrollView,
 } from 'react-native';
-import { useInferenceAsync } from 'react-native-amaryllis';
+import { useInferenceAsync, type InferenceProps } from 'react-native-amaryllis';
 import {
   launchImageLibrary,
   type ImageLibraryOptions,
   type ImagePickerResponse,
 } from 'react-native-image-picker';
-import { usePromptState } from './State';
+import { usePromptContext } from '../PromptContext';
 
-export const LLMChatPrompt = () => {
+export const ChatPrompt = () => {
+  const inputTextRef = useRef<TextInput>(null);
+
   const {
     prompt,
     setPrompt,
@@ -27,34 +29,39 @@ export const LLMChatPrompt = () => {
     setIsBusy,
     error,
     setError,
-  } = usePromptState();
-  const generate = useInferenceAsync({
-    onGenerate: () => {
-      inputTextRef.current?.setSelection(0, prompt.length);
-      setError(undefined);
-      setIsBusy(true);
-    },
-    onResult: (result, isFinal) => {
-      setResults((prev) => [...prev, result]);
-      if (isFinal) {
-        setIsBusy(false);
-      }
-    },
-    onError: (err) => {
-      setError(err);
-      setIsBusy(false);
-    },
-    onComplete: () => {
-      setIsBusy(false);
-    },
-  });
-  const inputTextRef = useRef<TextInput>(null);
+  } = usePromptContext();
 
-  const infer = useCallback(async () => {
+  const props: InferenceProps = useMemo(
+    () => ({
+      onGenerate: () => {
+        inputTextRef.current?.setSelection(0, prompt.length);
+        setError(undefined);
+        setIsBusy(true);
+      },
+      onResult: (result: string, isFinal: any) => {
+        setResults((prev) => [...prev, result]);
+        if (isFinal) {
+          setIsBusy(false);
+        }
+      },
+      onError: (err) => {
+        setError(err);
+        setIsBusy(false);
+      },
+      onComplete: () => {
+        setIsBusy(false);
+      },
+    }),
+    [prompt.length, setError, setIsBusy, setResults]
+  );
+
+  const generate = useInferenceAsync(props);
+
+  const onInference = useCallback(async () => {
     await generate({ prompt, images });
   }, [generate, images, prompt]);
 
-  const selectImage = useCallback(() => {
+  const onSelectImage = useCallback(() => {
     const options: ImageLibraryOptions = {
       mediaType: 'photo',
       quality: 1,
@@ -71,7 +78,7 @@ export const LLMChatPrompt = () => {
     });
   }, [setImages]);
 
-  const clearImages = useCallback(() => {
+  const onClearImages = useCallback(() => {
     setImages([]);
   }, [setImages]);
 
@@ -92,14 +99,18 @@ export const LLMChatPrompt = () => {
           placeholder="Enter prompt..."
         />
 
-        <Pressable disabled={isBusy} style={styles.iconButton} onPress={infer}>
+        <Pressable
+          disabled={isBusy}
+          style={styles.iconButton}
+          onPress={onInference}
+        >
           <Text style={styles.icon}>{isBusy ? '⏳' : '➤'}</Text>
         </Pressable>
 
         <Pressable
           disabled={isBusy}
           style={styles.iconButton}
-          onPress={selectImage}
+          onPress={onSelectImage}
         >
           <Text style={styles.icon}>📷</Text>
         </Pressable>
@@ -113,7 +124,7 @@ export const LLMChatPrompt = () => {
           </Text>
         )}
         {images.length > 0 && (
-          <Pressable style={styles.clearButton} onPress={clearImages}>
+          <Pressable style={styles.clearButton} onPress={onClearImages}>
             <Text style={styles.icon}>❌</Text>
           </Pressable>
         )}
@@ -138,6 +149,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
     color: '#333',
+  },
+
+  keyboardContainer: {
+    flex: 1,
   },
 
   iconButton: {
@@ -173,6 +188,7 @@ const styles = StyleSheet.create({
   },
 
   inputContainer: {
+    justifyContent: 'flex-end',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8, // RN 0.71+ supports gap

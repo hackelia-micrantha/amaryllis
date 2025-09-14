@@ -29,6 +29,7 @@ DerivedData
 *.xcuserstate
 project.xcworkspace
 **/.xcode.env.local
+AmaryllisExample.xcworkspace
 
 # Android/IJ
 #
@@ -94,5 +95,4 @@ CLAUDE.md
 AGENTS.md
 
 # Model downloads
-example/models/*
-!example/models/download.sh
+example/assets/models/*

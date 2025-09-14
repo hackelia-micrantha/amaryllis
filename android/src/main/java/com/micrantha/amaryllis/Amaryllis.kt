@@ -44,18 +44,21 @@ class Amaryllis {
         val modelPath = config.getString(PARAM_MODEL_PATH) ?: throw InvalidModelPathException()
 
         val taskOptions = LlmInference.LlmInferenceOptions.builder()
-            .setModelPath(context.copyAssetToDataDir(modelPath)).apply {
-                config.getInt(PARAM_MAX_TOP_K)?.let { setMaxTopK(it) }
-                config.getInt(PARAM_MAX_TOKENS)?.let { setMaxTokens(it) }
-                config.getInt(PARAM_MAX_NUM_IMAGES)?.let { setMaxNumImages(it) }
+            .setModelPath(modelPath).apply {
+                if (config.hasKey(PARAM_MAX_TOP_K))
+                  setMaxTopK(config.getInt(PARAM_MAX_TOP_K))
+                if (config.hasKey(PARAM_MAX_TOKENS))
+                  setMaxTokens(config.getInt(PARAM_MAX_TOKENS))
+                if (config.hasKey(PARAM_MAX_NUM_IMAGES))
+                  setMaxNumImages(config.getInt(PARAM_MAX_NUM_IMAGES))
             }
             .setVisionModelOptions(
                 VisionModelOptions.builder().apply {
                     config.getString(PARAM_VISION_ADAPTER)?.let {
-                        setAdapterPath(context.copyAssetToDataDir(it))
+                        setAdapterPath(it)
                     }
                     config.getString(PARAM_VISION_ENCODER)?.let {
-                        setEncoderPath(context.copyAssetToDataDir(it))
+                        setEncoderPath(it)
                     }
                 }.build()
             )
@@ -155,26 +158,6 @@ class Amaryllis {
         return getString(PARAM_PROMPT) ?: throw IllegalArgumentException("prompt is required")
     }
 
-    @Throws(IOException::class)
-    fun Context.copyAssetToDataDir(assetName: String): String {
-        val outFile = File(filesDir, assetName) // or use getCacheDir() if preferred
-
-        if (!outFile.exists()) {
-            assets.open(assetName).use { `in` ->
-                FileOutputStream(outFile).use { out ->
-                    val buffer = ByteArray(1024)
-                    var read: Int
-                    while ((`in`.read(buffer).also { read = it }) != -1) {
-                        out.write(buffer, 0, read)
-                    }
-                }
-            }
-        }
-
-        return outFile.absolutePath // ✅ Full path to use with MediaPipe
-    }
-
-
     /**
      * Loads and preprocesses an image for the LLM session.
      * - Resizes to targetWidth x targetHeight (default 512x512)
@@ -192,8 +175,6 @@ class Amaryllis {
         // Decode bitmap
         val bitmap = BitmapFactory.decodeFile(file.absolutePath)
             ?: return null
-
-        Log.d("Amaryllis", "pre-processed image ${file.absolutePath}")
 
         // Resize bitmap
         val resized = bitmap.scale(targetWidth, targetHeight)
