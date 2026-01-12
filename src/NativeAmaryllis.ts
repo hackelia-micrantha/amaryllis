@@ -1,19 +1,28 @@
 import type { TurboModule } from 'react-native';
 import { TurboModuleRegistry } from 'react-native';
-import type {
-  LlmEngineConfig,
-  LlmSessionParams,
-  LlmRequestParams,
-} from './Types';
 
 export interface Spec extends TurboModule {
-  init(params: LlmEngineConfig): Promise<void>;
+  init(params: {
+    modelPath: string;
+    maxTopK?: number;
+    maxNumImages?: number;
+    maxTokens?: number;
+    visionEncoderPath?: string;
+    visionAdapterPath?: string;
+  }): Promise<void>;
 
-  newSession(params?: LlmSessionParams): Promise<void>;
+  newSession(params?: {
+    topK?: number;
+    topP?: number;
+    temperature?: number;
+    randomSeed?: number;
+    loraPath?: string;
+    enableVisionModality?: boolean;
+  }): Promise<void>;
 
-  generate(params: LlmRequestParams): Promise<string>;
+  generate(params: { prompt: string; images?: string[] }): Promise<string>;
 
-  generateAsync(params: LlmRequestParams): Promise<void>;
+  generateAsync(params: { prompt: string; images?: string[] }): Promise<void>;
 
   close(): void;
 

@@ -9,6 +9,11 @@ import type {
   LlmPipeParams,
   LlmNativeEngine,
 } from './Types';
+import {
+  toNativeEngineConfig,
+  toNativeSessionParams,
+  toNativeRequestParams,
+} from './TypeConverters';
 
 const EVENT_ON_PARTIAL_RESULT = 'onPartialResult';
 const EVENT_ON_FINAL_RESULT = 'onFinalResult';
@@ -25,15 +30,18 @@ export class LlmPipe implements LlmEngine {
   }
 
   async init(params: LlmEngineConfig): Promise<void> {
-    await this.llmNative.init(params);
+    const nativeConfig = toNativeEngineConfig(params);
+    await this.llmNative.init(nativeConfig);
   }
 
   newSession(params: LlmSessionParams): Promise<void> {
-    return this.llmNative.newSession(params);
+    const nativeParams = toNativeSessionParams(params);
+    return this.llmNative.newSession(nativeParams);
   }
 
   async generate(params: LlmRequestParams): Promise<string> {
-    return await this.llmNative.generate(params);
+    const nativeParams = toNativeRequestParams(params);
+    return await this.llmNative.generate(nativeParams);
   }
 
   async generateAsync(
@@ -44,7 +52,8 @@ export class LlmPipe implements LlmEngine {
       this.setupAsyncCallbacks(callbacks);
     }
 
-    return await this.llmNative.generateAsync(params);
+    const nativeParams = toNativeRequestParams(params);
+    return await this.llmNative.generateAsync(nativeParams);
   }
 
   close(): void {

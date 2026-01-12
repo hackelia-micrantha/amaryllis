@@ -6,7 +6,7 @@ import android.util.Log
 import androidx.core.graphics.scale
 import androidx.core.net.toFile
 import androidx.core.net.toUri
-import java.io.File
+import java.io.File as JavaFile
 import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.ReadableMap
 import com.google.mediapipe.framework.image.BitmapImageBuilder
