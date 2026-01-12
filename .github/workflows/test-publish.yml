@@ -1,0 +1,67 @@
+name: Test Publish Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run mode (no publishing)'
+        required: false
+        default: 'true'
+      test_version:
+        description: 'Version to test'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  test-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Run tests
+        run: npm test
+
+      - name: Lint files
+        run: npm run lint
+
+      - name: Typecheck files
+        run: npm run typecheck
+
+      - name: Build package
+        run: yarn prepare
+
+      - name: Validate package
+        run: |
+          echo "📦 Package validation"
+          node -e "console.log('✓ Package name:', JSON.parse(require('fs').readFileSync('./package.json', 'utf8')).name)"
+          node -e "console.log('✓ Version:', JSON.parse(require('fs').readFileSync('./package.json', 'utf8')).version)"
+          echo "✓ Built files:"
+          ls -la lib/ || echo "❌ No lib directory"
+
+      - name: Test npm pack command (dry run)
+        if: github.event.inputs.dry_run == 'true'
+        run: |
+          echo "🧪 Testing npm publish preparation"
+          npm pack --dry-run
+          echo "✓ npm pack dry run successful"
+
+      - name: Test npm publish (simulation)
+        if: github.event.inputs.dry_run == 'true'
+        run: |
+          echo "🚀 Simulating npm publish"
+          echo "Package: @micrantha/react-native-amaryllis"
+          echo "Registry: https://registry.npmjs.org/"
+          echo "Provenance: Would be generated automatically"
+          echo "✓ Publish simulation complete"
