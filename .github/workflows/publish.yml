@@ -54,5 +54,16 @@ jobs:
           env | grep -E "(NPM_|GITHUB_)" || echo "No relevant environment variables found"
           echo "OIDC token should be available automatically..."
 
+      - name: Clear any existing npm auth
+        run: |
+          echo "🔐 Clearing any existing authentication"
+          npm config delete //registry.npmjs.org/:_authToken
+          npm config delete registry
+          npm config list
+
       - name: Publish to npm
-        run: npm publish --provenance --access public
+        run: |
+          echo "🚀 Publishing with OIDC trusted publisher"
+          echo "Node.js version: $(node --version)"
+          echo "npm version: $(npm --version)"
+          npm publish --provenance --access public
