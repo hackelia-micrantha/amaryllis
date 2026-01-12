@@ -45,5 +45,14 @@ jobs:
           ls -la lib/
           echo "✓ Package validation complete"
 
+      - name: Check authentication
+        run: |
+          echo "🔐 Checking authentication status"
+          echo "NPM Config:"
+          npm config list
+          echo "Environment:"
+          env | grep -E "(NPM_|GITHUB_)" || echo "No relevant environment variables found"
+          echo "OIDC token should be available automatically..."
+
       - name: Publish to npm
         run: npm publish --provenance --access public
