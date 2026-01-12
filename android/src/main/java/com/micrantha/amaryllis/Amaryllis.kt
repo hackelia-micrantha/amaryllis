@@ -6,6 +6,7 @@ import android.util.Log
 import androidx.core.graphics.scale
 import androidx.core.net.toFile
 import androidx.core.net.toUri
+import java.io.File
 import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.ReadableMap
 import com.google.mediapipe.framework.image.BitmapImageBuilder
@@ -33,6 +34,9 @@ import com.micrantha.amaryllis.AmaryllisModule.Companion.PARAM_VISION_ENCODER
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.net.URI
+import java.net.URISyntaxException
+import android.os.Build
 
 
 class Amaryllis {
@@ -42,6 +46,10 @@ class Amaryllis {
 
     fun init(context: Context, config: ReadableMap) {
         val modelPath = config.getString(PARAM_MODEL_PATH) ?: throw InvalidModelPathException()
+        
+        if (!isValidFilePath(modelPath)) {
+            throw InvalidModelPathException()
+        }
 
         val taskOptions = LlmInference.LlmInferenceOptions.builder()
             .setModelPath(modelPath).apply {
@@ -168,19 +176,73 @@ class Amaryllis {
         targetWidth: Int = 512,
         targetHeight: Int = 512
     ): MPImage? {
-        val file = uri.toUri().toFile()
+        if (!isValidFilePath(uri)) {
+            Log.w(NAME, "Invalid file URI: $uri")
+            return null
+        }
 
-        if (!file.exists()) return null
+        val file: File
+        try {
+            val parsedUri = uri.toUri()
+            if (parsedUri.scheme != "file") {
+                Log.w(NAME, "Only file:// URIs are supported: $uri")
+                return null
+            }
+            file = parsedUri.toFile()
+        } catch (e: Exception) {
+            Log.w(NAME, "Failed to parse URI: $uri", e)
+            return null
+        }
 
-        // Decode bitmap
-        val bitmap = BitmapFactory.decodeFile(file.absolutePath)
+        if (!file.exists()) {
+            Log.w(NAME, "File does not exist: ${file.absolutePath}")
+            return null
+        }
+
+        // Check file size to prevent memory exhaustion (max 10MB)
+        val fileSize = file.length()
+        val maxFileSize = 10 * 1024 * 1024 // 10MB
+        if (fileSize > maxFileSize) {
+            Log.w(NAME, "File too large: ${fileSize} bytes, max allowed: $maxFileSize bytes")
+            return null
+        }
+
+        // Decode bitmap with options to limit memory usage
+        val options = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+        
+        BitmapFactory.decodeFile(file.absolutePath, options)
+        
+        // Calculate sample size to reduce memory usage if image is too large
+        val maxSize = 2048
+        var sampleSize = 1
+        while (options.outWidth / sampleSize > maxSize || options.outHeight / sampleSize > maxSize) {
+            sampleSize *= 2
+        }
+        
+        options.inJustDecodeBounds = false
+        options.inSampleSize = sampleSize
+        
+        val bitmap = BitmapFactory.decodeFile(file.absolutePath, options)
             ?: return null
 
-        // Resize bitmap
-        val resized = bitmap.scale(targetWidth, targetHeight)
+        try {
+            // Resize bitmap
+            val resized = bitmap.scale(targetWidth, targetHeight)
+            
+            // Clean up original bitmap
+            if (resized != bitmap) {
+                bitmap.recycle()
+            }
 
-        // Convert to MPImage
-        return BitmapImageBuilder(resized).build()
+            // Convert to MPImage
+            return BitmapImageBuilder(resized).build()
+        } catch (e: OutOfMemoryError) {
+            Log.w(NAME, "Out of memory when processing image: $uri", e)
+            bitmap.recycle()
+            return null
+        }
     }
 
     internal fun preprocessImages(
@@ -190,6 +252,19 @@ class Amaryllis {
     ) = uris.toArrayList().mapNotNull {
         val uri = it as? String ?: return@mapNotNull null
         preprocessImage(uri, targetWidth, targetHeight)
+    }
+
+    private fun isValidFilePath(path: String): Boolean {
+        if (path.isBlank()) return false
+        
+        // Check for path traversal attempts
+        if (path.contains("..") || path.contains("~")) return false
+        
+        // Check for invalid characters
+        val invalidChars = setOf('|', '<', '>', '"', '?', '*')
+        if (invalidChars.any { char -> path.contains(char) }) return false
+        
+        return true
     }
 
     inner class NotInitializedException : Exception()

@@ -48,42 +48,68 @@ export class LlmPipe implements LlmEngine {
   }
 
   close(): void {
-    this.llmNative.close();
     this.cancelAsync();
+    this.llmNative.close();
   }
 
   cancelAsync(): void {
     this.llmNative.cancelAsync();
-    this.subscriptions.forEach((sub) => sub.remove());
+    const subsToRemove = [...this.subscriptions];
+    this.subscriptions = [];
+    subsToRemove.forEach((sub) => {
+      try {
+        sub.remove();
+      } catch (error) {
+        console.warn('Failed to remove subscription:', error);
+      }
+    });
   }
 
   setupAsyncCallbacks(callbacks: LlmCallbacks): void {
     if (callbacks.onPartialResult) {
-      this.subscriptions.push(
-        this.llmEmitter.addListener(
-          EVENT_ON_PARTIAL_RESULT,
-          (result: string) => {
+      const subscription = this.llmEmitter.addListener(
+        EVENT_ON_PARTIAL_RESULT,
+        (result: string) => {
+          try {
             callbacks.onPartialResult?.(result);
+          } catch (error) {
+            console.error('Error in onPartialResult callback:', error);
           }
-        )
+        }
       );
+      this.subscriptions.push(subscription);
     }
 
     if (callbacks.onFinalResult) {
-      this.subscriptions.push(
-        this.llmEmitter.addListener(EVENT_ON_FINAL_RESULT, (result: string) => {
-          callbacks.onFinalResult?.(result);
-          this.cancelAsync();
-        })
+      const subscription = this.llmEmitter.addListener(
+        EVENT_ON_FINAL_RESULT,
+        (result: string) => {
+          try {
+            callbacks.onFinalResult?.(result);
+          } catch (error) {
+            console.error('Error in onFinalResult callback:', error);
+          } finally {
+            this.cancelAsync();
+          }
+        }
       );
+      this.subscriptions.push(subscription);
     }
+
     if (callbacks.onError) {
-      this.subscriptions.push(
-        this.llmEmitter.addListener(EVENT_ON_ERROR, (error: string) => {
-          callbacks.onError?.(new Error(error));
-          this.cancelAsync();
-        })
+      const subscription = this.llmEmitter.addListener(
+        EVENT_ON_ERROR,
+        (error: string) => {
+          try {
+            callbacks.onError?.(new Error(error));
+          } catch (callbackError) {
+            console.error('Error in onError callback:', callbackError);
+          } finally {
+            this.cancelAsync();
+          }
+        }
       );
+      this.subscriptions.push(subscription);
     }
   }
 }

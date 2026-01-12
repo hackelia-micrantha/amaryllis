@@ -11,16 +11,23 @@ export const useInferenceAsync = (props: InferenceProps = {}) => {
 
   const generate = useCallback(
     async (params: LlmRequestParams) => {
+      if (!controller) {
+        onError?.(new Error('Controller not initialized'));
+        return () => {
+          onComplete?.();
+        };
+      }
+
       try {
         onGenerate?.();
-        await controller?.generateAsync(params, llm$.callbacks);
+        await controller.generateAsync(params, llm$.callbacks);
       } catch (err) {
         onError?.(
           err instanceof Error ? err : new Error('An unknown error occurred')
         );
       }
       return () => {
-        controller?.cancelAsync();
+        controller.cancelAsync();
         onComplete?.();
       };
     },
@@ -56,9 +63,16 @@ export const useInference = (props: InferenceProps = {}) => {
 
   const generate = useCallback(
     async (params: LlmRequestParams) => {
+      if (!controller) {
+        onError?.(new Error('Controller not initialized'));
+        return () => {
+          onComplete?.();
+        };
+      }
+
       try {
         onGenerate?.();
-        const response = await controller?.generate(params);
+        const response = await controller.generate(params);
         onResult?.(response ?? '', true);
       } catch (err) {
         onError?.(
@@ -67,7 +81,7 @@ export const useInference = (props: InferenceProps = {}) => {
       }
 
       return () => {
-        controller?.cancelAsync();
+        controller.cancelAsync();
         onComplete?.();
       };
     },
