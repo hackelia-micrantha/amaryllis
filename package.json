@@ -1,6 +1,6 @@
 {
   "name": "@micrantha/react-native-amaryllis",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "A generative AI module for native mobile",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
@@ -53,14 +53,14 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/hackelia-micrantha/react-native-amaryllis.git"
+    "url": "git+https://github.com/hackelia-micrantha/amaryllis.git"
   },
   "author": "Ryan Jennings <ryan.jennings@micrantha.com> (https://github.com/hackelia-micrantha)",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/hackelia-micrantha/react-native-amaryllis/issues"
+    "url": "https://github.com/hackelia-micrantha/amaryllis/issues"
   },
-  "homepage": "https://github.com/hackelia-micrantha/react-native-amaryllis#readme",
+  "homepage": "https://github.com/hackelia-micrantha/amaryllis#readme",
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
   },

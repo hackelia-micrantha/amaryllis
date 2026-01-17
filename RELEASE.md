@@ -83,6 +83,7 @@ Automated npm publishing with GitHub Actions OIDC trusted publishing, ensuring s
   - Organization: `hackelia-micrantha`
   - Repository: `amaryllis`
   - Workflow: `publish.yml`
+  - npm CLI: `>= 11.5.1` for trusted publishing
 - **Benefits**:
   - Zero npm tokens needed
   - Short-lived, cryptographically-signed credentials
@@ -163,12 +164,13 @@ gh run view <workflow-id> --log-failed
 
 #### "npm error code ENEEDAUTH"
 
-- **Cause**: Trusted publisher not configured correctly
+- **Cause**: Trusted publisher not configured correctly or npm CLI is too old
 - **Solution**:
   1. Check npmjs.com trusted publisher settings
   2. Verify organization: `hackelia-micrantha`
   3. Verify repository: `amaryllis`
   4. Verify workflow: `publish.yml`
+  5. Ensure npm CLI is `>= 11.5.1`
 
 #### Tag Already Exists
 

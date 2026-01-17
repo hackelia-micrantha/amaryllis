@@ -1,6 +1,12 @@
 name: Setup
 description: Setup Node.js and install dependencies
 
+inputs:
+  registry-url:
+    description: Optional npm registry URL for setup-node
+    required: false
+    default: https://registry.npmjs.org/
+
 runs:
   using: composite
   steps:
@@ -8,6 +14,7 @@ runs:
       uses: actions/setup-node@v4
       with:
         node-version-file: .nvmrc
+        registry-url: ${{ inputs.registry-url }}
 
     - name: Restore dependencies
       id: yarn-cache

@@ -12,17 +12,18 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-
       - name: Setup
         uses: ./.github/actions/setup
+
+      - name: Ensure npm supports trusted publishing
+        run: |
+          npm install -g npm@11.5.1
+          npm --version
 
       - name: Run tests
         run: npm test
@@ -45,23 +46,27 @@ jobs:
           ls -la lib/
           echo "✓ Package validation complete"
 
-      - name: Check authentication
+      - name: Check authentication context
         run: |
-          echo "🔐 Checking authentication status"
-          echo "NPM Config:"
-          npm config list
-          echo "Environment:"
-          env | grep -E "(NPM_|GITHUB_)" || echo "No relevant environment variables found"
-          echo "OIDC token should be available automatically..."
+          echo "🔐 Checking authentication context"
+          npm config get registry
+          echo "OIDC does not expose an npm token to npm config"
+          env | grep -E "(NPM_|GITHUB_|NODE_AUTH_TOKEN)" || echo "No relevant environment variables found"
 
-      - name: Clear any existing npm auth
+      - name: Detect npm auth token presence (non-sensitive)
         run: |
-          echo "🔐 Clearing any existing authentication"
-          npm config delete //registry.npmjs.org/:_authToken
-          npm config delete registry
-          npm config list
+          node -e "console.log(process.env.NODE_AUTH_TOKEN ? 'NODE_AUTH_TOKEN is set' : 'NODE_AUTH_TOKEN is not set')"
+          node -e "console.log(process.env.NPM_TOKEN ? 'NPM_TOKEN is set' : 'NPM_TOKEN is not set')"
 
-      - name: Publish to npm
+      - name: Ensure npm auth is OIDC-only
+        run: |
+          npm config delete //registry.npmjs.org/:_authToken || true
+          rm -f ~/.npmrc
+
+      - name: Publish to npm (OIDC)
+        env:
+          NODE_AUTH_TOKEN: ""
+          NPM_TOKEN: ""
         run: |
           echo "🚀 Publishing with OIDC trusted publisher"
           echo "Node.js version: $(node --version)"
