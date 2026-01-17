@@ -16,13 +16,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-
       - name: Setup
         uses: ./.github/actions/setup
+        with:
+          registry-url: https://registry.npmjs.org/
+          always-auth: true
 
       - name: Run tests
         run: npm test
@@ -45,23 +43,14 @@ jobs:
           ls -la lib/
           echo "✓ Package validation complete"
 
-      - name: Check authentication
+      - name: Check authentication context
         run: |
-          echo "🔐 Checking authentication status"
-          echo "NPM Config:"
-          npm config list
-          echo "Environment:"
-          env | grep -E "(NPM_|GITHUB_)" || echo "No relevant environment variables found"
-          echo "OIDC token should be available automatically..."
+          echo "🔐 Checking authentication context"
+          npm config get registry
+          npm config get //registry.npmjs.org/:_authToken || echo "No npm token configured (expected for OIDC)"
+          env | grep -E \"(NPM_|GITHUB_)\" || echo \"No relevant environment variables found\"
 
-      - name: Clear any existing npm auth
-        run: |
-          echo "🔐 Clearing any existing authentication"
-          npm config delete //registry.npmjs.org/:_authToken
-          npm config delete registry
-          npm config list
-
-      - name: Publish to npm
+      - name: Publish to npm (OIDC)
         run: |
           echo "🚀 Publishing with OIDC trusted publisher"
           echo "Node.js version: $(node --version)"
