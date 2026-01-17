@@ -26,7 +26,6 @@ jobs:
         uses: ./.github/actions/setup
         with:
           registry-url: https://registry.npmjs.org/
-          always-auth: false
 
       - name: Run tests
         run: npm test

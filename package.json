@@ -1,6 +1,6 @@
 {
   "name": "@micrantha/react-native-amaryllis",
-  "version": "0.1.6",
+  "version": "0.1.5",
   "description": "A generative AI module for native mobile",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",

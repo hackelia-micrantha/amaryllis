@@ -6,10 +6,6 @@ inputs:
     description: Optional npm registry URL for setup-node
     required: false
     default: https://registry.npmjs.org/
-  always-auth:
-    description: Whether npm should always require auth for the registry
-    required: false
-    default: 'false'
 
 runs:
   using: composite
@@ -19,7 +15,6 @@ runs:
       with:
         node-version-file: .nvmrc
         registry-url: ${{ inputs.registry-url }}
-        always-auth: ${{ inputs.always-auth }}
 
     - name: Restore dependencies
       id: yarn-cache

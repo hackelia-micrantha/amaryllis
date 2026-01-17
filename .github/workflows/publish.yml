@@ -20,7 +20,6 @@ jobs:
         uses: ./.github/actions/setup
         with:
           registry-url: https://registry.npmjs.org/
-          always-auth: true
 
       - name: Run tests
         run: npm test
@@ -47,8 +46,8 @@ jobs:
         run: |
           echo "🔐 Checking authentication context"
           npm config get registry
-          npm config get //registry.npmjs.org/:_authToken || echo "No npm token configured (expected for OIDC)"
-          env | grep -E \"(NPM_|GITHUB_)\" || echo \"No relevant environment variables found\"
+          echo "OIDC does not expose an npm token to npm config"
+          env | grep -E "(NPM_|GITHUB_)" || echo "No relevant environment variables found"
 
       - name: Publish to npm (OIDC)
         run: |
