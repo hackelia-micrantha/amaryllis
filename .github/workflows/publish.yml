@@ -19,8 +19,11 @@ jobs:
 
       - name: Setup
         uses: ./.github/actions/setup
-        with:
-          registry-url: https://registry.npmjs.org/
+
+      - name: Ensure npm supports trusted publishing
+        run: |
+          npm install -g npm@11.5.1
+          npm --version
 
       - name: Run tests
         run: npm test
@@ -48,9 +51,22 @@ jobs:
           echo "🔐 Checking authentication context"
           npm config get registry
           echo "OIDC does not expose an npm token to npm config"
-          env | grep -E "(NPM_|GITHUB_)" || echo "No relevant environment variables found"
+          env | grep -E "(NPM_|GITHUB_|NODE_AUTH_TOKEN)" || echo "No relevant environment variables found"
+
+      - name: Detect npm auth token presence (non-sensitive)
+        run: |
+          node -e "console.log(process.env.NODE_AUTH_TOKEN ? 'NODE_AUTH_TOKEN is set' : 'NODE_AUTH_TOKEN is not set')"
+          node -e "console.log(process.env.NPM_TOKEN ? 'NPM_TOKEN is set' : 'NPM_TOKEN is not set')"
+
+      - name: Ensure npm auth is OIDC-only
+        run: |
+          npm config delete //registry.npmjs.org/:_authToken || true
+          rm -f ~/.npmrc
 
       - name: Publish to npm (OIDC)
+        env:
+          NODE_AUTH_TOKEN: ""
+          NPM_TOKEN: ""
         run: |
           echo "🚀 Publishing with OIDC trusted publisher"
           echo "Node.js version: $(node --version)"
