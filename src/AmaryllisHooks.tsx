@@ -1,7 +1,42 @@
 import { useCallback, useMemo, useEffect } from 'react';
-import type { LlmRequestParams, InferenceProps } from './Types';
+import type { InferenceProps, LlmRequestParams } from './Types';
 import { useLLMContext } from './AmaryllisContext';
 import { createLLMObservable } from './AmaryllisRx';
+import { useContextEngine } from './ContextEngineContext';
+import type { ContextEngine, ContextQuery } from './ContextTypes';
+
+export type ContextInferenceProps = InferenceProps & {
+  contextEngine?: ContextEngine;
+  query?: ContextQuery;
+};
+
+const useContextAugmentation = (
+  contextEngine?: ContextEngine,
+  query?: ContextQuery
+) => {
+  const engineFromProvider = useContextEngine();
+  const engine = contextEngine ?? engineFromProvider;
+
+  return useCallback(
+    async (params: LlmRequestParams): Promise<LlmRequestParams> => {
+      if (!engine) {
+        return params;
+      }
+      const resolvedQuery = query ?? engine.deriveQuery(params.prompt, params);
+      if (!resolvedQuery) {
+        return params;
+      }
+      const items = await engine.search(resolvedQuery);
+      return engine.formatRequest({
+        prompt: params.prompt,
+        items,
+        query: resolvedQuery,
+        request: params,
+      });
+    },
+    [engine, query]
+  );
+};
 
 export const useInferenceAsync = (props: InferenceProps = {}) => {
   const { controller } = useLLMContext();
@@ -86,6 +121,58 @@ export const useInference = (props: InferenceProps = {}) => {
       };
     },
     [onGenerate, controller, onResult, onError, onComplete]
+  );
+
+  return generate;
+};
+
+export const useContextInferenceAsync = (props: ContextInferenceProps = {}) => {
+  const { contextEngine, query, ...inferenceProps } = props;
+  const { onComplete, onError } = inferenceProps;
+  const augmentRequest = useContextAugmentation(contextEngine, query);
+  const generateBase = useInferenceAsync(inferenceProps);
+
+  const generate = useCallback(
+    async (params: LlmRequestParams) => {
+      try {
+        const augmented = await augmentRequest(params);
+        return await generateBase(augmented);
+      } catch (err) {
+        onError?.(
+          err instanceof Error ? err : new Error('An unknown error occurred')
+        );
+        return () => {
+          onComplete?.();
+        };
+      }
+    },
+    [augmentRequest, generateBase, onComplete, onError]
+  );
+
+  return generate;
+};
+
+export const useContextInference = (props: ContextInferenceProps = {}) => {
+  const { contextEngine, query, ...inferenceProps } = props;
+  const { onComplete, onError } = inferenceProps;
+  const augmentRequest = useContextAugmentation(contextEngine, query);
+  const generateBase = useInference(inferenceProps);
+
+  const generate = useCallback(
+    async (params: LlmRequestParams) => {
+      try {
+        const augmented = await augmentRequest(params);
+        return await generateBase(augmented);
+      } catch (err) {
+        onError?.(
+          err instanceof Error ? err : new Error('An unknown error occurred')
+        );
+        return () => {
+          onComplete?.();
+        };
+      }
+    },
+    [augmentRequest, generateBase, onComplete, onError]
   );
 
   return generate;

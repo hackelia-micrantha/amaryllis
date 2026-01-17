@@ -2,7 +2,8 @@
   "compilerOptions": {
     "rootDir": ".",
     "paths": {
-      "react-native-amaryllis": ["./src/index"]
+      "react-native-amaryllis": ["./src/index"],
+      "react-native-amaryllis/context": ["./src/context"]
     },
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,

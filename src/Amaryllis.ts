@@ -75,10 +75,15 @@ export class LlmPipe implements LlmEngine {
   }
 
   setupAsyncCallbacks(callbacks: LlmCallbacks): void {
-    if (callbacks.onPartialResult) {
+    if (callbacks.onPartialResult || callbacks.onEvent) {
       const subscription = this.llmEmitter.addListener(
         EVENT_ON_PARTIAL_RESULT,
         (result: string) => {
+          try {
+            callbacks.onEvent?.({ type: 'partial', text: result });
+          } catch (error) {
+            console.error('Error in onEvent callback:', error);
+          }
           try {
             callbacks.onPartialResult?.(result);
           } catch (error) {
@@ -89,10 +94,15 @@ export class LlmPipe implements LlmEngine {
       this.subscriptions.push(subscription);
     }
 
-    if (callbacks.onFinalResult) {
+    if (callbacks.onFinalResult || callbacks.onEvent) {
       const subscription = this.llmEmitter.addListener(
         EVENT_ON_FINAL_RESULT,
         (result: string) => {
+          try {
+            callbacks.onEvent?.({ type: 'final', text: result });
+          } catch (error) {
+            console.error('Error in onEvent callback:', error);
+          }
           try {
             callbacks.onFinalResult?.(result);
           } catch (error) {
@@ -105,12 +115,18 @@ export class LlmPipe implements LlmEngine {
       this.subscriptions.push(subscription);
     }
 
-    if (callbacks.onError) {
+    if (callbacks.onError || callbacks.onEvent) {
       const subscription = this.llmEmitter.addListener(
         EVENT_ON_ERROR,
         (error: string) => {
+          const errorObj = new Error(error);
           try {
-            callbacks.onError?.(new Error(error));
+            callbacks.onEvent?.({ type: 'error', error: errorObj });
+          } catch (callbackError) {
+            console.error('Error in onEvent callback:', callbackError);
+          }
+          try {
+            callbacks.onError?.(errorObj);
           } catch (callbackError) {
             console.error('Error in onError callback:', callbackError);
           } finally {

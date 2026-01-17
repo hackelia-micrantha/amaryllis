@@ -7,15 +7,11 @@ describe('AmaryllisRx', () => {
       const { observable, callbacks } = createLLMObservable();
 
       expect(observable).toBeDefined();
-      expect(callbacks).toHaveProperty('onPartialResult');
-      expect(callbacks).toHaveProperty('onFinalResult');
-      expect(callbacks).toHaveProperty('onError');
-      expect(typeof callbacks.onPartialResult).toBe('function');
-      expect(typeof callbacks.onFinalResult).toBe('function');
-      expect(typeof callbacks.onError).toBe('function');
+      expect(callbacks).toHaveProperty('onEvent');
+      expect(typeof callbacks.onEvent).toBe('function');
     });
 
-    it('should emit partial results when onPartialResult is called', () => {
+    it('should emit partial results when onEvent is called', () => {
       const { observable, callbacks } = createLLMObservable();
       const results: LLMResult[] = [];
 
@@ -23,8 +19,8 @@ describe('AmaryllisRx', () => {
         results.push(result);
       });
 
-      callbacks.onPartialResult?.('partial1');
-      callbacks.onPartialResult?.('partial2');
+      callbacks.onEvent?.({ type: 'partial', text: 'partial1' });
+      callbacks.onEvent?.({ type: 'partial', text: 'partial2' });
 
       subscription.unsubscribe();
 
@@ -34,7 +30,7 @@ describe('AmaryllisRx', () => {
       ]);
     });
 
-    it('should emit final result when onFinalResult is called', () => {
+    it('should emit final result when onEvent is called', () => {
       const { observable, callbacks } = createLLMObservable();
       const results: LLMResult[] = [];
 
@@ -42,8 +38,8 @@ describe('AmaryllisRx', () => {
         results.push(result);
       });
 
-      callbacks.onPartialResult?.('partial');
-      callbacks.onFinalResult?.('final');
+      callbacks.onEvent?.({ type: 'partial', text: 'partial' });
+      callbacks.onEvent?.({ type: 'final', text: 'final' });
 
       subscription.unsubscribe();
 
@@ -53,7 +49,7 @@ describe('AmaryllisRx', () => {
       ]);
     });
 
-    it('should emit error when onError is called', () => {
+    it('should emit error when onEvent is called', () => {
       const { observable, callbacks } = createLLMObservable();
       const testError = new Error('Test error');
       let capturedError: Error | undefined;
@@ -67,7 +63,7 @@ describe('AmaryllisRx', () => {
         },
       });
 
-      callbacks.onError?.(testError);
+      callbacks.onEvent?.({ type: 'error', error: testError });
 
       subscription.unsubscribe();
 
@@ -82,11 +78,11 @@ describe('AmaryllisRx', () => {
         subscriptionCount++;
       });
 
-      callbacks.onPartialResult?.('test1');
+      callbacks.onEvent?.({ type: 'partial', text: 'test1' });
       expect(subscriptionCount).toBe(1);
 
       subscription.unsubscribe();
-      callbacks.onPartialResult?.('test2');
+      callbacks.onEvent?.({ type: 'partial', text: 'test2' });
       expect(subscriptionCount).toBe(1); // Should not increment after unsubscribe
     });
 
@@ -102,9 +98,9 @@ describe('AmaryllisRx', () => {
 
       // These should not cause errors even after unsubscribe
       expect(() => {
-        callbacks.onPartialResult?.('test');
-        callbacks.onFinalResult?.('final');
-        callbacks.onError?.(new Error('test'));
+        callbacks.onEvent?.({ type: 'partial', text: 'test' });
+        callbacks.onEvent?.({ type: 'final', text: 'final' });
+        callbacks.onEvent?.({ type: 'error', error: new Error('test') });
       }).not.toThrow();
 
       expect(resultCount).toBe(0);
@@ -119,10 +115,10 @@ describe('AmaryllisRx', () => {
       });
 
       // Rapid calls
-      callbacks.onPartialResult?.('p1');
-      callbacks.onPartialResult?.('p2');
-      callbacks.onPartialResult?.('p3');
-      callbacks.onFinalResult?.('final');
+      callbacks.onEvent?.({ type: 'partial', text: 'p1' });
+      callbacks.onEvent?.({ type: 'partial', text: 'p2' });
+      callbacks.onEvent?.({ type: 'partial', text: 'p3' });
+      callbacks.onEvent?.({ type: 'final', text: 'final' });
 
       subscription.unsubscribe();
 
@@ -142,8 +138,8 @@ describe('AmaryllisRx', () => {
         results.push(result);
       });
 
-      callbacks.onPartialResult?.('');
-      callbacks.onFinalResult?.('');
+      callbacks.onEvent?.({ type: 'partial', text: '' });
+      callbacks.onEvent?.({ type: 'final', text: '' });
 
       subscription.unsubscribe();
 
@@ -162,7 +158,7 @@ describe('AmaryllisRx', () => {
         results.push(result);
       });
 
-      callbacks.onFinalResult?.(specialText);
+      callbacks.onEvent?.({ type: 'final', text: specialText });
 
       subscription.unsubscribe();
 

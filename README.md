@@ -171,17 +171,30 @@ amaryllis.generateAsync(
     images: ['file:///path/to/image.png'],
   },
   {
-    onPartialResult: (partial) => {
-      console.log('Partial result:', partial);
-    },
-    onFinalResult: (final) => {
-      console.log('Final result:', final);
-    },
-    onError: (err) => {
-      console.error('Error:', err);
+    onEvent: (event) => {
+      if (event.type === 'partial') {
+        console.log('Partial result:', event.text);
+        return;
+      }
+      if (event.type === 'final') {
+        console.log('Final result:', event.text);
+        return;
+      }
+      console.error('Error:', event.error);
     },
   }
 );
+```
+
+Note: `onPartialResult`, `onFinalResult`, and `onError` are deprecated and will be removed in a future release. Use `onEvent` instead.
+
+`onEvent` receives a discriminated union:
+
+```ts
+type LlmEvent =
+  | { type: 'partial'; text: string }
+  | { type: 'final'; text: string }
+  | { type: 'error'; error: Error };
 ```
 
 You can cancel an async generate if needed.
@@ -192,9 +205,31 @@ amaryllis.cancelAsync();
 
 ---
 
+## 🧠 Context Engine
+
+The Context Engine is an interface-first layer for memory and retrieval. You bring your own `ContextStore` (SQLite, files, or custom DB) while the engine handles validation, policy bounds, and optional scoring.
+Context APIs are also available via the `react-native-amaryllis/context` subpath.
+
+```ts
+import { ContextEngine } from 'react-native-amaryllis/context';
+
+const engine = new ContextEngine({
+  store: myStore,
+  policy: { maxItems: 1000, defaultTtlSeconds: 60 * 60 * 24 },
+});
+
+await engine.add([{ id: 'mem-1', text: 'Quest started', createdAt: Date.now() }]);
+const results = await engine.search({ text: 'quest', limit: 5 });
+```
+
+See `docs/context-engine.md` for details.
+
+---
+
 ## 📚 Documentation
 
 - [API Reference](src/Types.ts)
+- [Context Engine](docs/context-engine.md)
 - [Example App](example/)
 - [Demo Video](docs/demo.mp4)
 - [Development workflow](CONTRIBUTING.md)

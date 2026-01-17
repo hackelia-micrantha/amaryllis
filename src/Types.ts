@@ -3,10 +3,19 @@ import type { Observable } from 'rxjs';
 
 export type LlmNativeEngine = Spec;
 
+export type LlmEvent =
+  | { type: 'partial'; text: string }
+  | { type: 'final'; text: string }
+  | { type: 'error'; error: Error };
+
 export type LlmCallbacks = {
   // Async streaming callbacks
+  onEvent?: (event: LlmEvent) => void;
+  /** @deprecated Use onEvent instead. */
   onPartialResult?: (result: string) => void;
+  /** @deprecated Use onEvent instead. */
   onFinalResult?: (result: string) => void;
+  /** @deprecated Use onEvent instead. */
   onError?: (err: Error) => void;
 };
 

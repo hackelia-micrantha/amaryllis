@@ -72,10 +72,8 @@ describe('LlmPipe', () => {
   });
 
   it('calls native generateAsync and manages listeners', async () => {
-    const onPartialResult = jest.fn();
-    const onFinalResult = jest.fn();
-    const onError = jest.fn();
-    const callbacks: LlmCallbacks = { onPartialResult, onFinalResult, onError };
+    const onEvent = jest.fn();
+    const callbacks: LlmCallbacks = { onEvent };
     await pipe.generateAsync(requestParams, callbacks);
     expect(nativeMock.generateAsync).toHaveBeenCalledWith(requestParams);
     // Listeners should be added
@@ -85,23 +83,21 @@ describe('LlmPipe', () => {
 
     // Simulate partial result event
     listeners[nativeMock.EVENT_ON_PARTIAL_RESULT]?.('partial');
-    expect(onPartialResult).toHaveBeenCalledWith('partial');
+    expect(onEvent).toHaveBeenCalledWith({ type: 'partial', text: 'partial' });
     // Should not remove listeners on partial
     expect(nativeMock.cancelAsync).not.toHaveBeenCalled();
 
     // Simulate final result event
     listeners[nativeMock.EVENT_ON_FINAL_RESULT]?.('final');
-    expect(onFinalResult).toHaveBeenCalledWith('final');
+    expect(onEvent).toHaveBeenCalledWith({ type: 'final', text: 'final' });
     // Should remove listeners and call cancelAsync
     expect(nativeMock.cancelAsync).toHaveBeenCalled();
     expect(nativeMock.cancelAsync).toHaveBeenCalledTimes(1);
   });
 
   it('calls native generateAsync and handles error listener', async () => {
-    const onPartialResult = jest.fn();
-    const onFinalResult = jest.fn();
-    const onError = jest.fn();
-    const callbacks: LlmCallbacks = { onPartialResult, onFinalResult, onError };
+    const onEvent = jest.fn();
+    const callbacks: LlmCallbacks = { onEvent };
     await pipe.generateAsync(requestParams, callbacks);
     expect(nativeMock.generateAsync).toHaveBeenCalledWith(requestParams);
     // Listeners should be added
@@ -111,30 +107,49 @@ describe('LlmPipe', () => {
 
     // Simulate partial result event
     listeners[nativeMock.EVENT_ON_PARTIAL_RESULT]?.('partial');
-    expect(onPartialResult).toHaveBeenCalledWith('partial');
+    expect(onEvent).toHaveBeenCalledWith({ type: 'partial', text: 'partial' });
     // Should not remove listeners on partial
     expect(nativeMock.cancelAsync).not.toHaveBeenCalled();
 
     // Simulate error event
     listeners[nativeMock.EVENT_ON_ERROR]?.('error');
-    expect(onError).toHaveBeenCalledWith(expect.any(Error));
+    expect(onEvent).toHaveBeenCalledWith({
+      type: 'error',
+      error: expect.any(Error),
+    });
     expect(nativeMock.cancelAsync).toHaveBeenCalledTimes(1);
   });
 
   it('removes listeners only on final or error, not on partial', async () => {
+    const onEvent = jest.fn();
+    const callbacks: LlmCallbacks = { onEvent };
+    await pipe.generateAsync(requestParams, callbacks);
+    // Simulate multiple partial events
+    listeners[nativeMock.EVENT_ON_PARTIAL_RESULT]?.('partial1');
+    listeners[nativeMock.EVENT_ON_PARTIAL_RESULT]?.('partial2');
+    expect(onEvent).toHaveBeenCalledTimes(2);
+    expect(nativeMock.cancelAsync).not.toHaveBeenCalled();
+    // Simulate final event
+    listeners[nativeMock.EVENT_ON_FINAL_RESULT]?.('final');
+    expect(onEvent).toHaveBeenCalledWith({ type: 'final', text: 'final' });
+    expect(nativeMock.cancelAsync).toHaveBeenCalled();
+  });
+
+  it('supports deprecated callbacks', async () => {
     const onPartialResult = jest.fn();
     const onFinalResult = jest.fn();
     const onError = jest.fn();
     const callbacks: LlmCallbacks = { onPartialResult, onFinalResult, onError };
     await pipe.generateAsync(requestParams, callbacks);
-    // Simulate multiple partial events
-    listeners[nativeMock.EVENT_ON_PARTIAL_RESULT]?.('partial1');
-    listeners[nativeMock.EVENT_ON_PARTIAL_RESULT]?.('partial2');
-    expect(onPartialResult).toHaveBeenCalledTimes(2);
-    expect(nativeMock.cancelAsync).not.toHaveBeenCalled();
-    // Simulate final event
+
+    listeners[nativeMock.EVENT_ON_PARTIAL_RESULT]?.('partial');
     listeners[nativeMock.EVENT_ON_FINAL_RESULT]?.('final');
+
+    expect(onPartialResult).toHaveBeenCalledWith('partial');
     expect(onFinalResult).toHaveBeenCalledWith('final');
-    expect(nativeMock.cancelAsync).toHaveBeenCalled();
+
+    await pipe.generateAsync(requestParams, callbacks);
+    listeners[nativeMock.EVENT_ON_ERROR]?.('error');
+    expect(onError).toHaveBeenCalledWith(expect.any(Error));
   });
 });

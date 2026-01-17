@@ -1,4 +1,4 @@
-import { useCallback, useRef, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import {
   Text,
   View,
@@ -7,7 +7,11 @@ import {
   StyleSheet,
   ScrollView,
 } from 'react-native';
-import { useInferenceAsync, type InferenceProps } from 'react-native-amaryllis';
+import type { InferenceProps } from 'react-native-amaryllis';
+import {
+  useContextEngine,
+  useContextInferenceAsync,
+} from 'react-native-amaryllis/context';
 import {
   launchImageLibrary,
   type ImageLibraryOptions,
@@ -31,16 +35,43 @@ export const ChatPrompt = () => {
     setError,
   } = usePromptContext();
 
+  const contextEngine = useContextEngine();
+
+  const addContextItem = useCallback(
+    async (text: string, tag: string) => {
+      if (!contextEngine) {
+        return;
+      }
+      try {
+        await contextEngine.add([
+          {
+            id: `${tag}-${Date.now()}`,
+            text,
+            tags: [tag],
+            createdAt: Date.now(),
+          },
+        ]);
+      } catch (err) {
+        setError(
+          err instanceof Error ? err : new Error('Failed to store context')
+        );
+      }
+    },
+    [contextEngine, setError]
+  );
+
   const props: InferenceProps = useMemo(
     () => ({
       onGenerate: () => {
         inputTextRef.current?.setSelection(0, prompt.length);
         setError(undefined);
         setIsBusy(true);
+        addContextItem(prompt, 'user');
       },
-      onResult: (result: string, isFinal: any) => {
+      onResult: (result: string, isFinal: boolean) => {
         setResults((prev) => [...prev, result]);
         if (isFinal) {
+          addContextItem(result, 'assistant');
           setIsBusy(false);
         }
       },
@@ -52,10 +83,10 @@ export const ChatPrompt = () => {
         setIsBusy(false);
       },
     }),
-    [prompt.length, setError, setIsBusy, setResults]
+    [addContextItem, prompt, setError, setIsBusy, setResults]
   );
 
-  const generate = useInferenceAsync(props);
+  const generate = useContextInferenceAsync(props);
 
   const onInference = useCallback(async () => {
     await generate({ prompt, images });

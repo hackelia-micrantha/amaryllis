@@ -12,20 +12,15 @@ export function createLLMObservable(): LLMObservableResult {
   });
 
   const callbacks: LlmCallbacks = {
-    onPartialResult: (partial) => {
-      if (subscriber) {
-        subscriber.next({ text: partial, isFinal: false });
+    onEvent: (event) => {
+      if (!subscriber) {
+        return;
       }
-    },
-    onFinalResult: (final) => {
-      if (subscriber) {
-        subscriber.next({ text: final, isFinal: true });
+      if (event.type === 'error') {
+        subscriber.error(event.error);
+        return;
       }
-    },
-    onError: (error) => {
-      if (subscriber) {
-        subscriber.error(error);
-      }
+      subscriber.next({ text: event.text, isFinal: event.type === 'final' });
     },
   };
 

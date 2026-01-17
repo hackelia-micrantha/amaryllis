@@ -10,6 +10,11 @@
       "types": "./lib/typescript/src/index.d.ts",
       "default": "./lib/module/index.js"
     },
+    "./context": {
+      "source": "./src/context.ts",
+      "types": "./lib/typescript/src/context.d.ts",
+      "default": "./lib/module/context.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
