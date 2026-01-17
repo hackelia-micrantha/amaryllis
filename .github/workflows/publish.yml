@@ -52,7 +52,7 @@ jobs:
         run: |
           node -e "console.log(process.env.NODE_AUTH_TOKEN ? 'NODE_AUTH_TOKEN is set' : 'NODE_AUTH_TOKEN is not set')"
           node -e "console.log(process.env.NPM_TOKEN ? 'NPM_TOKEN is set' : 'NPM_TOKEN is not set')"
-          node -e \"const { execSync } = require('child_process'); try { const v = execSync('npm config get //registry.npmjs.org/:_authToken', { encoding: 'utf8' }).trim(); console.log(v && v !== 'undefined' ? 'npmrc auth token is set' : 'npmrc auth token is not set'); } catch { console.log('npmrc auth token is not set'); }\"
+          node -e "const { execSync } = require('child_process'); try { const v = execSync('npm config get //registry.npmjs.org/:_authToken', { encoding: 'utf8' }).trim(); console.log(v && v !== 'undefined' ? 'npmrc auth token is set' : 'npmrc auth token is not set'); } catch { console.log('npmrc auth token is not set'); }"
 
       - name: Ensure npm auth is OIDC-only
         run: |
