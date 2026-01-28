@@ -1,0 +1,13 @@
+# Owner: Ryan Jennings <ryan.jennings@micrantha.com> (Micrantha)
+* @hackelia-micrantha
+
+# Core library
+/src/ @hackelia-micrantha
+
+# Native projects
+/ios/ @hackelia-micrantha
+/android/ @hackelia-micrantha
+
+# Documentation and site
+/docs/ @hackelia-micrantha
+/README.md @hackelia-micrantha

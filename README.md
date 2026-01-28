@@ -22,6 +22,23 @@ pnpm add react-native-amaryllis
 
 ---
 
+## ✅ Requirements
+
+- React Native and React (peer dependencies)
+- Node.js v24.0.0 for development (see `.nvmrc`)
+
+---
+
+## 📱 Compatibility
+
+| Area | Status |
+| --- | --- |
+| React Native | Tested with 0.83.x in this repo |
+| Android | Example app built in CI on ubuntu-latest |
+| iOS | Example app built in CI with Xcode 16.4 |
+
+---
+
 ## 📦 Features
 
 - Native LLM engine for Android & iOS
@@ -120,6 +137,39 @@ const LLMPrompt = () => {
 ```
 
 Substitute the `useInferenceAsync` hook to stream the results.
+
+---
+
+## ✅ Best Practices
+
+- Stream results for responsive UIs and show partial tokens.
+- Cancel async generation on unmount to avoid leaks.
+- Limit image sizes and count for consistent memory usage.
+- Validate file paths before passing them to native APIs.
+- Handle errors with custom error types and fallbacks.
+
+---
+
+## 🛠️ Troubleshooting
+
+- Build errors: run `yarn clean`, then `yarn prepare`.
+- iOS: `cd example && bundle exec pod install` after dependency changes.
+- Android: ensure `example/android/local.properties` has `sdk.dir` set.
+
+---
+
+## ❓ FAQ
+
+**Does Amaryllis require a network connection?**
+No. Inference runs on-device; any network usage is up to your app.
+
+**Where should model files live?**
+Download and store them on the device, then pass the file paths in config.
+
+**Can I stream responses?**
+Yes. Use `useInferenceAsync` or the `generateAsync` API.
+
+---
 
 ### Core API
 
@@ -234,6 +284,24 @@ See `docs/context-engine.md` for details.
 - [Demo Video](docs/demo.mp4)
 - [Development workflow](CONTRIBUTING.md)
 - [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Security policy](SECURITY.md)
+- [Support](SUPPORT.md)
+
+---
+
+## 🔒 Security & Privacy
+
+Amaryllis runs inference on-device. You control model files, prompts, and
+image inputs. Ensure your app follows your organization’s data handling and
+privacy requirements.
+
+---
+
+## 🚢 Release Process
+
+- Update `CHANGELOG.md` and version using `yarn release`.
+- Tag releases as `vX.Y.Z` (see `RELEASE.md`).
+- Publishing is automated by GitHub Actions on tag push.
 
 ---
 

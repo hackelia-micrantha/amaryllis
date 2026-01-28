@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>React Native Amaryllis</title>
+    <meta
+      name="description"
+      content="A modern AI module for native mobile apps in React Native, supporting multimodal inference and streaming results."
+    />
+    <link rel="stylesheet" href="site.css" />
+  </head>
+  <body>
+    <div class="bg-orbit"></div>
+    <header class="nav">
+      <div class="brand">
+        <img src="amaryllis-128.png" alt="Amaryllis logo" />
+        <span>React Native Amaryllis</span>
+      </div>
+      <nav class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#best-practices">Best practices</a>
+        <a href="#usage">Usage</a>
+        <a href="#demo">Demo</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-text">
+          <p class="eyebrow">Native LLMs for mobile apps</p>
+          <h1>Ship multimodal AI experiences with streaming results.</h1>
+          <p class="lead">
+            Amaryllis is a modern React Native AI module that powers on-device
+            inference, supports text + images, and streams tokens through hooks
+            and observables.
+          </p>
+          <div class="cta-row">
+            <a class="btn primary" href="#usage">Get started</a>
+            <a class="btn ghost" href="#features">Explore features</a>
+          </div>
+        </div>
+        <div class="hero-card">
+          <div class="card-header">Install</div>
+          <pre><code>npm install react-native-amaryllis
+# or
+yarn add react-native-amaryllis
+# or
+pnpm add react-native-amaryllis</code></pre>
+          <div class="chip-row">
+            <span class="chip">Android</span>
+            <span class="chip">iOS</span>
+            <span class="chip">Streaming</span>
+            <span class="chip">Multimodal</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="features" class="features">
+        <div class="section-title">
+          <h2>What you get out of the box</h2>
+          <p>Native performance with a developer friendly API.</p>
+        </div>
+        <div class="feature-grid">
+          <article class="feature">
+            <h3>Native LLM engine</h3>
+            <p>Optimized pipelines for Android and iOS with predictable startup.</p>
+          </article>
+          <article class="feature">
+            <h3>Multimodal support</h3>
+            <p>Send prompts with images for grounded, visual responses.</p>
+          </article>
+          <article class="feature">
+            <h3>Streaming hooks</h3>
+            <p>Use hooks and observables to render partial tokens fast.</p>
+          </article>
+          <article class="feature">
+            <h3>Context provider</h3>
+            <p>Centralize configuration for the entire React Native app.</p>
+          </article>
+          <article class="feature">
+            <h3>LoRA customization</h3>
+            <p>Fine tune behavior with LoRA adapters on GPU devices.</p>
+          </article>
+          <article class="feature">
+            <h3>Developer control</h3>
+            <p>Cancel and manage sessions with explicit APIs.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="best-practices" class="best-practices">
+        <div class="section-title">
+          <h2>Best practices for production apps</h2>
+          <p>Keep performance, memory, and safety predictable.</p>
+        </div>
+        <div class="feature-grid">
+          <article class="feature">
+            <h3>Stream by default</h3>
+            <p>Show partial tokens early for a responsive UX.</p>
+          </article>
+          <article class="feature">
+            <h3>Cancel on unmount</h3>
+            <p>Always cancel async inference in cleanup handlers.</p>
+          </article>
+          <article class="feature">
+            <h3>Constrain inputs</h3>
+            <p>Limit image count and size to protect memory.</p>
+          </article>
+          <article class="feature">
+            <h3>Validate file paths</h3>
+            <p>Prevent invalid or unsafe native file access.</p>
+          </article>
+          <article class="feature">
+            <h3>Handle errors explicitly</h3>
+            <p>Surface custom error types and graceful fallbacks.</p>
+          </article>
+          <article class="feature">
+            <h3>Document model sources</h3>
+            <p>Track model versions and update strategies.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="usage" class="usage">
+        <div class="section-title">
+          <h2>Quickstart</h2>
+          <p>Wrap your app, then generate from hooks.</p>
+        </div>
+        <div class="usage-grid">
+          <div class="usage-card">
+            <div class="card-header">Provider setup</div>
+            <pre><code>import { LLMProvider } from 'react-native-amaryllis';
+
+&lt;LLMProvider
+  config={{
+    modelPath: 'gemma3-1b-it-int4.task',
+    visionEncoderPath: 'mobilenet_v3_small.tflite',
+    visionAdapterPath: 'mobilenet_v3_small.tflite',
+    maxTopK: 32,
+    maxNumImages: 2,
+    maxTokens: 512,
+  }}
+&gt;
+  {/* App components */}
+&lt;/LLMProvider&gt;</code></pre>
+          </div>
+          <div class="usage-card">
+            <div class="card-header">Streaming inference</div>
+            <pre><code>import { useInferenceAsync } from 'react-native-amaryllis';
+
+const generate = useInferenceAsync({
+  onResult: (chunk, isFinal) =&gt; {
+    // Update UI with tokens
+  },
+  onError: (err) =&gt; setError(err),
+});
+
+await generate({ prompt, images });</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section id="demo" class="demo">
+        <div class="section-title">
+          <h2>Live demo preview</h2>
+          <p>Sample UI built on top of Amaryllis streaming hooks.</p>
+        </div>
+        <div class="demo-card">
+          <video controls preload="metadata" poster="amaryllis.png">
+            <source src="demo.mp4" type="video/mp4" />
+            Your browser does not support the video tag.
+          </video>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-content">
+        <span>Amaryllis for React Native</span>
+        <span>MIT licensed</span>
+        <span>Security &amp; Support in repo</span>
+      </div>
+    </footer>
+  </body>
+</html>
