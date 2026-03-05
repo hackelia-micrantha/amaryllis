@@ -31,6 +31,7 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
   override fun newSession(params: ReadableMap?, promise: Promise) {
     try {
       amaryllis.newSession(params)
+      promise.resolve(null)
     } catch (e: Amaryllis.NotInitializedException) {
       Log.e(NAME, "sdk is not initialized", e)
       promise.reject(ERROR_CODE_INFER, "sdk is not initialized", e)

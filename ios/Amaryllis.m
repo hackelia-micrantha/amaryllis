@@ -135,6 +135,11 @@ static NSString *const ERR_NO_SESSION = @"new session required";
   self.llmInference = nil;
 }
 
+- (void) cancelAsync {
+  [self invokeCancelIfSupported:self.session];
+  [self invokeCancelIfSupported:self.llmInference];
+}
+
 #pragma mark - Helpers
 
 - (BOOL)updateSessionFromParams:(NSDictionary *)params error: (NSError **) error {
@@ -143,25 +148,39 @@ static NSString *const ERR_NO_SESSION = @"new session required";
   NSArray *images = params ? params[PARAM_IMAGES] : nil;
 
   if (!prompt && !images) {
-    *error = [NSError errorWithDomain:AmaryllisErrorDomain code:AmaryllisInvalidArgument userInfo:@{NSLocalizedDescriptionKey: ERR_INVALID_ARGUMENT}];
+    if (error) {
+      *error = [NSError errorWithDomain:AmaryllisErrorDomain code:AmaryllisInvalidArgument userInfo:@{NSLocalizedDescriptionKey: ERR_INVALID_ARGUMENT}];
+    }
     return NO;
   }
 
   [self.session addQueryChunkWithInputText:prompt error:error];
 
-  if (error) return NO;
+  if (error && *error != nil) return NO;
 
   if (images) {
     for (NSString *path in images) {
       CGImageRef image = [self imageFromPath:path];
       [self.session addImageWithImage:image error:error];
       CGImageRelease(image);
-      if (error) {
+      if (error && *error != nil) {
         return NO;
       }
     }
   }
   return YES;
+}
+
+- (void)invokeCancelIfSupported:(id)target {
+  if (!target) {
+    return;
+  }
+  SEL cancelSelector = NSSelectorFromString(@"cancelGenerateResponseAsync");
+  if ([target respondsToSelector:cancelSelector]) {
+    IMP cancelImp = [target methodForSelector:cancelSelector];
+    void (*cancelFunc)(id, SEL) = (void (*)(id, SEL))cancelImp;
+    cancelFunc(target, cancelSelector);
+  }
 }
 
 - (BOOL)validateNoSession:(NSDictionary *)params

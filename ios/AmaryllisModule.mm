@@ -106,17 +106,19 @@ RCT_EXPORT_MODULE(Amaryllis)
                reject:(nonnull RCTPromiseRejectBlock)reject {
   @try {
     NSError *error = nil;
+    __block NSString *latestPartial = @"";
 
     PartialResponseHandler progress = ^(NSString *result, NSError *err) {
       if (!err) {
-        [self sendEventWithName:EVENT_ON_PARTIAL_RESULT body:result];
+        latestPartial = result ?: @"";
+        [self sendEventWithName:EVENT_ON_PARTIAL_RESULT body:latestPartial];
       } else {
-        [self sendEventWithName:EVENT_ON_ERROR body:err];
+        [self sendEventWithName:EVENT_ON_ERROR body:err.localizedDescription ?: @"unknown error"];
       }
     };
 
     CompletionHandler completion = ^{
-      [self sendEventWithName:EVENT_ON_FINAL_RESULT body:nil];
+      [self sendEventWithName:EVENT_ON_FINAL_RESULT body:latestPartial];
     };
 
     [self.amaryllis generateAsyncWithParams:params error:&error response:progress completion:completion];
@@ -135,7 +137,9 @@ RCT_EXPORT_MODULE(Amaryllis)
   [self.amaryllis close];
 }
 
-- (void) cancelAsync {}
+- (void) cancelAsync {
+  [self.amaryllis cancelAsync];
+}
 
 - (NSDictionary *)constantsToExport {
   return @{

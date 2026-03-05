@@ -107,17 +107,18 @@ class Amaryllis {
         )
     }
 
-    fun generate(params: ReadableMap) {
+    fun generate(params: ReadableMap): String {
         val llm = llmInference ?: throw NotInitializedException()
 
         val prompt = params.validateAndGetPrompt()
 
         if (session == null) {
             params.validateNoSession()
-            llm.generateResponse(prompt)
+            return llm.generateResponse(prompt)
         } else {
             this.session?.updateQueryFromParams(params)
-            this.session?.generateResponse()
+            return this.session?.generateResponse()
+                ?: throw IllegalStateException("session generateResponse returned null")
         }
     }
 

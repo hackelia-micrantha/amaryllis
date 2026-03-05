@@ -19,6 +19,7 @@ typedef void (^CompletionHandler)(void);
 - (NSString *_Nullable) generateWithParams: (NSDictionary *_Nonnull) params error: (NSError *_Nullable*_Nullable) error;
 - (void) generateAsyncWithParams: (NSDictionary *_Nonnull) params error: (NSError *_Nullable*_Nullable) error
                         response: (PartialResponseHandler _Nullable ) progress completion: (CompletionHandler _Nullable ) completion;
+- (void) cancelAsync;
 - (void) close;
 @end
 
