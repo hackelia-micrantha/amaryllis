@@ -1,4 +1,6 @@
 name: Nightly Checks
+permissions:
+  contents: read
 
 on:
   schedule:
