@@ -1,0 +1,60 @@
+name: Canary Publish
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'package.json'
+      - 'yarn.lock'
+      - 'src/**'
+      - 'ios/**'
+      - 'android/**'
+      - 'cpp/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: canary-publish
+  cancel-in-progress: true
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Run quality checks
+        run: |
+          yarn lint
+          yarn typecheck
+          yarn test --maxWorkers=2
+
+      - name: Build package
+        run: yarn prepare
+
+      - name: Ensure npm supports trusted publishing
+        run: |
+          npm install -g npm@11.5.1
+          npm --version
+
+      - name: Compute canary version
+        run: |
+          BASE_VERSION=$(node -p "require('./package.json').version")
+          CANARY_VERSION="${BASE_VERSION}-canary.${GITHUB_RUN_NUMBER}.${GITHUB_SHA::7}"
+          echo "CANARY_VERSION=${CANARY_VERSION}" >> "$GITHUB_ENV"
+          npm version --no-git-tag-version "$CANARY_VERSION"
+
+      - name: Publish canary package
+        env:
+          NODE_AUTH_TOKEN: ''
+          NPM_TOKEN: ''
+        run: npm publish --tag canary --provenance --access public
