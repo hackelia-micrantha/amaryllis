@@ -1,0 +1,83 @@
+name: Coverage Gate
+
+on:
+  pull_request:
+    branches:
+      - main
+      - feature/*
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    env:
+      MIN_LINES: '76'
+      MIN_STATEMENTS: '76'
+      MIN_FUNCTIONS: '77'
+      MIN_BRANCHES: '63'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Run tests with coverage summary
+        run: |
+          yarn test --maxWorkers=2 --coverage \
+            --coverageReporters=json-summary \
+            --coverageReporters=text-summary
+
+      - name: Validate coverage thresholds
+        id: validate_coverage
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+
+          const summary = JSON.parse(fs.readFileSync('coverage/coverage-summary.json', 'utf8')).total;
+          const limits = {
+            lines: Number(process.env.MIN_LINES),
+            statements: Number(process.env.MIN_STATEMENTS),
+            functions: Number(process.env.MIN_FUNCTIONS),
+            branches: Number(process.env.MIN_BRANCHES),
+          };
+
+          const actual = {
+            lines: summary.lines.pct,
+            statements: summary.statements.pct,
+            functions: summary.functions.pct,
+            branches: summary.branches.pct,
+          };
+
+          const failures = Object.entries(limits)
+            .filter(([key, min]) => actual[key] < min)
+            .map(([key, min]) => `${key}: ${actual[key]}% < ${min}%`);
+
+          const body = [
+            '### Coverage Summary',
+            '',
+            `- lines: ${actual.lines}% (min ${limits.lines}%)`,
+            `- statements: ${actual.statements}% (min ${limits.statements}%)`,
+            `- functions: ${actual.functions}% (min ${limits.functions}%)`,
+            `- branches: ${actual.branches}% (min ${limits.branches}%)`,
+            '',
+            failures.length ? 'Coverage gate: FAILED' : 'Coverage gate: PASSED',
+          ].join('\n');
+
+          fs.writeFileSync('coverage-comment.md', body);
+
+          if (failures.length) {
+            console.error('Coverage below threshold:\n' + failures.join('\n'));
+            process.exit(1);
+          }
+          NODE
+
+      - name: Comment coverage result on PR
+        if: always()
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          path: coverage-comment.md

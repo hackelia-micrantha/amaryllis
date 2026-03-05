@@ -1,0 +1,64 @@
+name: Dependency Audit
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'package.json'
+      - 'yarn.lock'
+      - '.yarnrc.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '0 9 * * 3'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Run npm audit and capture output
+        id: npm_audit
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          yarn npm audit --recursive --all > audit-output.txt 2>&1
+
+      - name: Build issue body if audit failed
+        if: steps.npm_audit.outcome == 'failure'
+        run: |
+          {
+            echo "# Dependency audit failed"
+            echo
+            echo "- Workflow: $GITHUB_WORKFLOW"
+            echo "- Run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "- Commit: ${GITHUB_SHA}"
+            echo
+            echo "## Audit output"
+            echo
+            echo '```text'
+            sed -n '1,400p' audit-output.txt
+            echo '```'
+          } > audit-issue.md
+
+      - name: Create issue when audit fails
+        if: steps.npm_audit.outcome == 'failure'
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: "Dependency audit failure (${{ github.run_id }})"
+          content-filepath: ./audit-issue.md
+          labels: security,dependencies
+
+      - name: Fail job if audit failed
+        if: steps.npm_audit.outcome == 'failure'
+        run: exit 1
