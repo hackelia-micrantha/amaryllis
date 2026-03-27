@@ -66,7 +66,8 @@ Automated npm publishing with GitHub Actions OIDC trusted publishing, ensuring s
 - **Purpose**: Automated npm publishing
 - **Features**:
   - OIDC trusted publisher authentication
-  - Full quality gates (test, lint, typecheck, build)
+  - Waits for `CI`, `Dependency Audit`, and `Security - CodeQL` to pass for the tagged commit before publishing
+  - Full package validation before publish
   - Automatic provenance generation
   - Zero npm tokens required
 
