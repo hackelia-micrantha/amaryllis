@@ -103,6 +103,12 @@
   "packageManager": "yarn@3.6.1",
   "jest": {
     "preset": "react-native",
+    "moduleNameMapper": {
+      "^react$": "<rootDir>/node_modules/react",
+      "^react-native$": "<rootDir>/node_modules/react-native",
+      "^react-native-amaryllis$": "<rootDir>/src/index.tsx",
+      "^react-native-amaryllis/context$": "<rootDir>/src/context.ts"
+    },
     "modulePathIgnorePatterns": [
       "<rootDir>/example/node_modules",
       "<rootDir>/lib/"
