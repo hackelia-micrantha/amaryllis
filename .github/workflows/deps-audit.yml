@@ -9,7 +9,6 @@ on:
     - cron: '0 9 * * 3'
 
 permissions:
-  actions: read
   contents: read
   issues: write
 
@@ -23,81 +22,6 @@ jobs:
 
       - name: Setup
         uses: ./.github/actions/setup
-
-      - name: Wait for install-producing workflows on push events
-        if: github.event_name == 'push'
-        uses: actions/github-script@v7
-        env:
-          TARGET_SHA: ${{ github.sha }}
-          REQUIRED_WORKFLOWS: '["CI","Security - CodeQL"]'
-          TIMEOUT_SECONDS: '1800'
-          POLL_INTERVAL_SECONDS: '20'
-        with:
-          script: |
-            const targetSha = process.env.TARGET_SHA;
-            const required = JSON.parse(process.env.REQUIRED_WORKFLOWS);
-            const timeoutMs = Number(process.env.TIMEOUT_SECONDS) * 1000;
-            const intervalMs = Number(process.env.POLL_INTERVAL_SECONDS) * 1000;
-            const deadline = Date.now() + timeoutMs;
-
-            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-            while (true) {
-              const runs = await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                head_sha: targetSha,
-                per_page: 100,
-              });
-
-              const failed = [];
-              const pending = [];
-
-              for (const name of required) {
-                const matches = runs.filter((run) => run.name === name);
-                const successful = matches.find(
-                  (run) => run.status === 'completed' && run.conclusion === 'success',
-                );
-
-                if (successful) {
-                  core.info(`${name}: success (${successful.html_url})`);
-                  continue;
-                }
-
-                const unsuccessful = matches.find(
-                  (run) =>
-                    run.status === 'completed' &&
-                    !['success', 'skipped', 'neutral'].includes(run.conclusion ?? ''),
-                );
-
-                if (unsuccessful) {
-                  failed.push(`${name}: ${unsuccessful.conclusion} (${unsuccessful.html_url})`);
-                  continue;
-                }
-
-                pending.push(name);
-              }
-
-              if (failed.length) {
-                core.setFailed(`Required workflows failed for ${targetSha}:\n${failed.join('\n')}`);
-                return;
-              }
-
-              if (!pending.length) {
-                core.info(`Required workflows passed for ${targetSha}.`);
-                return;
-              }
-
-              if (Date.now() >= deadline) {
-                core.setFailed(
-                  `Timed out waiting for required workflows on ${targetSha}: ${pending.join(', ')}`,
-                );
-                return;
-              }
-
-              core.info(`Waiting for workflows on ${targetSha}: ${pending.join(', ')}`);
-              await sleep(intervalMs);
-            }
 
       - name: Run npm audit and capture output
         id: npm_audit
