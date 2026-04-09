@@ -28,7 +28,7 @@ jobs:
         continue-on-error: true
         run: |
           set -o pipefail
-          yarn npm audit --all --recursive --severity high > audit-output.txt 2>&1
+          yarn npm audit --all --severity high > audit-output.txt 2>&1
 
       - name: Build issue body if audit failed
         if: steps.npm_audit.outcome == 'failure'
@@ -111,6 +111,13 @@ jobs:
               body,
               labels: ['security', 'dependencies'],
             });
+
+      - name: Print audit output when audit fails
+        if: steps.npm_audit.outcome == 'failure'
+        run: |
+          echo "Dependency audit failed. Captured output:"
+          echo
+          sed -n '1,400p' audit-output.txt
 
       - name: Fail job if audit failed
         if: steps.npm_audit.outcome == 'failure'

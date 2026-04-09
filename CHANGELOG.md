@@ -53,7 +53,7 @@ future **minor** or **major** bump is required for similar changes.
 - Release gating that requires `CI`, `Dependency Audit`, and `Security - CodeQL` to pass for the target commit before canary or production publishing proceeds.
 
 ### Changed
-- Dependency audit now runs for every push to `main`, waits for install-producing workflows to finish, and audits all workspaces recursively at high severity.
+- Dependency audit now runs for every push to `main`, waits for install-producing workflows to finish, and audits all workspaces at high severity.
 - CodeQL workflow triggers now avoid duplicate analysis on feature-branch pull request pushes while still covering `main`, pull requests, merge queues, and scheduled scans.
 - Release documentation now reflects publish gating on upstream workflow success.
 
