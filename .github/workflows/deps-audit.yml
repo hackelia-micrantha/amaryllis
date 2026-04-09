@@ -47,6 +47,55 @@ jobs:
             echo '```'
           } > audit-issue.md
 
+      - name: Ensure audit labels exist
+        if: steps.npm_audit.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = [
+              {
+                name: 'security',
+                color: 'd73a4a',
+                description: 'Security-related issues and findings',
+              },
+              {
+                name: 'dependencies',
+                color: '0366d6',
+                description: 'Dependency maintenance and audit findings',
+              },
+            ];
+
+            for (const label of labels) {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label.name,
+                });
+
+                await github.rest.issues.updateLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label.name,
+                  color: label.color,
+                  description: label.description,
+                });
+              } catch (error) {
+                if (error.status === 404) {
+                  await github.rest.issues.createLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: label.name,
+                    color: label.color,
+                    description: label.description,
+                  });
+                  continue;
+                }
+
+                throw error;
+              }
+            }
+
       - name: Create issue when audit fails
         if: steps.npm_audit.outcome == 'failure'
         uses: peter-evans/create-issue-from-file@v5
