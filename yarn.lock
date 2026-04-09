@@ -7935,8 +7935,8 @@ __metadata:
   linkType: hard
 
 "handlebars@npm:^4.7.7":
-  version: 4.7.8
-  resolution: "handlebars@npm:4.7.8"
+  version: 4.7.9
+  resolution: "handlebars@npm:4.7.9"
   dependencies:
     minimist: ^1.2.5
     neo-async: ^2.6.2
@@ -7948,7 +7948,7 @@ __metadata:
       optional: true
   bin:
     handlebars: bin/handlebars
-  checksum: 00e68bb5c183fd7b8b63322e6234b5ac8fbb960d712cb3f25587d559c2951d9642df83c04a1172c918c41bcfc81bfbd7a7718bbce93b893e0135fc99edea93ff
+  checksum: ac39070fc1c3c76a654e4b526383eaf1601976eaa474547b263915b4806977f083600e586ca923709baeed7c82a42640bcc9cc04c37a7efd3fb444f49b8347d6
   languageName: node
   linkType: hard
 
@@ -10386,16 +10386,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"minimatch@npm:^3.0.4, minimatch@npm:^3.1.1, minimatch@npm:^3.1.2":
-  version: 3.1.2
-  resolution: "minimatch@npm:3.1.2"
-  dependencies:
-    brace-expansion: ^1.1.7
-  checksum: c154e566406683e7bcb746e000b84d74465b3a832c45d59912b9b55cd50dee66e5c4b1e5566dba26154040e51672f9aa450a9aef0c97cfc7336b78b7afb9540a
-  languageName: node
-  linkType: hard
-
-"minimatch@npm:^3.1.5":
+"minimatch@npm:^3.0.4, minimatch@npm:^3.1.1, minimatch@npm:^3.1.2, minimatch@npm:^3.1.5":
   version: 3.1.5
   resolution: "minimatch@npm:3.1.5"
   dependencies:
@@ -11194,9 +11185,9 @@ __metadata:
   linkType: hard
 
 "picomatch@npm:^2.0.4, picomatch@npm:^2.2.3, picomatch@npm:^2.3.1":
-  version: 2.3.1
-  resolution: "picomatch@npm:2.3.1"
-  checksum: 050c865ce81119c4822c45d3c84f1ced46f93a0126febae20737bd05ca20589c564d6e9226977df859ed5e03dc73f02584a2b0faad36e896936238238b0446cf
+  version: 2.3.2
+  resolution: "picomatch@npm:2.3.2"
+  checksum: 0a3f5b9ff28faf022e1429b66e47c122e19e7b31cbd098095d29e949684e7ff1d9b83a2133d931326a53ec6ec11c7c59b1850c27fde2f26ca1d5f35861e9701a
   languageName: node
   linkType: hard
 
