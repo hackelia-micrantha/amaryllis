@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -6,7 +6,7 @@
     <title>React Native Amaryllis</title>
     <meta
       name="description"
-      content="A modern AI module for native mobile apps in React Native, supporting multimodal inference and streaming results."
+      content="A React Native on-device multimodal AI module, with a companion amaryllis-components proposal for governed adaptive components."
     />
     <link rel="stylesheet" href="site.css" />
   </head>
@@ -20,6 +20,7 @@
       <nav class="nav-links">
         <a href="#features">Features</a>
         <a href="#best-practices">Best practices</a>
+        <a href="#rfc">RFC</a>
         <a href="#usage">Usage</a>
         <a href="#demo">Demo</a>
       </nav>
@@ -28,16 +29,17 @@
     <main>
       <section class="hero">
         <div class="hero-text">
-          <p class="eyebrow">Native LLMs for mobile apps</p>
-          <h1>Ship multimodal AI experiences with streaming results.</h1>
+          <p class="eyebrow">On-device multimodal AI for React Native</p>
+          <h1>Ship native mobile AI experiences with streaming results.</h1>
           <p class="lead">
-            Amaryllis is a modern React Native AI module that powers on-device
-            inference, supports text + images, and streams tokens through hooks
-            and observables.
+            Amaryllis is the base inference module for local text, image, and
+            streaming workflows. A companion module, working name
+            amaryllis-components, extends that foundation into governed adaptive
+            components.
           </p>
           <div class="cta-row">
-            <a class="btn primary" href="#usage">Get started</a>
-            <a class="btn ghost" href="#features">Explore features</a>
+            <a class="btn primary" href="#usage">Use on-device inference</a>
+            <a class="btn ghost" href="#rfc">Explore amaryllis-components</a>
           </div>
         </div>
         <div class="hero-card">
@@ -52,19 +54,25 @@ pnpm add react-native-amaryllis</code></pre>
             <span class="chip">iOS</span>
             <span class="chip">Streaming</span>
             <span class="chip">Multimodal</span>
+            <span class="chip">Components RFC</span>
           </div>
         </div>
       </section>
 
       <section id="features" class="features">
         <div class="section-title">
-          <h2>What you get out of the box</h2>
-          <p>Native performance with a developer friendly API.</p>
+          <h2>What the base module provides</h2>
+          <p>
+            Native inference, streaming hooks, multimodal requests, and context
+            APIs provide the substrate for higher-level adaptive UI modules.
+          </p>
         </div>
         <div class="feature-grid">
           <article class="feature">
             <h3>Native LLM engine</h3>
-            <p>Optimized pipelines for Android and iOS with predictable startup.</p>
+            <p>
+              Optimized pipelines for Android and iOS with predictable startup.
+            </p>
           </article>
           <article class="feature">
             <h3>Multimodal support</h3>
@@ -119,6 +127,102 @@ pnpm add react-native-amaryllis</code></pre>
             <h3>Document model sources</h3>
             <p>Track model versions and update strategies.</p>
           </article>
+        </div>
+      </section>
+
+      <section id="rfc" class="rfc">
+        <div class="section-title">
+          <p class="eyebrow">Companion module RFC</p>
+          <h2>Components for adaptive on-device UI</h2>
+          <p>
+            The proposed companion module adds governed component specs,
+            build-time generation workflows, and safe runtime personalization on
+            top of the base Amaryllis inference layer.
+          </p>
+        </div>
+        <div class="companion-callout">
+          <div>
+            <div class="card-header">Proposed package</div>
+            <h3>amaryllis-components</h3>
+          </div>
+          <p>
+            Keep <strong>react-native-amaryllis</strong> focused on on-device
+            multimodal inference. Put adaptive component specs, registries,
+            validators, and personalization contracts in a companion package.
+          </p>
+        </div>
+        <div class="rfc-modes" aria-label="AI modes">
+          <article class="rfc-mode">
+            <span>Mode 1</span>
+            <h3>Scaffold</h3>
+            <p>
+              Build-time AI creates component source from a ComponentSpec, then
+              the result goes through validation, review, and publishing.
+            </p>
+          </article>
+          <article class="rfc-mode">
+            <span>Mode 2</span>
+            <h3>Customize</h3>
+            <p>
+              AI creates bounded variants within declared slots, layouts, copy
+              rules, and design-token constraints.
+            </p>
+          </article>
+          <article class="rfc-mode">
+            <span>Mode 3</span>
+            <h3>Runtime personalization</h3>
+            <p>
+              On-device AI returns schema-validated props, variants, slot text,
+              or JSON patches. It does not emit executable component code.
+            </p>
+          </article>
+        </div>
+        <div class="rfc-grid">
+          <article class="rfc-panel">
+            <div class="card-header">Source of truth</div>
+            <h3>ComponentSpec</h3>
+            <p>
+              A typed, versioned spec defines UI structure, behavior, allowed AI
+              operations, target runtime, and policy requirements before code is
+              generated.
+            </p>
+          </article>
+          <article class="rfc-panel">
+            <div class="card-header">Generation model</div>
+            <h3>Validated pipeline</h3>
+            <p>
+              Build-time TSX generation moves through validation, static checks,
+              preview, diff review, and artifact publishing instead of direct
+              freeform AI code edits.
+            </p>
+          </article>
+          <article class="rfc-panel">
+            <div class="card-header">On-device AI</div>
+            <h3>Structured customization</h3>
+            <p>
+              Runtime AI can fill slots, choose variants, and select design
+              tokens, but it must return validated data, not executable TSX,
+              JSX, JavaScript, imports, or raw markup.
+            </p>
+          </article>
+          <article class="rfc-panel">
+            <div class="card-header">Governance</div>
+            <h3>Policy enforcement</h3>
+            <p>
+              Import allowlists, accessibility checks, design token rules,
+              network restrictions, provenance metadata, and approval gates keep
+              generated output reviewable.
+            </p>
+          </article>
+        </div>
+        <div class="rfc-flow" aria-label="RFC workflow">
+          <span>Spec</span>
+          <span>Validation</span>
+          <span>Build-time code</span>
+          <span>Runtime data</span>
+          <span>Static checks</span>
+          <span>Preview</span>
+          <span>Publish</span>
         </div>
       </section>
 
