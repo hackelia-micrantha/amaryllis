@@ -13,15 +13,42 @@ export interface ComponentTarget {
   ssr?: boolean;
 }
 
+export type JsonSchemaPrimitiveType =
+  | 'string'
+  | 'number'
+  | 'integer'
+  | 'boolean'
+  | 'array'
+  | 'object'
+  | 'null';
+
+export interface JsonSchemaValue {
+  type?: JsonSchemaPrimitiveType;
+  description?: string;
+  enum?: unknown[];
+  default?: unknown;
+  items?: JsonSchemaValue;
+  properties?: Record<string, JsonSchemaValue>;
+  required?: string[];
+  additionalProperties?: boolean | JsonSchemaValue;
+}
+
 export interface ComponentProps {
   type: 'object';
-  properties: Record<string, any>;
+  properties: Record<string, JsonSchemaValue>;
   required?: string[];
 }
 
 export interface ComponentUI {
   layout?: string;
   slots?: string[];
+  variants?: Record<
+    string,
+    {
+      layout?: string;
+      props?: Record<string, unknown>;
+    }
+  >;
   designTokens?: {
     spacing?: string[];
     typography?: string[];
@@ -33,7 +60,7 @@ export interface ComponentUI {
 }
 
 export interface ComponentBehavior {
-  state?: Record<string, any>;
+  state?: Record<string, unknown>;
   events?: string[];
   sideEffects?: string[];
   constraints?: string[];

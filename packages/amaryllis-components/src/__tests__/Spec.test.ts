@@ -35,4 +35,30 @@ metadata:
 `;
     expect(() => parseComponentSpec(yaml)).toThrow();
   });
+
+  it('should reject executable output for device execution', () => {
+    const yaml = `
+apiVersion: amaryllis/v1alpha1
+kind: ComponentSpec
+metadata:
+  name: runtime-card
+  version: 1.0.0
+target:
+  framework: react
+  runtime: rn
+props:
+  type: object
+  properties:
+    title:
+      type: string
+ai:
+  mode: personalize
+  execution: device
+  generationContract:
+    output: tsx
+`;
+    expect(() => parseComponentSpec(yaml)).toThrow(
+      'device execution cannot output TSX or executable code'
+    );
+  });
 });

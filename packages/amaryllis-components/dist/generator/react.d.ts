@@ -1,9 +1,18 @@
 import type { ValidatedComponentSpec } from '../schema/spec.schema';
+export interface ReactGeneratorOptions {
+    specHash?: string;
+    modelId?: string;
+    promptVersion?: string;
+    validationSummary?: string;
+    generatedAt?: Date;
+}
 export declare class ReactGenerator {
-  generate(spec: ValidatedComponentSpec): string;
-  private toPascalCase;
-  private generatePropsType;
-  private jsonSchemaToTsType;
-  private generateImports;
-  private wrapWithLayout;
+    generate(spec: ValidatedComponentSpec, options?: ReactGeneratorOptions): string;
+    private generateVariantLogic;
+    private toPascalCase;
+    private generatePropsType;
+    private jsonSchemaToTsType;
+    private generateImports;
+    private wrapWithLayout;
+    private generateProvenance;
 }
