@@ -90,9 +90,11 @@ nitrogen/
 **/.env*
 !**/.env*.example
 
+# AI
 GEMINI.md
 CLAUDE.md
 AGENTS.md
+.codex
 
 # Model downloads
 example/assets/models/*
