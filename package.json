@@ -112,10 +112,12 @@
     },
     "modulePathIgnorePatterns": [
       "<rootDir>/example/node_modules",
-      "<rootDir>/lib/"
+      "<rootDir>/lib/",
+      "<rootDir>/packages/amaryllis-components/dist/"
     ],
     "testPathIgnorePatterns": [
-      "<rootDir>/src/__tests__/test-utils.tsx"
+      "<rootDir>/src/__tests__/test-utils.tsx",
+      "<rootDir>/packages/amaryllis-components/"
     ],
     "setupFiles": [
       "<rootDir>/jest.setup.js"

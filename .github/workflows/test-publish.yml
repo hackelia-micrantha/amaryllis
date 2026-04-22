@@ -39,26 +39,50 @@ jobs:
       - name: Build package
         run: yarn prepare
 
-      - name: Validate package
-        run: |
-          echo "📦 Package validation"
-          node -e "console.log('✓ Package name:', JSON.parse(require('fs').readFileSync('./package.json', 'utf8')).name)"
-          node -e "console.log('✓ Version:', JSON.parse(require('fs').readFileSync('./package.json', 'utf8')).version)"
-          echo "✓ Built files:"
-          ls -la lib/ || echo "❌ No lib directory"
+      - name: Run components library tests
+        run: npm test -- --runInBand
+        working-directory: packages/amaryllis-components
 
-      - name: Test npm pack command (dry run)
+      - name: Lint components library
+        run: npm run lint
+        working-directory: packages/amaryllis-components
+
+      - name: Build components library
+        run: npm run build
+        working-directory: packages/amaryllis-components
+
+      - name: Validate packages
+        run: |
+          echo "Package validation"
+          node -e "console.log('Main package:', JSON.parse(require('fs').readFileSync('./package.json', 'utf8')).name)"
+          node -e "console.log('Main version:', JSON.parse(require('fs').readFileSync('./package.json', 'utf8')).version)"
+          test -d lib
+          ls -la lib/
+          node -e "console.log('Components package:', JSON.parse(require('fs').readFileSync('./packages/amaryllis-components/package.json', 'utf8')).name)"
+          node -e "console.log('Components version:', JSON.parse(require('fs').readFileSync('./packages/amaryllis-components/package.json', 'utf8')).version)"
+          test -d packages/amaryllis-components/dist
+          ls -la packages/amaryllis-components/dist/
+
+      - name: Test npm pack commands (dry run)
         if: github.event.inputs.dry_run == 'true'
         run: |
-          echo "🧪 Testing npm publish preparation"
+          echo "Testing npm publish preparation"
           npm pack --dry-run
-          echo "✓ npm pack dry run successful"
+        working-directory: packages/amaryllis-components
+
+      - name: Test main library npm pack command (dry run)
+        if: github.event.inputs.dry_run == 'true'
+        run: |
+          npm pack --dry-run
+          echo "npm pack dry run successful"
 
       - name: Test npm publish (simulation)
         if: github.event.inputs.dry_run == 'true'
         run: |
-          echo "🚀 Simulating npm publish"
-          echo "Package: @micrantha/react-native-amaryllis"
+          echo "Simulating npm publish"
+          echo "Main package: @micrantha/react-native-amaryllis"
+          echo "Components package: @micrantha/amaryllis-components"
           echo "Registry: https://registry.npmjs.org/"
           echo "Provenance: Would be generated automatically"
-          echo "✓ Publish simulation complete"
+          echo "GitHub Release: Would upload package tarballs"
+          echo "Publish simulation complete"
