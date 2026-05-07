@@ -20,6 +20,7 @@ __exportStar(require("./parser/yaml"), exports);
 __exportStar(require("./policy/engine"), exports);
 __exportStar(require("./generator/react"), exports);
 __exportStar(require("./generator/schema"), exports);
+__exportStar(require("./integrations/agent-ui"), exports);
 // Runtime
 __exportStar(require("./runtime/engine"), exports);
 __exportStar(require("./runtime/registry"), exports);

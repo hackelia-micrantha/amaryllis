@@ -222,6 +222,26 @@ This prevents the model from becoming the direct runtime source of executable UI
 
 ---
 
+# CopilotKit And AG-UI Fit
+
+CopilotKit and AG-UI are useful integration surfaces for agent actions, shared frontend state, and generative UI orchestration.
+
+Amaryllis should factor into those systems as a local-first capability and governance layer:
+
+```text
+agent action
+  -> Amaryllis inference
+  -> structured output
+  -> ComponentSpec contract validation
+  -> registry-approved render overlay
+```
+
+The companion package therefore exposes dependency-free adapter contracts rather than importing CopilotKit directly. This keeps CopilotKit/AG-UI optional while preserving the Amaryllis rule that model output is advisory until validation passes.
+
+See [CopilotKit and AG-UI alignment](./copilotkit-ag-ui.md).
+
+---
+
 # Why This Direction Exists
 
 The broader goal is not merely:

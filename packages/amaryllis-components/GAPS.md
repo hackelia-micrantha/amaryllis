@@ -15,7 +15,8 @@ This document tracks identified gaps, technical debt, and architectural requirem
 - **Description:** There is no automated bridge between the core Amaryllis inference hooks (`useInference`) and the `PersonalizedComponent`.
 - **Impact:** Developers must manually wire LLM outputs to the component props.
 - **Priority:** High
-- **Status:** Open
+- **Status:** In Progress
+- **Note:** Initial dependency-free AG-UI/CopilotKit-shaped adapter contracts and `useAmaryllisPersonalizationAction` now bridge an inference function to validated personalization props. Direct base-runtime `useInference` wiring remains open.
 
 ### G2: Component Registry Persistence
 - **Description:** The `ComponentRegistry` is purely in-memory.

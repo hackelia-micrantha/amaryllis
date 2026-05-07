@@ -1,6 +1,10 @@
 import { useState, useMemo, useCallback } from 'react';
 import { PersonalizationEngine } from './engine';
 import { globalRegistry } from './registry';
+import type {
+  AgentUIInvocation,
+  AgentUIOverlayResult,
+} from '../integrations/agent-ui';
 
 export interface UsePersonalizationOptions {
   name: string;
@@ -45,4 +49,77 @@ export function usePersonalization({
     applyPersonalization,
     reset,
   };
+}
+
+export interface AmaryllisPersonalizationActionOptions {
+  componentName: string;
+  baseProps?: Record<string, unknown>;
+  infer: (request: AgentUIInvocation) => Promise<unknown>;
+}
+
+export type AmaryllisPersonalizationAction = (
+  request: Omit<AgentUIInvocation, 'componentName' | 'baseProps'> & {
+    baseProps?: Record<string, unknown>;
+  }
+) => Promise<AgentUIOverlayResult>;
+
+export function createAmaryllisPersonalizationAction({
+  componentName,
+  baseProps = {},
+  infer,
+}: AmaryllisPersonalizationActionOptions): AmaryllisPersonalizationAction {
+  const engine = new PersonalizationEngine();
+
+  return async (request) => {
+    const props = request.baseProps ?? baseProps;
+    const registered = globalRegistry.get(componentName);
+
+    if (!registered) {
+      return {
+        valid: false,
+        props,
+        errors: [`Component ${componentName} is not registered`],
+      };
+    }
+
+    const rawOutput = await infer({
+      componentName,
+      baseProps: props,
+      prompt: request.prompt,
+      context: request.context,
+    });
+
+    const result = engine.validate(registered.contract, rawOutput);
+
+    if (!result.valid) {
+      return {
+        valid: false,
+        props,
+        errors: result.errors ?? ['Unknown validation error'],
+        rawOutput,
+      };
+    }
+
+    return {
+      valid: true,
+      props: engine.apply(props, result.data ?? {}),
+      rawOutput,
+    };
+  };
+}
+
+export function useAmaryllisPersonalizationAction(
+  options: AmaryllisPersonalizationActionOptions
+): AmaryllisPersonalizationAction {
+  const { componentName, baseProps, infer } = options;
+
+  return useMemo(
+    () =>
+      createAmaryllisPersonalizationAction({
+        componentName,
+        baseProps,
+        infer,
+      }),
+    [componentName, baseProps, infer]
+  );
 }

@@ -232,6 +232,31 @@ This allows mobile apps to personalize UI locally while preserving the RFC's cor
 
 ---
 
+## CopilotKit And AG-UI Integration Boundary
+
+CopilotKit and AG-UI are optional orchestration layers for agent actions, frontend-rendered tool output, and generative UI surfaces.
+
+The companion module must not require either package as a runtime dependency. Instead, it should expose adapter contracts that let those systems call Amaryllis local inference and receive validated personalization results.
+
+The integration boundary is:
+
+```text
+CopilotKit/AG-UI action
+  -> Amaryllis inference function
+  -> structured output
+  -> personalization contract validation
+  -> registry-approved overlay props
+```
+
+Adapters must preserve these constraints:
+
+- Model output is untrusted until validated.
+- Runtime output must not contain JSX, TSX, JavaScript, imports, or raw markup.
+- Registry entries remain authoritative for renderable implementations.
+- Failed validation returns base props plus errors rather than disabling validation.
+
+---
+
 ## Normative Validation Order
 
 Implementations must validate artifacts in this order:

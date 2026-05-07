@@ -156,6 +156,26 @@ It should not be confused with a policy engine or a component registry. It is a 
 
 ---
 
+## CopilotKit And AG-UI Placement
+
+CopilotKit and AG-UI fit at the application orchestration boundary, above Amaryllis inference and component governance.
+
+In this branch, they are treated as optional integration protocols for actions, frontend-rendered tool output, and generative UI flows. They do not replace the Amaryllis registry or validation model.
+
+The intended flow is:
+
+```text
+AG-UI/CopilotKit action
+  -> Amaryllis local inference capability
+  -> structured output
+  -> amaryllis-components validation
+  -> registry-approved component overlay
+```
+
+That keeps Amaryllis responsible for local AI execution and render authority while allowing CopilotKit-style applications to orchestrate agent UI flows.
+
+---
+
 ## Security Boundaries
 
 This branch creates several important trust boundaries:
@@ -184,4 +204,5 @@ For the detailed component contract and enforcement model, see:
 - [AI-enabled components](./ai-enabled-components.md)
 - [Concepts](./concepts.md)
 - [Local AI and MediaPipe](./local-ai.md)
+- [CopilotKit and AG-UI alignment](./copilotkit-ag-ui.md)
 - [Amaryllis Components RFC](./amaryllis_ai_component_module_rfc.md)

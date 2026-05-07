@@ -4,6 +4,7 @@ export * from './parser/yaml';
 export * from './policy/engine';
 export * from './generator/react';
 export * from './generator/schema';
+export * from './integrations/agent-ui';
 
 // Runtime
 export * from './runtime/engine';

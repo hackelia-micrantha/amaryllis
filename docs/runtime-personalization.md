@@ -246,6 +246,21 @@ This is especially important for mobile UI flows where interaction timing and re
 
 ---
 
+# Relationship To CopilotKit And AG-UI
+
+CopilotKit and AG-UI can initiate personalization as frontend actions or render-tool flows, but they should not bypass Amaryllis validation.
+
+The first adapter surface in `@micrantha/amaryllis-components` keeps that boundary explicit:
+
+- the action receives prompt and context
+- the inference function produces untrusted structured output
+- `PersonalizationEngine` validates output against the registered contract
+- only validated props are returned for rendering
+
+This lets CopilotKit/AG-UI orchestrate user-facing agent interactions while Amaryllis remains the authority for local inference, contracts, and overlays.
+
+---
+
 # Future Directions
 
 Several runtime personalization areas remain open:
