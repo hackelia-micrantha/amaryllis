@@ -53,10 +53,12 @@ ComponentSpec / policy / registry
 - [Concepts](docs/concepts.md)
 - [AI-enabled components](docs/ai-enabled-components.md)
 - [Runtime personalization](docs/runtime-personalization.md)
+- [Registry and validation](docs/registry-and-validation.md)
 - [Security model](docs/security-model.md)
 - [Amaryllis Components RFC](docs/amaryllis_ai_component_module_rfc.md)
 - [Context Engine](docs/context-engine.md)
 - [Examples](docs/examples)
+- [Runtime validation flow example](docs/examples/runtime-validation-flow.md)
 
 ---
 
@@ -284,10 +286,12 @@ See `docs/context-engine.md` for details.
 - [Concepts](docs/concepts.md)
 - [AI-enabled components](docs/ai-enabled-components.md)
 - [Runtime personalization](docs/runtime-personalization.md)
+- [Registry and validation](docs/registry-and-validation.md)
 - [Security model](docs/security-model.md)
 - [Amaryllis Components RFC](docs/amaryllis_ai_component_module_rfc.md)
 - [Context Engine](docs/context-engine.md)
 - [Examples](docs/examples)
+- [Runtime validation flow example](docs/examples/runtime-validation-flow.md)
 - [Example App](example/)
 - [Development workflow](CONTRIBUTING.md)
 - [Code of Conduct](CODE_OF_CONDUCT.md)
