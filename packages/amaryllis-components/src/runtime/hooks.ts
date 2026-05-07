@@ -54,14 +54,32 @@ export function usePersonalization({
 export interface AmaryllisPersonalizationActionOptions {
   componentName: string;
   baseProps?: Record<string, unknown>;
-  infer: (request: AgentUIInvocation) => Promise<unknown>;
+  infer: AmaryllisPersonalizationInfer;
 }
+
+export type AmaryllisPersonalizationInfer = (
+  request: AgentUIInvocation
+) => Promise<unknown>;
+
+export interface AmaryllisInferenceRequest {
+  prompt: string;
+}
+
+export type AmaryllisGenerateFunction = (
+  request: AmaryllisInferenceRequest
+) => Promise<unknown>;
 
 export type AmaryllisPersonalizationAction = (
   request: Omit<AgentUIInvocation, 'componentName' | 'baseProps'> & {
     baseProps?: Record<string, unknown>;
   }
 ) => Promise<AgentUIOverlayResult>;
+
+export function createAmaryllisInferenceAdapter(
+  generate: AmaryllisGenerateFunction
+): AmaryllisPersonalizationInfer {
+  return async ({ prompt }) => generate({ prompt });
+}
 
 export function createAmaryllisPersonalizationAction({
   componentName,
