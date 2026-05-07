@@ -36,6 +36,30 @@ export class JSONSchemaGenerator {
               additionalProperties: false,
             }
           : undefined,
+        designTokens: ui?.designTokens
+          ? {
+              type: 'object',
+              properties: this.mapDesignTokens(ui.designTokens),
+              additionalProperties: false,
+            }
+          : undefined,
+        patches: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              op: {
+                type: 'string',
+                enum: ['add', 'remove', 'replace', 'move', 'copy', 'test'],
+              },
+              path: { type: 'string' },
+              from: { type: 'string' },
+              value: {},
+            },
+            required: ['op', 'path'],
+            additionalProperties: false,
+          },
+        },
       },
       additionalProperties: false,
     };
@@ -55,6 +79,22 @@ export class JSONSchemaGenerator {
         ...(value.enum && { enum: value.enum }),
         ...(value.default !== undefined && { default: value.default }),
       };
+    }
+
+    return mapped;
+  }
+
+  private mapDesignTokens(
+    designTokens: NonNullable<ValidatedComponentSpec['ui']>['designTokens']
+  ): Record<string, JsonSchemaValue> {
+    const mapped: Record<string, JsonSchemaValue> = {};
+
+    for (const role of [
+      ...(designTokens?.spacing ?? []),
+      ...(designTokens?.typography ?? []),
+      ...(designTokens?.colorRoles ?? []),
+    ]) {
+      mapped[role] = { type: 'string' };
     }
 
     return mapped;

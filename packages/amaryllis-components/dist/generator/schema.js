@@ -32,6 +32,30 @@ class JSONSchemaGenerator {
                         additionalProperties: false,
                     }
                     : undefined,
+                designTokens: ui?.designTokens
+                    ? {
+                        type: 'object',
+                        properties: this.mapDesignTokens(ui.designTokens),
+                        additionalProperties: false,
+                    }
+                    : undefined,
+                patches: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            op: {
+                                type: 'string',
+                                enum: ['add', 'remove', 'replace', 'move', 'copy', 'test'],
+                            },
+                            path: { type: 'string' },
+                            from: { type: 'string' },
+                            value: {},
+                        },
+                        required: ['op', 'path'],
+                        additionalProperties: false,
+                    },
+                },
             },
             additionalProperties: false,
         };
@@ -46,6 +70,17 @@ class JSONSchemaGenerator {
                 ...(value.enum && { enum: value.enum }),
                 ...(value.default !== undefined && { default: value.default }),
             };
+        }
+        return mapped;
+    }
+    mapDesignTokens(designTokens) {
+        const mapped = {};
+        for (const role of [
+            ...(designTokens?.spacing ?? []),
+            ...(designTokens?.typography ?? []),
+            ...(designTokens?.colorRoles ?? []),
+        ]) {
+            mapped[role] = { type: 'string' };
         }
         return mapped;
     }
