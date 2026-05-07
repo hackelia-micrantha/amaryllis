@@ -3,7 +3,10 @@ import type { ValidatedComponentSpec } from '../schema/spec.schema';
 
 import { JSONSchemaGenerator } from '../generator/schema';
 import { createAgentUIToolContract } from '../integrations/agent-ui';
-import { createAmaryllisPersonalizationAction } from '../runtime/hooks';
+import {
+  createAmaryllisInferenceAdapter,
+  createAmaryllisPersonalizationAction,
+} from '../runtime/hooks';
 import { globalRegistry } from '../runtime/registry';
 
 describe('Agent UI integration', () => {
@@ -98,6 +101,34 @@ describe('Agent UI integration', () => {
       variant: 'compact',
       summary: 'Local summary',
     });
+  });
+
+  test('adapts base Amaryllis inference to the action infer callback', async () => {
+    const generateRequests: Array<{ prompt: string }> = [];
+    const infer = createAmaryllisInferenceAdapter(async (request) => {
+      generateRequests.push(request);
+      return {
+        props: { title: 'Adapted', count: 3 },
+      };
+    });
+
+    const action = createAmaryllisPersonalizationAction({
+      componentName: 'summary-card',
+      baseProps: { title: 'Base', count: 0 },
+      infer,
+    });
+
+    const result = await action({
+      prompt: 'summarize with the base runtime',
+      context: { screen: 'quest-log' },
+      baseProps: { title: 'Request Base', count: 1 },
+    });
+
+    expect(generateRequests).toEqual([
+      { prompt: 'summarize with the base runtime' },
+    ]);
+    expect(result.valid).toBe(true);
+    expect(result.props).toEqual({ title: 'Adapted', count: 3 });
   });
 
   test('invalid structured output returns errors and base props', async () => {

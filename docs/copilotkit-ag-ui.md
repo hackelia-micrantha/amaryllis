@@ -40,6 +40,7 @@ The companion package exports a dependency-free adapter surface:
 ```ts
 import {
   createAgentUIToolContract,
+  createAmaryllisInferenceAdapter,
   useAmaryllisPersonalizationAction,
 } from '@micrantha/amaryllis-components';
 ```
@@ -48,20 +49,19 @@ import {
 
 `useAmaryllisPersonalizationAction` bridges an inference function to a registered component. It invokes local inference, treats output as untrusted data, validates it against the component contract, and returns renderable props only when validation passes.
 
+`createAmaryllisInferenceAdapter` converts a prompt-only base Amaryllis `generate` function into the action `infer` callback shape, so applications do not need to manually strip AG-UI component metadata or base props before calling local inference.
+
 ---
 
 ## Example
 
 ```ts
+const infer = createAmaryllisInferenceAdapter(localAmaryllisGenerate);
+
 const action = useAmaryllisPersonalizationAction({
   componentName: 'summary-card',
   baseProps: { title: 'Summary' },
-  infer: async ({ prompt, context }) => {
-    return localAmaryllisInfer({
-      prompt,
-      context,
-    });
-  },
+  infer,
 });
 
 const result = await action({

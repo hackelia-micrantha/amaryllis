@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.usePersonalization = usePersonalization;
+exports.createAmaryllisInferenceAdapter = createAmaryllisInferenceAdapter;
 exports.createAmaryllisPersonalizationAction = createAmaryllisPersonalizationAction;
 exports.useAmaryllisPersonalizationAction = useAmaryllisPersonalizationAction;
 const react_1 = require("react");
@@ -35,6 +36,9 @@ function usePersonalization({ name, baseProps = {}, }) {
         applyPersonalization,
         reset,
     };
+}
+function createAmaryllisInferenceAdapter(generate) {
+    return async ({ prompt }) => generate({ prompt });
 }
 function createAmaryllisPersonalizationAction({ componentName, baseProps = {}, infer, }) {
     const engine = new engine_1.PersonalizationEngine();
