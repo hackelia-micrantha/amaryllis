@@ -52,8 +52,10 @@ ComponentSpec / policy / registry
 - [Local AI and MediaPipe](docs/local-ai.md)
 - [Concepts](docs/concepts.md)
 - [AI-enabled components](docs/ai-enabled-components.md)
+- [Runtime personalization](docs/runtime-personalization.md)
 - [Amaryllis Components RFC](docs/amaryllis_ai_component_module_rfc.md)
 - [Context Engine](docs/context-engine.md)
+- [Examples](docs/examples)
 
 ---
 
@@ -280,8 +282,10 @@ See `docs/context-engine.md` for details.
 - [Local AI and MediaPipe](docs/local-ai.md)
 - [Concepts](docs/concepts.md)
 - [AI-enabled components](docs/ai-enabled-components.md)
+- [Runtime personalization](docs/runtime-personalization.md)
 - [Amaryllis Components RFC](docs/amaryllis_ai_component_module_rfc.md)
 - [Context Engine](docs/context-engine.md)
+- [Examples](docs/examples)
 - [Example App](example/)
 - [Development workflow](CONTRIBUTING.md)
 - [Code of Conduct](CODE_OF_CONDUCT.md)
