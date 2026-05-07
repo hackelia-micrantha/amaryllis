@@ -24,6 +24,9 @@ describe('Personalization', () => {
       variants: {
         compact: { layout: '<div>{title}</div>' },
       },
+      designTokens: {
+        colorRoles: ['accent'],
+      },
     },
     ai: {
       mode: 'personalize',
@@ -113,6 +116,69 @@ describe('Personalization', () => {
     expect(finalProps.title).toBe('Personalized');
     expect(finalProps.count).toBe(0);
     expect(finalProps.variant).toBe('compact');
+  });
+
+  test('should apply bounded JSON Patch overlays to derived personalization data', () => {
+    const aiOutput = {
+      props: { title: 'Base AI title' },
+      patches: [
+        { op: 'replace', path: '/props/title', value: 'Patched title' },
+        { op: 'add', path: '/variant', value: 'compact' },
+        { op: 'add', path: '/slots/content', value: 'Patched content' },
+        { op: 'add', path: '/designTokens/accent', value: 'brand.primary' },
+      ],
+    };
+
+    const result = engine.validate(contract, aiOutput);
+    expect(result.valid).toBe(true);
+    expect(result.data).toEqual({
+      props: { title: 'Patched title' },
+      variant: 'compact',
+      slots: { content: 'Patched content' },
+      designTokens: { accent: 'brand.primary' },
+    });
+
+    const finalProps = engine.apply({ title: 'Base' }, result.data ?? {});
+    expect(finalProps).toEqual({
+      title: 'Patched title',
+      variant: 'compact',
+      content: 'Patched content',
+      designTokens: { accent: 'brand.primary' },
+    });
+  });
+
+  test('should fail closed for JSON Patch paths outside declared personalization data', () => {
+    const aiOutput = {
+      props: { title: 'Hello' },
+      patches: [
+        { op: 'add', path: '/props/dangerous', value: '<script />' },
+        { op: 'replace', path: '/policy/runtime/networkAccess', value: 'all' },
+        { op: 'replace', path: '/metadata/name', value: 'other-card' },
+        { op: 'add', path: '/slots/footer', value: 'Undeclared slot' },
+        { op: 'add', path: '/designTokens/unknown', value: 'token' },
+      ],
+    };
+
+    const result = engine.validate(contract, aiOutput);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toEqual([
+      '/patches/0/path must target a declared personalization path',
+      '/patches/1/path must target a declared personalization path',
+      '/patches/2/path must target a declared personalization path',
+      '/patches/3/path must target a declared personalization path',
+      '/patches/4/path must target a declared personalization path',
+    ]);
+  });
+
+  test('should fail closed when patched output violates the contract', () => {
+    const aiOutput = {
+      props: { title: 'Hello' },
+      patches: [{ op: 'replace', path: '/props/title', value: 123 }],
+    };
+
+    const result = engine.validate(contract, aiOutput);
+    expect(result.valid).toBe(false);
+    expect(result.errors?.join('\n')).toContain('/props/title must be string');
   });
 
   test('should register and retrieve components in registry', () => {
