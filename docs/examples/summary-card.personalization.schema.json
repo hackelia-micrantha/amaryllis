@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://micrantha.com/amaryllis/examples/summary-card.personalization.schema.json",
+  "title": "SummaryCardPersonalization",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "summary": {
+      "type": "string",
+      "maxLength": 240
+    },
+    "variant": {
+      "type": "string",
+      "enum": ["compact", "expanded"]
+    }
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "name": "@micrantha/amaryllis-components",
+  "version": "0.1.0",
+  "description": "Companion module for Amaryllis defining personalized React components as governed specs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": "./dist/cli/index.js",
+  "files": [
+    "dist",
+    "src",
+    "!src/__tests__",
+    "!**/*.test.ts",
+    "!**/*.test.tsx"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "lint": "eslint \"src/**/*.{ts,tsx}\"",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "amaryllis",
+    "react",
+    "ai",
+    "components",
+    "generative-ui"
+  ],
+  "author": "Ryan Jennings",
+  "license": "MIT",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "dependencies": {
+    "ajv": "^8.18.0",
+    "commander": "^12.1.0",
+    "fast-json-patch": "^3.1.1",
+    "js-yaml": "^4.1.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^20.12.7",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  }
+}
