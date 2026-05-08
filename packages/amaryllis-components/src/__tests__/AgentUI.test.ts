@@ -178,6 +178,47 @@ describe('Agent UI integration', () => {
     expect(result.rawOutput).toEqual({ props: { title: 123 } });
   });
 
+  test('does not retry invalid output when recovery is not configured', async () => {
+    const infer = jest.fn(async () => ({
+      props: { title: 123 },
+    }));
+    const action = createAmaryllisPersonalizationAction({
+      componentName: 'summary-card',
+      baseProps: { title: 'Base', count: 0 },
+      infer,
+    });
+
+    const result = await action({ prompt: 'bad output' });
+
+    expect(infer).toHaveBeenCalledTimes(1);
+    expect(result.valid).toBe(false);
+    expect(result.props).toEqual({ title: 'Base', count: 0 });
+  });
+
+  test('recovers invalid output with one bounded validation retry', async () => {
+    const infer = jest
+      .fn()
+      .mockResolvedValueOnce({ props: { title: 123 } })
+      .mockImplementationOnce(async (request) => {
+        expect(request.recovery?.attempt).toBe(1);
+        expect(request.recovery?.validationErrors.length).toBeGreaterThan(0);
+        expect(request.recovery?.rawOutput).toEqual({ props: { title: 123 } });
+        return { props: { title: 'Recovered', count: 5 } };
+      });
+    const action = createAmaryllisPersonalizationAction({
+      componentName: 'summary-card',
+      baseProps: { title: 'Base', count: 0 },
+      infer,
+      recovery: { maxAttempts: 1 },
+    });
+
+    const result = await action({ prompt: 'recover output' });
+
+    expect(infer).toHaveBeenCalledTimes(2);
+    expect(result.valid).toBe(true);
+    expect(result.props).toEqual({ title: 'Recovered', count: 5 });
+  });
+
   test('raw TSX-like output fails schema validation', async () => {
     const action = createAmaryllisPersonalizationAction({
       componentName: 'summary-card',

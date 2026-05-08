@@ -4,6 +4,11 @@ export interface AgentUIInvocation {
     baseProps?: Record<string, unknown>;
     prompt: string;
     context?: Record<string, unknown>;
+    recovery?: {
+        attempt: number;
+        validationErrors: string[];
+        rawOutput: unknown;
+    };
 }
 export interface AgentUIOverlayResult {
     valid: boolean;

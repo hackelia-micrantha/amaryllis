@@ -44,15 +44,17 @@ function createAmaryllisInferenceAdapter(generate) {
         return parseAmaryllisInferenceOutput(output);
     };
 }
-function createAmaryllisInferencePersonalizationAction({ componentName, baseProps = {}, generate, }) {
+function createAmaryllisInferencePersonalizationAction({ componentName, baseProps = {}, generate, recovery, }) {
     return createAmaryllisPersonalizationAction({
         componentName,
         baseProps,
         infer: createAmaryllisInferenceAdapter(generate),
+        recovery,
     });
 }
-function createAmaryllisPersonalizationAction({ componentName, baseProps = {}, infer, }) {
+function createAmaryllisPersonalizationAction({ componentName, baseProps = {}, infer, recovery, }) {
     const engine = new engine_1.PersonalizationEngine();
+    const maxRecoveryAttempts = Math.max(0, recovery?.maxAttempts ?? 0);
     return async (request) => {
         const props = request.baseProps ?? baseProps;
         const registered = registry_1.globalRegistry.get(componentName);
@@ -63,13 +65,27 @@ function createAmaryllisPersonalizationAction({ componentName, baseProps = {}, i
                 errors: [`Component ${componentName} is not registered`],
             };
         }
-        const rawOutput = await infer({
+        let rawOutput = await infer({
             componentName,
             baseProps: props,
             prompt: request.prompt,
             context: request.context,
         });
-        const result = engine.validate(registered.contract, rawOutput);
+        let result = engine.validate(registered.contract, rawOutput);
+        for (let attempt = 1; !result.valid && attempt <= maxRecoveryAttempts; attempt++) {
+            rawOutput = await infer({
+                componentName,
+                baseProps: props,
+                prompt: request.prompt,
+                context: request.context,
+                recovery: {
+                    attempt,
+                    validationErrors: result.errors ?? ['Unknown validation error'],
+                    rawOutput,
+                },
+            });
+            result = engine.validate(registered.contract, rawOutput);
+        }
         if (!result.valid) {
             return {
                 valid: false,
@@ -86,12 +102,13 @@ function createAmaryllisPersonalizationAction({ componentName, baseProps = {}, i
     };
 }
 function useAmaryllisPersonalizationAction(options) {
-    const { componentName, baseProps, infer } = options;
+    const { componentName, baseProps, infer, recovery } = options;
     return (0, react_1.useMemo)(() => createAmaryllisPersonalizationAction({
         componentName,
         baseProps,
         infer,
-    }), [componentName, baseProps, infer]);
+        recovery,
+    }), [componentName, baseProps, infer, recovery]);
 }
 function parseAmaryllisInferenceOutput(output) {
     if (typeof output !== 'string') {

@@ -67,4 +67,5 @@ This document tracks identified gaps, technical debt, and architectural requirem
 - **Description:** Validation failures simply revert to base props with a console warning.
 - **Impact:** Suboptimal UX; no mechanism for the AI to "self-correct" based on validation errors.
 - **Priority:** Medium
-- **Status:** Open
+- **Status:** Complete
+- **Note:** `createAmaryllisPersonalizationAction` now supports opt-in bounded recovery attempts that pass validation errors back through the inference callback and still require recovered output to pass schema validation before rendering.

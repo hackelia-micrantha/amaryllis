@@ -55,12 +55,18 @@ export interface AmaryllisPersonalizationActionOptions {
   componentName: string;
   baseProps?: Record<string, unknown>;
   infer: AmaryllisPersonalizationInfer;
+  recovery?: AmaryllisPersonalizationRecoveryOptions;
 }
 
 export interface AmaryllisInferencePersonalizationActionOptions {
   componentName: string;
   baseProps?: Record<string, unknown>;
   generate: AmaryllisGenerateFunction;
+  recovery?: AmaryllisPersonalizationRecoveryOptions;
+}
+
+export interface AmaryllisPersonalizationRecoveryOptions {
+  maxAttempts: number;
 }
 
 export type AmaryllisPersonalizationInfer = (
@@ -94,11 +100,13 @@ export function createAmaryllisInferencePersonalizationAction({
   componentName,
   baseProps = {},
   generate,
+  recovery,
 }: AmaryllisInferencePersonalizationActionOptions): AmaryllisPersonalizationAction {
   return createAmaryllisPersonalizationAction({
     componentName,
     baseProps,
     infer: createAmaryllisInferenceAdapter(generate),
+    recovery,
   });
 }
 
@@ -106,8 +114,10 @@ export function createAmaryllisPersonalizationAction({
   componentName,
   baseProps = {},
   infer,
+  recovery,
 }: AmaryllisPersonalizationActionOptions): AmaryllisPersonalizationAction {
   const engine = new PersonalizationEngine();
+  const maxRecoveryAttempts = Math.max(0, recovery?.maxAttempts ?? 0);
 
   return async (request) => {
     const props = request.baseProps ?? baseProps;
@@ -121,14 +131,34 @@ export function createAmaryllisPersonalizationAction({
       };
     }
 
-    const rawOutput = await infer({
+    let rawOutput = await infer({
       componentName,
       baseProps: props,
       prompt: request.prompt,
       context: request.context,
     });
 
-    const result = engine.validate(registered.contract, rawOutput);
+    let result = engine.validate(registered.contract, rawOutput);
+
+    for (
+      let attempt = 1;
+      !result.valid && attempt <= maxRecoveryAttempts;
+      attempt++
+    ) {
+      rawOutput = await infer({
+        componentName,
+        baseProps: props,
+        prompt: request.prompt,
+        context: request.context,
+        recovery: {
+          attempt,
+          validationErrors: result.errors ?? ['Unknown validation error'],
+          rawOutput,
+        },
+      });
+
+      result = engine.validate(registered.contract, rawOutput);
+    }
 
     if (!result.valid) {
       return {
@@ -150,7 +180,7 @@ export function createAmaryllisPersonalizationAction({
 export function useAmaryllisPersonalizationAction(
   options: AmaryllisPersonalizationActionOptions
 ): AmaryllisPersonalizationAction {
-  const { componentName, baseProps, infer } = options;
+  const { componentName, baseProps, infer, recovery } = options;
 
   return useMemo(
     () =>
@@ -158,8 +188,9 @@ export function useAmaryllisPersonalizationAction(
         componentName,
         baseProps,
         infer,
+        recovery,
       }),
-    [componentName, baseProps, infer]
+    [componentName, baseProps, infer, recovery]
   );
 }
 
