@@ -1,4 +1,5 @@
 import React from 'react';
+import { type UiPrimitives } from './primitives';
 export interface PersonalizedComponentProps {
     /** Name of the registered component to render */
     name: string;
@@ -10,6 +11,8 @@ export interface PersonalizedComponentProps {
     loading?: boolean;
     /** Custom fallback if component is not found */
     fallback?: React.ReactNode;
+    /** Optional UI primitive overrides for React Native or custom renderers */
+    primitives?: Partial<UiPrimitives>;
 }
 /**
  * A wrapper component that handles on-device personalization.

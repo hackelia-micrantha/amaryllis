@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { globalRegistry } from './registry';
 import { PersonalizationEngine } from './engine';
+import { resolveUiPrimitives, type UiPrimitives } from './primitives';
 
 export interface PersonalizedComponentProps {
   /** Name of the registered component to render */
@@ -13,6 +14,8 @@ export interface PersonalizedComponentProps {
   loading?: boolean;
   /** Custom fallback if component is not found */
   fallback?: React.ReactNode;
+  /** Optional UI primitive overrides for React Native or custom renderers */
+  primitives?: Partial<UiPrimitives>;
 }
 
 /**
@@ -25,9 +28,14 @@ export const PersonalizedComponent: React.FC<PersonalizedComponentProps> = ({
   personalizationData,
   loading,
   fallback,
+  primitives,
 }) => {
   const registered = globalRegistry.get(name);
   const engine = useMemo(() => new PersonalizationEngine(), []);
+  const { View, Text } = useMemo(
+    () => resolveUiPrimitives(primitives),
+    [primitives]
+  );
 
   const [finalProps, setFinalProps] = useState(baseProps);
   const [error, setError] = useState<string | null>(null);
@@ -79,13 +87,3 @@ const styles = {
     fontSize: 10,
   },
 };
-
-// Simple View/Text placeholders for web/RN compatibility in this shared module
-type ShimProps = React.PropsWithChildren<{ style?: React.CSSProperties }>;
-
-const View = ({ children, style }: ShimProps) => (
-  <div style={style}>{children}</div>
-);
-const Text = ({ children, style }: ShimProps) => (
-  <span style={style}>{children}</span>
-);

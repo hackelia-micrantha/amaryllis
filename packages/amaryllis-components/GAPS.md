@@ -39,7 +39,8 @@ This document tracks identified gaps, technical debt, and architectural requirem
 - **Description:** `PersonalizedComponent.tsx` uses basic shims for `View` and `Text`.
 - **Impact:** Potential rendering inconsistencies between Web and React Native.
 - **Priority:** Medium
-- **Status:** Open
+- **Status:** Complete
+- **Note:** `PersonalizedComponent` now accepts dependency-injected UI primitives with default web fallbacks, allowing React Native callers to pass platform primitives without adding a direct `react-native` dependency to the companion package.
 
 ---
 

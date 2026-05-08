@@ -26,3 +26,4 @@ __exportStar(require("./runtime/engine"), exports);
 __exportStar(require("./runtime/registry"), exports);
 __exportStar(require("./runtime/PersonalizedComponent"), exports);
 __exportStar(require("./runtime/hooks"), exports);
+__exportStar(require("./runtime/primitives"), exports);

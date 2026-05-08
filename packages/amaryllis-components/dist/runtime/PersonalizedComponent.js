@@ -5,13 +5,15 @@ const jsx_runtime_1 = require("react/jsx-runtime");
 const react_1 = require("react");
 const registry_1 = require("./registry");
 const engine_1 = require("./engine");
+const primitives_1 = require("./primitives");
 /**
  * A wrapper component that handles on-device personalization.
  * It validates AI output against the component's contract before rendering.
  */
-const PersonalizedComponent = ({ name, baseProps = {}, personalizationData, loading, fallback, }) => {
+const PersonalizedComponent = ({ name, baseProps = {}, personalizationData, loading, fallback, primitives, }) => {
     const registered = registry_1.globalRegistry.get(name);
     const engine = (0, react_1.useMemo)(() => new engine_1.PersonalizationEngine(), []);
+    const { View, Text } = (0, react_1.useMemo)(() => (0, primitives_1.resolveUiPrimitives)(primitives), [primitives]);
     const [finalProps, setFinalProps] = (0, react_1.useState)(baseProps);
     const [error, setError] = (0, react_1.useState)(null);
     (0, react_1.useEffect)(() => {
@@ -51,5 +53,3 @@ const styles = {
         fontSize: 10,
     },
 };
-const View = ({ children, style }) => ((0, jsx_runtime_1.jsx)("div", { style: style, children: children }));
-const Text = ({ children, style }) => ((0, jsx_runtime_1.jsx)("span", { style: style, children: children }));
