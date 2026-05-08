@@ -5,12 +5,13 @@ class ReactGenerator {
     generate(spec, options = {}) {
         const { metadata, props, ui, target } = spec;
         const componentName = this.toPascalCase(metadata.name);
-        const propsType = this.generatePropsType(props, ui?.slots);
+        const propsType = this.generatePropsType(props, ui?.slots, ui?.designTokens);
         const layout = ui?.layout || '<div>{children}</div>';
         const imports = this.generateImports(target.runtime);
         const propKeys = [
             ...Object.keys(props.properties),
             ...(ui?.slots || []),
+            ...(ui?.designTokens ? ['designTokens'] : []),
             'variant',
             'children',
         ];
@@ -53,7 +54,7 @@ ${cases.join('\n')}
             .replace(new RegExp(/\s+(.)(\w*)/, 'g'), (_$1, $2, $3) => `${$2.toUpperCase() + $3.toLowerCase()}`)
             .replace(new RegExp(/\w/), (s) => s.toUpperCase());
     }
-    generatePropsType(props, slots) {
+    generatePropsType(props, slots, designTokens) {
         const lines = Object.entries(props.properties).map(([key, schema]) => {
             const isRequired = props.required?.includes(key);
             const type = this.jsonSchemaToTsType(schema);
@@ -64,11 +65,40 @@ ${cases.join('\n')}
                 lines.push(`  ${slot}?: React.ReactNode;`);
             });
         }
+        const designTokenType = this.generateDesignTokensType(designTokens);
+        if (designTokenType) {
+            lines.push(`  designTokens?: ${designTokenType};`);
+        }
         return `{
 ${lines.join('\n')}
   variant?: string;
   children?: React.ReactNode;
 }`;
+    }
+    generateDesignTokensType(designTokens) {
+        if (!designTokens) {
+            return null;
+        }
+        const groups = [
+            this.generateDesignTokenGroupType('spacing', designTokens.spacing),
+            this.generateDesignTokenGroupType('typography', designTokens.typography),
+            this.generateDesignTokenGroupType('colorRoles', designTokens.colorRoles),
+        ].filter((line) => Boolean(line));
+        if (groups.length === 0) {
+            return null;
+        }
+        return `{
+${groups.join('\n')}
+  }`;
+    }
+    generateDesignTokenGroupType(groupName, tokens) {
+        if (!tokens || tokens.length === 0) {
+            return null;
+        }
+        const tokenLines = tokens.map((token) => `      ${token}?: string;`);
+        return `    ${groupName}?: {
+${tokenLines.join('\n')}
+    };`;
     }
     jsonSchemaToTsType(schema) {
         switch (schema.type) {

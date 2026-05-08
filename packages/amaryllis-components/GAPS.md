@@ -32,7 +32,8 @@ This document tracks identified gaps, technical debt, and architectural requirem
 - **Description:** `ReactGenerator` does not yet translate `designTokens` (spacing, colors, typography) from the spec into framework-specific styles (e.g., Tailwind classes or RN style objects).
 - **Impact:** Generated components lack consistent design system compliance.
 - **Priority:** High
-- **Status:** Open
+- **Status:** Complete
+- **Note:** `ReactGenerator` now exposes declared design token groups as bounded, typed component props and includes them in generated component destructuring without introducing raw style generation.
 
 ### G4: Cross-Platform UI Primitives
 - **Description:** `PersonalizedComponent.tsx` uses basic shims for `View` and `Text`.

@@ -11,6 +11,8 @@ export declare class ReactGenerator {
     private generateVariantLogic;
     private toPascalCase;
     private generatePropsType;
+    private generateDesignTokensType;
+    private generateDesignTokenGroupType;
     private jsonSchemaToTsType;
     private generateImports;
     private wrapWithLayout;
