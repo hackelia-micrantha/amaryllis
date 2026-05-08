@@ -25,6 +25,12 @@ export interface RegistryIdentity {
 
 export type BoundRegisteredComponent = RegisteredComponent & RegistryIdentity;
 
+export type RegistrySnapshotEntry = Omit<BoundRegisteredComponent, 'component'>;
+
+export type RegistryComponentResolver = (
+  entry: RegistrySnapshotEntry
+) => ComponentType<Record<string, unknown>>;
+
 export interface RegisterOptions {
   replace?: boolean;
 }
@@ -106,6 +112,36 @@ export class ComponentRegistry {
 
   list(): string[] {
     return Array.from(this.components.keys());
+  }
+
+  snapshot(): RegistrySnapshotEntry[] {
+    return Array.from(this.components.values()).map((entry) => ({
+      key: entry.key,
+      componentName: entry.componentName,
+      version: entry.version,
+      specHash: entry.specHash,
+      runtimeContractHash: entry.runtimeContractHash,
+      implementationIdentity: entry.implementationIdentity,
+      spec: entry.spec,
+      contract: entry.contract,
+    }));
+  }
+
+  hydrate(
+    entries: RegistrySnapshotEntry[],
+    resolveComponent: RegistryComponentResolver,
+    options: RegisterOptions = {}
+  ): void {
+    entries.forEach((entry) => {
+      this.register(
+        entry.key,
+        {
+          ...entry,
+          component: resolveComponent(entry),
+        },
+        options
+      );
+    });
   }
 
   private assertRegistrationMatches(

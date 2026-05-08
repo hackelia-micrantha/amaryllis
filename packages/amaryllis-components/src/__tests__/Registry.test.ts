@@ -133,4 +133,44 @@ describe('ComponentRegistry identity binding', () => {
 
     expect(registry.get('registry-card@1.0.0')).toMatchObject(replacement);
   });
+
+  test('snapshots and hydrates registry entries with resolved implementations', () => {
+    const registry = new ComponentRegistry();
+    registry.register('registry-card', {
+      component: Component,
+      spec: baseSpec,
+      contract,
+      implementationIdentity: 'registry-card/react',
+    });
+
+    const snapshot = registry.snapshot();
+    const restored = new ComponentRegistry();
+    restored.hydrate(snapshot, (entry) => {
+      expect(entry.key).toBe('registry-card@1.0.0');
+      expect(entry.implementationIdentity).toBe('registry-card/react');
+      return Component;
+    });
+
+    expect(snapshot).toEqual([
+      {
+        key: 'registry-card@1.0.0',
+        componentName: 'registry-card',
+        version: '1.0.0',
+        specHash: hashRegistryValue(baseSpec),
+        runtimeContractHash: hashRegistryValue(contract),
+        implementationIdentity: 'registry-card/react',
+        spec: baseSpec,
+        contract,
+      },
+    ]);
+    expect(restored.get('registry-card@1.0.0')).toMatchObject({
+      component: Component,
+      spec: baseSpec,
+      contract,
+      implementationIdentity: 'registry-card/react',
+    });
+    expect(restored.get('registry-card')).toEqual(
+      restored.get('registry-card@1.0.0')
+    );
+  });
 });

@@ -61,6 +61,26 @@ class ComponentRegistry {
     list() {
         return Array.from(this.components.keys());
     }
+    snapshot() {
+        return Array.from(this.components.values()).map((entry) => ({
+            key: entry.key,
+            componentName: entry.componentName,
+            version: entry.version,
+            specHash: entry.specHash,
+            runtimeContractHash: entry.runtimeContractHash,
+            implementationIdentity: entry.implementationIdentity,
+            spec: entry.spec,
+            contract: entry.contract,
+        }));
+    }
+    hydrate(entries, resolveComponent, options = {}) {
+        entries.forEach((entry) => {
+            this.register(entry.key, {
+                ...entry,
+                component: resolveComponent(entry),
+            }, options);
+        });
+    }
     assertRegistrationMatches(name, entry, identity) {
         if (name.includes('@') && name !== identity.key) {
             throw new Error('registry key does not match spec metadata');

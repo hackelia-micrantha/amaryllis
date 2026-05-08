@@ -20,6 +20,8 @@ export interface RegistryIdentity {
     implementationIdentity: string;
 }
 export type BoundRegisteredComponent = RegisteredComponent & RegistryIdentity;
+export type RegistrySnapshotEntry = Omit<BoundRegisteredComponent, 'component'>;
+export type RegistryComponentResolver = (entry: RegistrySnapshotEntry) => ComponentType<Record<string, unknown>>;
 export interface RegisterOptions {
     replace?: boolean;
 }
@@ -32,6 +34,8 @@ export declare class ComponentRegistry {
     register(name: string, entry: RegisteredComponent, options?: RegisterOptions): void;
     get(name: string): BoundRegisteredComponent | undefined;
     list(): string[];
+    snapshot(): RegistrySnapshotEntry[];
+    hydrate(entries: RegistrySnapshotEntry[], resolveComponent: RegistryComponentResolver, options?: RegisterOptions): void;
     private assertRegistrationMatches;
     private getLatestByComponentName;
     private updateLatest;

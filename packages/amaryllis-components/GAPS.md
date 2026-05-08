@@ -22,7 +22,8 @@ This document tracks identified gaps, technical debt, and architectural requirem
 - **Description:** The `ComponentRegistry` is purely in-memory.
 - **Impact:** Dynamic or lazy-loaded components are difficult to manage; requires re-registration on every app mount.
 - **Priority:** Medium
-- **Status:** Open
+- **Status:** Complete
+- **Note:** `ComponentRegistry` now exposes serializable snapshots and hydration through an application-provided component resolver, keeping storage ownership outside the runtime while preserving registry identity validation.
 
 ---
 
