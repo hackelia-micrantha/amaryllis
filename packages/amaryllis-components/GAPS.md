@@ -49,7 +49,8 @@ This document tracks identified gaps, technical debt, and architectural requirem
 - **Description:** The CLI diff utility uses a naive line-by-line comparison.
 - **Impact:** Poor handling of indentation changes or code blocks moving; hard to read for complex customizations.
 - **Priority:** Medium
-- **Status:** Open
+- **Status:** Complete
+- **Note:** The CLI diff now uses an order-aware line matcher that handles repeated lines and block insertions more predictably while preserving the existing ANSI output contract.
 
 ---
 

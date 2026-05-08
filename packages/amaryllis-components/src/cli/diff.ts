@@ -1,40 +1,49 @@
 export function getLineDiff(oldContent: string, newContent: string): string {
   const oldLines = oldContent.split('\n');
   const newLines = newContent.split('\n');
+  const matches = getCommonLineMatrix(oldLines, newLines);
   const result: string[] = [];
 
-  let i = 0;
-  let j = 0;
+  let i = oldLines.length;
+  let j = newLines.length;
 
-  while (i < oldLines.length || j < newLines.length) {
-    const oldLine = oldLines[i];
-    const newLine = newLines[j];
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && oldLines[i - 1] === newLines[j - 1]) {
+      result.push(`  ${oldLines[i - 1]}`);
+      i--;
+      j--;
+    } else if (
+      j > 0 &&
+      (i === 0 || matches[i]![j - 1]! >= matches[i - 1]![j]!)
+    ) {
+      result.push(`\x1b[32m+ ${newLines[j - 1]}\x1b[0m`);
+      j--;
+    } else if (i > 0) {
+      result.push(`\x1b[31m- ${oldLines[i - 1]}\x1b[0m`);
+      i--;
+    }
+  }
 
-    if (oldLine !== undefined && newLine !== undefined && oldLine === newLine) {
-      result.push(`  ${oldLine}`);
-      i++;
-      j++;
-    } else {
-      // Very naive diff logic - just for demonstration/basic use
-      if (oldLine !== undefined && !newLines.includes(oldLine)) {
-        result.push(`\x1b[31m- ${oldLine}\x1b[0m`);
-        i++;
-      } else if (newLine !== undefined && !oldLines.includes(newLine)) {
-        result.push(`\x1b[32m+ ${newLine}\x1b[0m`);
-        j++;
+  return result.reverse().join('\n');
+}
+
+function getCommonLineMatrix(
+  oldLines: string[],
+  newLines: string[]
+): number[][] {
+  const matrix = Array.from({ length: oldLines.length + 1 }, () =>
+    Array<number>(newLines.length + 1).fill(0)
+  );
+
+  for (let i = 1; i <= oldLines.length; i++) {
+    for (let j = 1; j <= newLines.length; j++) {
+      if (oldLines[i - 1] === newLines[j - 1]) {
+        matrix[i]![j] = matrix[i - 1]![j - 1]! + 1;
       } else {
-        // Fallback for when both lines changed at same index
-        if (oldLine !== undefined) {
-          result.push(`\x1b[31m- ${oldLine}\x1b[0m`);
-        }
-        if (newLine !== undefined) {
-          result.push(`\x1b[32m+ ${newLine}\x1b[0m`);
-        }
-        i++;
-        j++;
+        matrix[i]![j] = Math.max(matrix[i - 1]![j]!, matrix[i]![j - 1]!);
       }
     }
   }
 
-  return result.join('\n');
+  return matrix;
 }
