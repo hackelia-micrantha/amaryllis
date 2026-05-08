@@ -20,6 +20,8 @@ export declare class PersonalizationEngine {
      * Applies the validated personalization data to the base props.
      */
     apply(baseProps: Record<string, unknown>, personalization: PersonalizationData): Record<string, unknown>;
+    private safeMerge;
+    private isUnsafeObjectKey;
     private applyValidatedPatches;
     private validatePatchPaths;
     private isAllowedPatchPath;

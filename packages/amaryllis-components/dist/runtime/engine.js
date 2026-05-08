@@ -66,9 +66,9 @@ class PersonalizationEngine {
      * Applies the validated personalization data to the base props.
      */
     apply(baseProps, personalization) {
-        const result = { ...baseProps };
+        const result = this.safeMerge({}, baseProps);
         if (personalization.props) {
-            Object.assign(result, personalization.props);
+            this.safeMerge(result, personalization.props);
         }
         if (personalization.variant) {
             result.variant = personalization.variant;
@@ -80,6 +80,23 @@ class PersonalizationEngine {
             result.designTokens = personalization.designTokens;
         }
         return result;
+    }
+    safeMerge(target, source) {
+        Object.entries(source).forEach(([key, value]) => {
+            if (this.isUnsafeObjectKey(key)) {
+                return;
+            }
+            const current = target[key];
+            if (this.isRecord(current) && this.isRecord(value)) {
+                target[key] = this.safeMerge({ ...current }, value);
+                return;
+            }
+            target[key] = value;
+        });
+        return target;
+    }
+    isUnsafeObjectKey(key) {
+        return key === '__proto__' || key === 'constructor' || key === 'prototype';
     }
     applyValidatedPatches(contract, aiOutput) {
         const personalization = aiOutput;

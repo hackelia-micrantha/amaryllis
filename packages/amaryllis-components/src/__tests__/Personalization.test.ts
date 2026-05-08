@@ -118,6 +118,44 @@ describe('Personalization', () => {
     expect(finalProps.variant).toBe('compact');
   });
 
+  test('should merge nested personalization props without dropping base data', () => {
+    const baseProps = {
+      title: 'Base',
+      settings: {
+        theme: 'light',
+        density: 'comfortable',
+      },
+    };
+    const personalization = {
+      props: {
+        settings: {
+          density: 'compact',
+        },
+      },
+    };
+
+    const finalProps = engine.apply(baseProps, personalization);
+
+    expect(finalProps).toEqual({
+      title: 'Base',
+      settings: {
+        theme: 'light',
+        density: 'compact',
+      },
+    });
+  });
+
+  test('should ignore unsafe overlay keys when applying personalization props', () => {
+    const unsafeProps = JSON.parse(
+      '{"__proto__":{"polluted":true},"constructor":{"polluted":true},"title":"Safe"}'
+    );
+
+    const finalProps = engine.apply({ title: 'Base' }, { props: unsafeProps });
+
+    expect(finalProps).toEqual({ title: 'Safe' });
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
   test('should apply bounded JSON Patch overlays to derived personalization data', () => {
     const aiOutput = {
       props: { title: 'Base AI title' },

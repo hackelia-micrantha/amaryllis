@@ -59,10 +59,10 @@ export class PersonalizationEngine {
     baseProps: Record<string, unknown>,
     personalization: PersonalizationData
   ): Record<string, unknown> {
-    const result = { ...baseProps };
+    const result = this.safeMerge({}, baseProps);
 
     if (personalization.props) {
-      Object.assign(result, personalization.props);
+      this.safeMerge(result, personalization.props);
     }
 
     if (personalization.variant) {
@@ -78,6 +78,31 @@ export class PersonalizationEngine {
     }
 
     return result;
+  }
+
+  private safeMerge(
+    target: Record<string, unknown>,
+    source: Record<string, unknown>
+  ): Record<string, unknown> {
+    Object.entries(source).forEach(([key, value]) => {
+      if (this.isUnsafeObjectKey(key)) {
+        return;
+      }
+
+      const current = target[key];
+      if (this.isRecord(current) && this.isRecord(value)) {
+        target[key] = this.safeMerge({ ...current }, value);
+        return;
+      }
+
+      target[key] = value;
+    });
+
+    return target;
+  }
+
+  private isUnsafeObjectKey(key: string): boolean {
+    return key === '__proto__' || key === 'constructor' || key === 'prototype';
   }
 
   private applyValidatedPatches(

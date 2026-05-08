@@ -5,6 +5,7 @@ import { JSONSchemaGenerator } from '../generator/schema';
 import { createAgentUIToolContract } from '../integrations/agent-ui';
 import {
   createAmaryllisInferenceAdapter,
+  createAmaryllisInferencePersonalizationAction,
   createAmaryllisPersonalizationAction,
 } from '../runtime/hooks';
 import { globalRegistry } from '../runtime/registry';
@@ -129,6 +130,35 @@ describe('Agent UI integration', () => {
     ]);
     expect(result.valid).toBe(true);
     expect(result.props).toEqual({ title: 'Adapted', count: 3 });
+  });
+
+  test('bridges base Amaryllis inference directly to validated personalization props', async () => {
+    const generateRequests: Array<{ prompt: string }> = [];
+    const action = createAmaryllisInferencePersonalizationAction({
+      componentName: 'summary-card',
+      baseProps: { title: 'Base', count: 0 },
+      generate: async (request) => {
+        generateRequests.push(request);
+        return JSON.stringify({
+          props: { title: 'Generated JSON', count: 4 },
+          variant: 'compact',
+        });
+      },
+    });
+
+    const result = await action({
+      prompt: 'personalize through the base runtime',
+    });
+
+    expect(generateRequests).toEqual([
+      { prompt: 'personalize through the base runtime' },
+    ]);
+    expect(result.valid).toBe(true);
+    expect(result.props).toEqual({
+      title: 'Generated JSON',
+      count: 4,
+      variant: 'compact',
+    });
   });
 
   test('invalid structured output returns errors and base props', async () => {

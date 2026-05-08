@@ -41,6 +41,7 @@ The companion package exports a dependency-free adapter surface:
 import {
   createAgentUIToolContract,
   createAmaryllisInferenceAdapter,
+  createAmaryllisInferencePersonalizationAction,
   useAmaryllisPersonalizationAction,
 } from '@micrantha/amaryllis-components';
 ```
@@ -50,6 +51,8 @@ import {
 `useAmaryllisPersonalizationAction` bridges an inference function to a registered component. It invokes local inference, treats output as untrusted data, validates it against the component contract, and returns renderable props only when validation passes.
 
 `createAmaryllisInferenceAdapter` converts a prompt-only base Amaryllis `generate` function into the action `infer` callback shape, so applications do not need to manually strip AG-UI component metadata or base props before calling local inference.
+
+`createAmaryllisInferencePersonalizationAction` is the direct form of that bridge. It accepts a base Amaryllis-compatible `generate` function, parses JSON string responses as structured personalization output, validates the result against the registered component contract, and returns base props with errors when validation fails.
 
 ---
 
@@ -72,6 +75,20 @@ const result = await action({
 if (result.valid) {
   renderSummaryCard(result.props);
 }
+```
+
+For direct base-runtime wiring:
+
+```ts
+const action = createAmaryllisInferencePersonalizationAction({
+  componentName: 'summary-card',
+  baseProps: { title: 'Summary' },
+  generate: localAmaryllisGenerate,
+});
+
+const result = await action({
+  prompt: 'Return props JSON for this local context.',
+});
 ```
 
 The `infer` function can be backed by the base Amaryllis runtime, a CopilotKit action, or an AG-UI transport. The validation boundary stays in Amaryllis.

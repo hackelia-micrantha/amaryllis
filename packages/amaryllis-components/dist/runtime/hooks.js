@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.usePersonalization = usePersonalization;
 exports.createAmaryllisInferenceAdapter = createAmaryllisInferenceAdapter;
+exports.createAmaryllisInferencePersonalizationAction = createAmaryllisInferencePersonalizationAction;
 exports.createAmaryllisPersonalizationAction = createAmaryllisPersonalizationAction;
 exports.useAmaryllisPersonalizationAction = useAmaryllisPersonalizationAction;
 const react_1 = require("react");
@@ -38,7 +39,17 @@ function usePersonalization({ name, baseProps = {}, }) {
     };
 }
 function createAmaryllisInferenceAdapter(generate) {
-    return async ({ prompt }) => generate({ prompt });
+    return async ({ prompt }) => {
+        const output = await generate({ prompt });
+        return parseAmaryllisInferenceOutput(output);
+    };
+}
+function createAmaryllisInferencePersonalizationAction({ componentName, baseProps = {}, generate, }) {
+    return createAmaryllisPersonalizationAction({
+        componentName,
+        baseProps,
+        infer: createAmaryllisInferenceAdapter(generate),
+    });
 }
 function createAmaryllisPersonalizationAction({ componentName, baseProps = {}, infer, }) {
     const engine = new engine_1.PersonalizationEngine();
@@ -81,4 +92,15 @@ function useAmaryllisPersonalizationAction(options) {
         baseProps,
         infer,
     }), [componentName, baseProps, infer]);
+}
+function parseAmaryllisInferenceOutput(output) {
+    if (typeof output !== 'string') {
+        return output;
+    }
+    try {
+        return JSON.parse(output);
+    }
+    catch {
+        return output;
+    }
 }

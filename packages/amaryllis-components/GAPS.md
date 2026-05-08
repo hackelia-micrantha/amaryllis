@@ -15,8 +15,8 @@ This document tracks identified gaps, technical debt, and architectural requirem
 - **Description:** There is no automated bridge between the core Amaryllis inference hooks (`useInference`) and the `PersonalizedComponent`.
 - **Impact:** Developers must manually wire LLM outputs to the component props.
 - **Priority:** High
-- **Status:** In Progress
-- **Note:** Initial dependency-free AG-UI/CopilotKit-shaped adapter contracts and `useAmaryllisPersonalizationAction` now bridge an inference function to validated personalization props. Direct base-runtime `useInference` wiring remains open.
+- **Status:** Complete
+- **Note:** Dependency-free AG-UI/CopilotKit-shaped adapter contracts, `useAmaryllisPersonalizationAction`, and `createAmaryllisInferencePersonalizationAction` now bridge base Amaryllis-compatible inference functions to validated personalization props without importing the base runtime into the companion package.
 
 ### G2: Component Registry Persistence
 - **Description:** The `ComponentRegistry` is purely in-memory.
@@ -58,7 +58,8 @@ This document tracks identified gaps, technical debt, and architectural requirem
 - **Description:** `PersonalizationEngine.apply` uses shallow object spreading.
 - **Impact:** Risk of breaking nested data structures if the AI personalization targets deep paths.
 - **Priority:** High
-- **Status:** Open
+- **Status:** Complete
+- **Note:** `PersonalizationEngine.apply` now uses bounded recursive merging for nested props and ignores unsafe object keys such as `__proto__`, `constructor`, and `prototype`.
 
 ### G7: Runtime Error Recovery
 - **Description:** Validation failures simply revert to base props with a console warning.
