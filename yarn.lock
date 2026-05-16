@@ -2818,6 +2818,7 @@ __metadata:
     zod: ^3.23.8
   peerDependencies:
     react: ">=18"
+    react-native: ">=0.70"
   bin:
     amaryllis-components: ./dist/cli/index.js
   languageName: unknown
