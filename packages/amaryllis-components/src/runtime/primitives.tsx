@@ -1,34 +1,21 @@
 import React from 'react';
+import { Text as NativeText, View as NativeView } from 'react-native';
 
 export interface UiPrimitiveProps {
   children?: React.ReactNode;
   style?: unknown;
 }
 
-export type UiPrimitiveComponent = React.ComponentType<UiPrimitiveProps>;
+export type UiPrimitiveComponent = React.ComponentType<any>;
 
 export interface UiPrimitives {
   View: UiPrimitiveComponent;
   Text: UiPrimitiveComponent;
 }
 
-const WebView: UiPrimitiveComponent = ({ children, style }) =>
-  React.createElement(
-    'div',
-    { style: style as React.CSSProperties | undefined },
-    children
-  );
-
-const WebText: UiPrimitiveComponent = ({ children, style }) =>
-  React.createElement(
-    'span',
-    { style: style as React.CSSProperties | undefined },
-    children
-  );
-
 export const defaultUiPrimitives: UiPrimitives = {
-  View: WebView,
-  Text: WebText,
+  View: NativeView,
+  Text: NativeText,
 };
 
 export function resolveUiPrimitives(

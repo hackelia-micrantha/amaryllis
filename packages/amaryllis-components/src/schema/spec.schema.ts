@@ -44,11 +44,24 @@ export const ComponentTargetSchema = z.object({
   ssr: z.boolean().optional(),
 });
 
-export const ComponentPropsSchema = z.object({
-  type: z.literal('object'),
-  properties: z.record(JsonSchemaValueSchema),
-  required: z.array(z.string()).optional(),
-});
+export const ComponentPropsSchema = z
+  .object({
+    type: z.literal('object'),
+    properties: z.record(JsonSchemaValueSchema),
+    required: z.array(z.string()).optional(),
+  })
+  .superRefine((props, ctx) => {
+    Object.keys(props.properties).forEach((key) => {
+      if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['properties', key],
+          message:
+            'generated component prop names must be valid JavaScript identifiers',
+        });
+      }
+    });
+  });
 
 export const ComponentUISchema = z.object({
   layout: z.string().optional(),

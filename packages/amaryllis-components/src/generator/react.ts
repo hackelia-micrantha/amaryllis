@@ -27,7 +27,7 @@ export class ReactGenerator {
       ui?.slots,
       ui?.designTokens
     );
-    const layout = ui?.layout || '<div>{children}</div>';
+    const layout = ui?.layout || this.getDefaultLayout(target.runtime);
 
     const imports = this.generateImports(target.runtime);
 
@@ -61,7 +61,7 @@ export const ${componentName}: React.FC<${componentName}Props> = ({
 
   private generateVariantLogic(
     variants: ComponentVariants,
-    defaultLayout: string = '<div>{children}</div>'
+    defaultLayout: string
   ): string {
     if (!variants || Object.keys(variants).length === 0) {
       return `return (\n    ${this.wrapWithLayout(defaultLayout)}\n  );`;
@@ -178,6 +178,12 @@ ${tokenLines.join('\n')}
       return "import React from 'react';\nimport { View, Text } from 'react-native';";
     }
     return "import React from 'react';";
+  }
+
+  private getDefaultLayout(runtime: string): string {
+    return runtime === 'rn'
+      ? '<View>{children}</View>'
+      : '<div>{children}</div>';
   }
 
   private wrapWithLayout(layout: string, slots?: string[]): string {

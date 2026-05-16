@@ -61,4 +61,29 @@ ai:
       'device execution cannot output TSX or executable code'
     );
   });
+
+  it('should reject prop names that cannot be generated as identifiers', () => {
+    const yaml = `
+apiVersion: amaryllis/v1alpha1
+kind: ComponentSpec
+metadata:
+  name: invalid-props
+  version: 1.0.0
+target:
+  framework: react
+  runtime: web
+props:
+  type: object
+  properties:
+    cta-text:
+      type: string
+ai:
+  mode: scaffold
+  execution: build
+`;
+
+    expect(() => parseComponentSpec(yaml)).toThrow(
+      'generated component prop names must be valid JavaScript identifiers'
+    );
+  });
 });

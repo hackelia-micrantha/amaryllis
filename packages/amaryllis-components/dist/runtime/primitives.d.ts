@@ -3,7 +3,7 @@ export interface UiPrimitiveProps {
     children?: React.ReactNode;
     style?: unknown;
 }
-export type UiPrimitiveComponent = React.ComponentType<UiPrimitiveProps>;
+export type UiPrimitiveComponent = React.ComponentType<any>;
 export interface UiPrimitives {
     View: UiPrimitiveComponent;
     Text: UiPrimitiveComponent;

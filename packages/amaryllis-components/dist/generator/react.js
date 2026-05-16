@@ -6,7 +6,7 @@ class ReactGenerator {
         const { metadata, props, ui, target } = spec;
         const componentName = this.toPascalCase(metadata.name);
         const propsType = this.generatePropsType(props, ui?.slots, ui?.designTokens);
-        const layout = ui?.layout || '<div>{children}</div>';
+        const layout = ui?.layout || this.getDefaultLayout(target.runtime);
         const imports = this.generateImports(target.runtime);
         const propKeys = [
             ...Object.keys(props.properties),
@@ -33,7 +33,7 @@ export const ${componentName}: React.FC<${componentName}Props> = ({
 };
 `;
     }
-    generateVariantLogic(variants, defaultLayout = '<div>{children}</div>') {
+    generateVariantLogic(variants, defaultLayout) {
         if (!variants || Object.keys(variants).length === 0) {
             return `return (\n    ${this.wrapWithLayout(defaultLayout)}\n  );`;
         }
@@ -121,6 +121,11 @@ ${tokenLines.join('\n')}
             return "import React from 'react';\nimport { View, Text } from 'react-native';";
         }
         return "import React from 'react';";
+    }
+    getDefaultLayout(runtime) {
+        return runtime === 'rn'
+            ? '<View>{children}</View>'
+            : '<div>{children}</div>';
     }
     wrapWithLayout(layout, slots) {
         // Basic substitution for slots if they exist in layout as {slotName}

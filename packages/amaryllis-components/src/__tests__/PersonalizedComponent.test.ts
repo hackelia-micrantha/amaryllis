@@ -4,7 +4,13 @@ import type { ValidatedComponentSpec } from '../schema/spec.schema';
 
 import { JSONSchemaGenerator } from '../generator/schema';
 import { PersonalizedComponent } from '../runtime/PersonalizedComponent';
+import { resolveUiPrimitives } from '../runtime/primitives';
 import { globalRegistry } from '../runtime/registry';
+
+jest.mock('react-native', () => ({
+  View: 'native-view',
+  Text: 'native-text',
+}));
 
 type TestRendererInstance = {
   root: {
@@ -86,5 +92,12 @@ describe('PersonalizedComponent primitives', () => {
 
     expect(rendered?.root.findByProps({ testID: 'wrapper' })).toBeDefined();
     expect(rendered?.root.findByProps({ testID: 'error' })).toBeDefined();
+  });
+
+  it('should default to React Native primitives', () => {
+    expect(resolveUiPrimitives()).toEqual({
+      View: 'native-view',
+      Text: 'native-text',
+    });
   });
 });

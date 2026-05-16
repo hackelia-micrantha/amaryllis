@@ -71,4 +71,29 @@ describe('ReactGenerator', () => {
     expect(code).toContain('accent?: string;');
     expect(code).toContain('designTokens,');
   });
+
+  it('should use a native fallback layout for React Native specs', () => {
+    const spec: ValidatedComponentSpec = {
+      apiVersion: 'amaryllis/v1alpha1',
+      kind: 'ComponentSpec',
+      metadata: { name: 'native-card', version: '1.0.0' },
+      props: {
+        type: 'object',
+        properties: {
+          title: { type: 'string' },
+        },
+        required: ['title'],
+      },
+      target: { framework: 'react', runtime: 'rn' },
+      ai: { mode: 'scaffold', execution: 'build' },
+    };
+
+    const code = generator.generate(spec, {
+      generatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+
+    expect(code).toContain("import { View, Text } from 'react-native';");
+    expect(code).toContain('<View>{children}</View>');
+    expect(code).not.toContain('<div>{children}</div>');
+  });
 });

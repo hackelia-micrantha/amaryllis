@@ -41,10 +41,22 @@ exports.ComponentTargetSchema = zod_1.z.object({
     runtime: zod_1.z.enum(['nextjs', 'web', 'rn']),
     ssr: zod_1.z.boolean().optional(),
 });
-exports.ComponentPropsSchema = zod_1.z.object({
+exports.ComponentPropsSchema = zod_1.z
+    .object({
     type: zod_1.z.literal('object'),
     properties: zod_1.z.record(exports.JsonSchemaValueSchema),
     required: zod_1.z.array(zod_1.z.string()).optional(),
+})
+    .superRefine((props, ctx) => {
+    Object.keys(props.properties).forEach((key) => {
+        if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key)) {
+            ctx.addIssue({
+                code: zod_1.z.ZodIssueCode.custom,
+                path: ['properties', key],
+                message: 'generated component prop names must be valid JavaScript identifiers',
+            });
+        }
+    });
 });
 exports.ComponentUISchema = zod_1.z.object({
     layout: zod_1.z.string().optional(),

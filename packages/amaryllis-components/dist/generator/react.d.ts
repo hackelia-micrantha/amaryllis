@@ -15,6 +15,7 @@ export declare class ReactGenerator {
     private generateDesignTokenGroupType;
     private jsonSchemaToTsType;
     private generateImports;
+    private getDefaultLayout;
     private wrapWithLayout;
     private generateProvenance;
 }

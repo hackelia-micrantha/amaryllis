@@ -30,11 +30,19 @@ export declare const ComponentTargetSchema: z.ZodObject<{
     runtime: "nextjs" | "web" | "rn";
     ssr?: boolean | undefined;
 }>;
-export declare const ComponentPropsSchema: z.ZodObject<{
+export declare const ComponentPropsSchema: z.ZodEffects<z.ZodObject<{
     type: z.ZodLiteral<"object">;
     properties: z.ZodRecord<z.ZodString, z.ZodType<any, z.ZodTypeDef, any>>;
     required: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
 }, "strip", z.ZodTypeAny, {
+    type: "object";
+    properties: Record<string, any>;
+    required?: string[] | undefined;
+}, {
+    type: "object";
+    properties: Record<string, any>;
+    required?: string[] | undefined;
+}>, {
     type: "object";
     properties: Record<string, any>;
     required?: string[] | undefined;
@@ -281,11 +289,19 @@ export declare const ComponentSpecSchema: z.ZodObject<{
         runtime: "nextjs" | "web" | "rn";
         ssr?: boolean | undefined;
     }>;
-    props: z.ZodObject<{
+    props: z.ZodEffects<z.ZodObject<{
         type: z.ZodLiteral<"object">;
         properties: z.ZodRecord<z.ZodString, z.ZodType<any, z.ZodTypeDef, any>>;
         required: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
     }, "strip", z.ZodTypeAny, {
+        type: "object";
+        properties: Record<string, any>;
+        required?: string[] | undefined;
+    }, {
+        type: "object";
+        properties: Record<string, any>;
+        required?: string[] | undefined;
+    }>, {
         type: "object";
         properties: Record<string, any>;
         required?: string[] | undefined;
