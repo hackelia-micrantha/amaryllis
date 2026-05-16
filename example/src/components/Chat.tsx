@@ -1,6 +1,7 @@
 import { View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChatPrompt } from './ChatPrompt';
+import { ContextSummaryCardPanel } from './ContextSummaryCardPanel';
 import { Header } from './Header';
 
 export const Chat = () => {
@@ -19,6 +20,7 @@ export const Chat = () => {
       ]}
     >
       <Header />
+      <ContextSummaryCardPanel />
       <ChatPrompt />
     </View>
   );

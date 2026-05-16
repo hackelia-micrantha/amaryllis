@@ -12,17 +12,20 @@ const mockUseContextInferenceAsync = jest.fn();
 
 jest.mock('react-native/Libraries/Components/TextInput/TextInput', () => {
   const ReactModule = require('react');
-  return ReactModule.forwardRef(
-    (
-      props: Record<string, unknown>,
-      ref: React.ForwardedRef<{ setSelection: jest.Mock }>
-    ) => {
-      ReactModule.useImperativeHandle(ref, () => ({
-        setSelection: jest.fn(),
-      }));
-      return ReactModule.createElement('TextInput', props);
-    }
-  );
+  return {
+    __esModule: true,
+    default: ReactModule.forwardRef(
+      (
+        props: Record<string, unknown>,
+        ref: React.ForwardedRef<{ setSelection: jest.Mock }>
+      ) => {
+        ReactModule.useImperativeHandle(ref, () => ({
+          setSelection: jest.fn(),
+        }));
+        return ReactModule.createElement('TextInput', props);
+      }
+    ),
+  };
 });
 
 jest.mock('react-native-image-picker', () => ({
