@@ -10,6 +10,8 @@ Introduce a companion module, working name **amaryllis-components**, that define
 
 This module shifts component development from ad hoc JSX authoring to **spec-driven, validated, and auditable generation pipelines**.
 
+For a shorter external overview, see the [Amaryllis Components one-pager](./amaryllis-components-one-pager.md).
+
 Runtime/on-device AI is allowed only to produce structured customization data, such as validated props, variant selections, slot text, or JSON patches against a component spec. It must not generate or execute arbitrary TSX, JSX, JavaScript, imports, or raw markup on device.
 
 Runtime JSON patches must be interpreted as personalization overlays, not arbitrary mutations of the authoritative `ComponentSpec`.
