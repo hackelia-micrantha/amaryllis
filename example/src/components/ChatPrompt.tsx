@@ -31,6 +31,7 @@ export const ChatPrompt = () => {
     setImages,
     isBusy,
     setIsBusy,
+    isSessionReady,
     error,
     setError,
   } = usePromptContext();
@@ -131,7 +132,7 @@ export const ChatPrompt = () => {
         />
 
         <Pressable
-          disabled={isBusy}
+          disabled={isBusy || !isSessionReady}
           style={styles.iconButton}
           onPress={onInference}
         >

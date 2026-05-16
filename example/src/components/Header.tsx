@@ -6,8 +6,14 @@ import { useModelContext } from '../ModelContext';
 
 export const Header = () => {
   const { controller, isReady } = useLLMContext();
-  const { setResults, setIsBusy, setError, setPrompt, setImages } =
-    usePromptContext();
+  const {
+    setResults,
+    setIsBusy,
+    setError,
+    setPrompt,
+    setImages,
+    setIsSessionReady,
+  } = usePromptContext();
 
   const { setPaths: setModelPaths } = useModelContext();
 
@@ -15,16 +21,24 @@ export const Header = () => {
     setModelPaths(null);
   }, [setModelPaths]);
 
-  const newSession = useCallback(() => {
+  const newSession = useCallback(async () => {
     if (isReady) {
-      controller?.newSession({
-        enableVisionModality: true,
-      });
-      setResults([]);
-      setIsBusy(false);
-      setError(undefined);
-      setPrompt('');
-      setImages([]);
+      try {
+        setIsSessionReady(false);
+        await controller?.newSession({});
+        setResults([]);
+        setIsBusy(false);
+        setError(undefined);
+        setPrompt('');
+        setImages([]);
+        setIsSessionReady(true);
+      } catch (error) {
+        setError(
+          error instanceof Error
+            ? error
+            : new Error('Failed to start model session')
+        );
+      }
     }
   }, [
     controller,
@@ -34,6 +48,7 @@ export const Header = () => {
     setError,
     setPrompt,
     setImages,
+    setIsSessionReady,
   ]);
 
   useEffect(() => {
@@ -45,7 +60,12 @@ export const Header = () => {
   return (
     <View style={styles.header}>
       <Text style={styles.title}>Amaryllis Chat</Text>
-      <TouchableHighlight onPress={newSession} style={styles.iconButton}>
+      <TouchableHighlight
+        onPress={() => {
+          newSession();
+        }}
+        style={styles.iconButton}
+      >
         <Text style={styles.icon}>➕</Text>
       </TouchableHighlight>
       <TouchableHighlight onPress={importModels} style={styles.iconButton}>

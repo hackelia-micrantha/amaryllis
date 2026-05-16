@@ -37,7 +37,7 @@ export const WelcomeScreen = ({ onComplete }: WelcomeScreenProps) => {
     tasks.forEach((task: DownloadTask) => {
       task
         .progress(({ bytesDownloaded, bytesTotal }) => {
-          setProgress((bytesDownloaded / bytesTotal) * 100);
+          setProgress(bytesDownloaded / bytesTotal);
         })
         .error(({ error: err }) => {
           setError(err);

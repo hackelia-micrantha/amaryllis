@@ -139,9 +139,7 @@ describe('App e2e flow', () => {
 
     await waitFor(() => {
       expect(nativePipeModule.newLlmPipe).toHaveBeenCalledTimes(1);
-      expect(nativePipeModule.mockLlmPipe.newSession).toHaveBeenCalledWith({
-        enableVisionModality: true,
-      });
+      expect(nativePipeModule.mockLlmPipe.newSession).toHaveBeenCalledWith({});
     });
 
     fireEvent.changeText(
@@ -169,6 +167,26 @@ describe('App e2e flow', () => {
         ''
       );
       expect(screen.queryByText('mock-output')).toBeNull();
+    });
+  });
+
+  it('should show personalized demo content for the selected persona', async () => {
+    const screen = render(<App />);
+
+    fireEvent.press(screen.getByText('Personas'));
+
+    expect(screen.getByText('Personalized Amaryllis')).toBeTruthy();
+    expect(screen.getByText('Developer')).toBeTruthy();
+    expect(
+      screen.getByText('Build adaptive UI without losing structure')
+    ).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Security reviewer'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Personalization that still respects governance')
+      ).toBeTruthy();
     });
   });
 });

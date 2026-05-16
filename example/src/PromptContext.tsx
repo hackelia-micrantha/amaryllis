@@ -13,6 +13,8 @@ interface PromptContext {
   setError: Dispatch<SetStateAction<Error | undefined>>;
   isBusy: boolean;
   setIsBusy: Dispatch<SetStateAction<boolean>>;
+  isSessionReady: boolean;
+  setIsSessionReady: Dispatch<SetStateAction<boolean>>;
   images: string[];
   setImages: Dispatch<SetStateAction<string[]>>;
   prompt: string;
@@ -36,6 +38,10 @@ const PromptContext = createContext<PromptContext>({
   setIsBusy: function (_value: SetStateAction<boolean>): void {
     throw new Error('Function not implemented.');
   },
+  isSessionReady: false,
+  setIsSessionReady: function (_value: SetStateAction<boolean>): void {
+    throw new Error('Function not implemented.');
+  },
   images: [],
   setImages: function (_value: SetStateAction<string[]>): void {
     throw new Error('Function not implemented.');
@@ -57,6 +63,7 @@ export const PromptProvider = ({ children }: PromptProviderProps) => {
   const [images, setImages] = useState<string[]>([]);
   const [error, setError] = useState<Error | undefined>(undefined);
   const [isBusy, setIsBusy] = useState<boolean>(false);
+  const [isSessionReady, setIsSessionReady] = useState<boolean>(false);
   const [prompt, setPrompt] = useState<string>('');
 
   return (
@@ -68,6 +75,8 @@ export const PromptProvider = ({ children }: PromptProviderProps) => {
         setImages,
         isBusy,
         setIsBusy,
+        isSessionReady,
+        setIsSessionReady,
         error,
         setError,
         prompt,

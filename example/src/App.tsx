@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { LLMProvider } from '@micrantha/react-native-amaryllis';
 import {
   createContextEngine,
@@ -8,12 +8,14 @@ import {
 } from '@micrantha/amaryllis/context';
 import { ContextEngineProvider } from '@micrantha/react-native-amaryllis/context';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { RegistryProvider } from '@micrantha/amaryllis-components';
 import { Chat } from './components';
 import { PromptProvider } from './PromptContext';
 import { ModelProvider, useModelContext } from './ModelContext';
 import { default as WelcomeScreen } from './ImportModels';
 import { registerExampleAiComponents } from './ai/registerComponents';
+import { PersonaDemoScreen } from './personaDemo/PersonaDemoScreen';
 
 const createMemoryStore = (): ContextStore => {
   let items: ContextItem[] = [];
@@ -81,18 +83,68 @@ function AppGate() {
     <LLMProvider
       config={{
         modelPath: models.llmModelPath,
-        visionEncoderPath: models.imageEmbedderModelPath,
-        maxNumImages: 2,
       }}
     >
       <ContextEngineProvider engine={contextEngine}>
         <PromptProvider>
-          <SafeAreaProvider>
-            <Chat />
-          </SafeAreaProvider>
+          <DemoExperience />
         </PromptProvider>
       </ContextEngineProvider>
     </LLMProvider>
+  );
+}
+
+type DemoScreen = 'chat' | 'persona-demo';
+
+function DemoExperience() {
+  const [screen, setScreen] = useState<DemoScreen>('chat');
+
+  return (
+    <SafeAreaProvider>
+      <View style={styles.demoContainer}>
+        <View style={styles.demoSwitcher}>
+          <Text style={styles.demoLabel}>Demo</Text>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityState={{ selected: screen === 'chat' }}
+            onPress={() => setScreen('chat')}
+            style={[
+              styles.demoButton,
+              screen === 'chat' && styles.selectedDemoButton,
+            ]}
+          >
+            <Text
+              style={[
+                styles.demoButtonLabel,
+                screen === 'chat' && styles.selectedDemoButtonLabel,
+              ]}
+            >
+              Chat
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityState={{ selected: screen === 'persona-demo' }}
+            onPress={() => setScreen('persona-demo')}
+            style={[
+              styles.demoButton,
+              screen === 'persona-demo' && styles.selectedDemoButton,
+            ]}
+          >
+            <Text
+              style={[
+                styles.demoButtonLabel,
+                screen === 'persona-demo' && styles.selectedDemoButtonLabel,
+              ]}
+            >
+              Personas
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {screen === 'chat' ? <Chat /> : <PersonaDemoScreen />}
+      </View>
+    </SafeAreaProvider>
   );
 }
 
@@ -105,3 +157,43 @@ export default function App() {
     </ModelProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  demoContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  demoSwitcher: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+  },
+  demoLabel: {
+    marginRight: 4,
+    color: '#6b7280',
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  demoButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+  selectedDemoButton: {
+    backgroundColor: '#dbeafe',
+  },
+  demoButtonLabel: {
+    color: '#374151',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  selectedDemoButtonLabel: {
+    color: '#1d4ed8',
+  },
+});

@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Linking,
   Platform,
@@ -43,6 +44,7 @@ type ImportedModel = {
 };
 
 type ImportedModelsState = Record<ModelKind, ImportedModel | null>;
+type ImportPhase = 'copying' | 'validating' | 'finalizing';
 
 export type ModelImportResult = ModelImportPaths & {
   models: ImportedModelsState;
@@ -208,7 +210,10 @@ async function validateImportedFile(
   return { sizeBytes };
 }
 
-async function importModelFile(spec: ModelSpec): Promise<ImportedModel> {
+async function importModelFile(
+  spec: ModelSpec,
+  onPhaseChange?: (phase: ImportPhase) => void
+): Promise<ImportedModel> {
   const [picked] = await pick({
     allowMultiSelection: false,
     mode: 'import',
@@ -225,6 +230,7 @@ async function importModelFile(spec: ModelSpec): Promise<ImportedModel> {
 
   // keepLocalCopy converts Android content:// URIs into app-readable files.
   // We copy to documentDirectory first, validate, then move to the stable path.
+  onPhaseChange?.('copying');
   const [copyResult] = await keepLocalCopy({
     files: [
       {
@@ -243,6 +249,7 @@ async function importModelFile(spec: ModelSpec): Promise<ImportedModel> {
 
   const tempLocalPath = stripFilePrefix(copyResult.localUri);
 
+  onPhaseChange?.('validating');
   await validateImportedFile(spec, tempLocalPath, selectedFilename);
 
   // Normalize into a stable app-private model path with the exact filename the
@@ -251,6 +258,7 @@ async function importModelFile(spec: ModelSpec): Promise<ImportedModel> {
     await RNFS.unlink(destinationPath);
   }
 
+  onPhaseChange?.('finalizing');
   await RNFS.moveFile(tempLocalPath, destinationPath);
 
   const finalValidation = await validateImportedFile(
@@ -278,6 +286,10 @@ export default function ModelImportScreen({
   const [models, setModels] = useState<ImportedModelsState>(
     createEmptyImportedModelsState
   );
+  const [importing, setImporting] = useState<{
+    kind: ModelKind;
+    phase: ImportPhase;
+  } | null>(null);
 
   const specsByKind = useMemo(() => {
     return MODEL_SPECS.reduce(
@@ -329,7 +341,9 @@ export default function ModelImportScreen({
       const spec = specsByKind[kind];
 
       try {
-        const imported = await importModelFile(spec);
+        const imported = await importModelFile(spec, (phase) => {
+          setImporting({ kind, phase });
+        });
         const next = { ...models, [kind]: imported };
 
         setModels(next);
@@ -355,6 +369,8 @@ export default function ModelImportScreen({
           'Import failed',
           message ?? `Could not import ${spec.label}`
         );
+      } finally {
+        setImporting(null);
       }
     },
     [models, specsByKind, getCompletionResult, emitComplete]
@@ -413,6 +429,8 @@ export default function ModelImportScreen({
 
       {MODEL_SPECS.map((spec) => {
         const imported = models[spec.kind];
+        const isImporting = importing?.kind === spec.kind;
+        const anyImporting = importing !== null;
         const required =
           spec.kind === 'llm' ||
           (spec.kind === 'imageEmbedder' && requireImageEmbedder) ||
@@ -466,9 +484,26 @@ export default function ModelImportScreen({
               </View>
             )}
 
+            {isImporting ? (
+              <View style={styles.progressRow}>
+                <ActivityIndicator />
+                <Text style={styles.progressText}>
+                  {importing.phase === 'copying'
+                    ? 'Copying file into app storage…'
+                    : importing.phase === 'validating'
+                      ? 'Validating imported file…'
+                      : 'Finalizing imported file…'}
+                </Text>
+              </View>
+            ) : null}
+
             <View style={styles.buttonRow}>
               <Pressable
-                style={styles.primaryButton}
+                style={[
+                  styles.primaryButton,
+                  anyImporting && styles.disabledButton,
+                ]}
+                disabled={anyImporting}
                 onPress={() => onImport(spec.kind)}
               >
                 <Text style={styles.primaryButtonText}>
@@ -478,7 +513,11 @@ export default function ModelImportScreen({
 
               {imported ? (
                 <Pressable
-                  style={styles.secondaryButton}
+                  style={[
+                    styles.secondaryButton,
+                    anyImporting && styles.disabledButton,
+                  ]}
+                  disabled={anyImporting}
                   onPress={() => onRemove(spec.kind)}
                 >
                   <Text style={styles.secondaryButtonText}>Remove</Text>
@@ -635,6 +674,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     flexWrap: 'wrap',
+  },
+  progressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  progressText: {
+    fontSize: 14,
+    opacity: 0.75,
   },
   primaryButton: {
     alignSelf: 'flex-start',
