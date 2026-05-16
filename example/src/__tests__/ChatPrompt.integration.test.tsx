@@ -195,4 +195,33 @@ describe('ChatPrompt integration', () => {
       expect(screen.queryByText('2 images selected')).toBeNull();
     });
   });
+
+  it('should cancel an in-flight response from the send button', async () => {
+    const pipe = createPipe();
+    mockUseContextInferenceAsync.mockImplementation(
+      (props: { onGenerate?: () => void }) => async () => {
+        props.onGenerate?.();
+      }
+    );
+
+    const screen = renderChatPrompt(pipe);
+    await waitFor(() => {
+      expect(pipe.init).toHaveBeenCalledWith({
+        modelPath: '/models/amaryllis.task',
+      });
+    });
+
+    await act(async () => {
+      getPressables(screen)[0].props.onPress();
+    });
+
+    expect(screen.getByText('■')).toBeTruthy();
+
+    await act(async () => {
+      getPressables(screen)[0].props.onPress();
+    });
+
+    expect(pipe.cancelAsync).toHaveBeenCalled();
+    expect(screen.getByText('➤')).toBeTruthy();
+  });
 });

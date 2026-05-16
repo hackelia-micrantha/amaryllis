@@ -95,6 +95,17 @@ export function joinPath(...parts: string[]): string {
     .replace('file:/', 'file://');
 }
 
+export function getModelDestinationPath(
+  documentsDirectoryPath: string,
+  spec: ModelSpec
+): string {
+  return joinPath(
+    documentsDirectoryPath,
+    spec.storageSubdir,
+    spec.expectedFilename
+  );
+}
+
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes)) return 'unknown';
 

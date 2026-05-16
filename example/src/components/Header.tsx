@@ -2,7 +2,6 @@ import { useCallback, useEffect } from 'react';
 import { TouchableHighlight, StyleSheet, Text, View } from 'react-native';
 import { useLLMContext } from '@micrantha/react-native-amaryllis';
 import { usePromptContext } from '../PromptContext';
-import { useModelContext } from '../ModelContext';
 
 export const Header = () => {
   const { controller, isReady } = useLLMContext();
@@ -15,17 +14,11 @@ export const Header = () => {
     setIsSessionReady,
   } = usePromptContext();
 
-  const { setPaths: setModelPaths } = useModelContext();
-
-  const importModels = useCallback(() => {
-    setModelPaths(null);
-  }, [setModelPaths]);
-
   const newSession = useCallback(async () => {
     if (isReady) {
       try {
         setIsSessionReady(false);
-        await controller?.newSession({});
+        await controller?.newSession(undefined);
         setResults([]);
         setIsBusy(false);
         setError(undefined);
@@ -67,9 +60,6 @@ export const Header = () => {
         style={styles.iconButton}
       >
         <Text style={styles.icon}>➕</Text>
-      </TouchableHighlight>
-      <TouchableHighlight onPress={importModels} style={styles.iconButton}>
-        <Text style={styles.icon}>📥</Text>
       </TouchableHighlight>
     </View>
   );

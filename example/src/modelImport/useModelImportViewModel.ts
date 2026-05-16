@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useReducer } from 'react';
+import { useCallback, useEffect, useMemo, useReducer } from 'react';
 import { Alert, Linking } from 'react-native';
 import RNFS from 'react-native-fs';
 import {
@@ -12,6 +12,7 @@ import {
   MODEL_SPECS,
   createCompletionResult,
   createEmptyImportedModelsState,
+  getModelDestinationPath,
   getSelectedFilename,
   joinPath,
   stripFilePrefix,
@@ -37,6 +38,7 @@ export type ModelImportIntent =
   | { type: 'import-started'; kind: ModelKind; phase: ImportPhase }
   | { type: 'import-phase-changed'; kind: ModelKind; phase: ImportPhase }
   | { type: 'import-succeeded'; model: ImportedModel }
+  | { type: 'existing-models-loaded'; models: ImportedModelsState }
   | { type: 'import-finished' }
   | { type: 'model-removed'; kind: ModelKind };
 
@@ -73,6 +75,17 @@ export const reduceModelImportState = (
           [intent.model.kind]: intent.model,
         },
       };
+    case 'existing-models-loaded':
+      return {
+        ...state,
+        models: {
+          llm: state.models.llm ?? intent.models.llm,
+          imageEmbedder:
+            state.models.imageEmbedder ?? intent.models.imageEmbedder,
+          objectDetector:
+            state.models.objectDetector ?? intent.models.objectDetector,
+        },
+      };
     case 'import-finished':
       return {
         ...state,
@@ -103,7 +116,10 @@ async function importModelFile(
     RNFS.DocumentDirectoryPath,
     spec.storageSubdir
   );
-  const destinationPath = joinPath(destinationDir, spec.expectedFilename);
+  const destinationPath = getModelDestinationPath(
+    RNFS.DocumentDirectoryPath,
+    spec
+  );
 
   await RNFS.mkdir(destinationDir);
 
@@ -153,6 +169,42 @@ async function importModelFile(
   };
 }
 
+export async function loadExistingModels(): Promise<ImportedModelsState> {
+  const models = createEmptyImportedModelsState();
+
+  await Promise.all(
+    MODEL_SPECS.map(async (spec) => {
+      const path = getModelDestinationPath(RNFS.DocumentDirectoryPath, spec);
+
+      try {
+        if (!(await RNFS.exists(path))) {
+          return;
+        }
+
+        const validation = await validateImportedFile(
+          spec,
+          path,
+          spec.expectedFilename
+        );
+
+        models[spec.kind] = {
+          kind: spec.kind,
+          label: spec.label,
+          filename: spec.expectedFilename,
+          uri: `file://${path}`,
+          path,
+          sizeBytes: validation.sizeBytes,
+          importedAt: new Date().toISOString(),
+        };
+      } catch {
+        // Ignore stale or invalid files. User can replace them from the screen.
+      }
+    })
+  );
+
+  return models;
+}
+
 export const useModelImportViewModel = ({
   onComplete,
   requireImageEmbedder,
@@ -162,6 +214,20 @@ export const useModelImportViewModel = ({
     reduceModelImportState,
     initialModelImportState
   );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    loadExistingModels().then((models) => {
+      if (!cancelled) {
+        dispatch({ type: 'existing-models-loaded', models });
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const specsByKind = useMemo(
     () =>

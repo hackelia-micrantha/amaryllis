@@ -139,7 +139,9 @@ describe('App e2e flow', () => {
 
     await waitFor(() => {
       expect(nativePipeModule.newLlmPipe).toHaveBeenCalledTimes(1);
-      expect(nativePipeModule.mockLlmPipe.newSession).toHaveBeenCalledWith({});
+      expect(nativePipeModule.mockLlmPipe.newSession).toHaveBeenCalledWith(
+        undefined
+      );
     });
 
     fireEvent.changeText(
@@ -188,5 +190,15 @@ describe('App e2e flow', () => {
         screen.getByText('Personalization that still respects governance')
       ).toBeTruthy();
     });
+  });
+
+  it('should expose current model paths from settings', () => {
+    const screen = render(<App />);
+
+    fireEvent.press(screen.getByText('Settings'));
+
+    expect(screen.getByText('Model settings')).toBeTruthy();
+    expect(screen.getByText('/documents/amaryllis.model')).toBeTruthy();
+    expect(screen.getByText('/documents/amaryllis.vision')).toBeTruthy();
   });
 });

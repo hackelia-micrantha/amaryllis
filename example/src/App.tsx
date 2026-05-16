@@ -16,6 +16,7 @@ import { ModelProvider, useModelContext } from './ModelContext';
 import { default as WelcomeScreen } from './ImportModels';
 import { registerExampleAiComponents } from './ai/registerComponents';
 import { PersonaDemoScreen } from './personaDemo/PersonaDemoScreen';
+import { ModelSettingsScreen } from './modelSettings/ModelSettingsScreen';
 
 const createMemoryStore = (): ContextStore => {
   let items: ContextItem[] = [];
@@ -94,7 +95,7 @@ function AppGate() {
   );
 }
 
-type DemoScreen = 'chat' | 'persona-demo';
+type DemoScreen = 'chat' | 'persona-demo' | 'settings';
 
 function DemoExperience() {
   const [screen, setScreen] = useState<DemoScreen>('chat');
@@ -140,9 +141,33 @@ function DemoExperience() {
               Personas
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityState={{ selected: screen === 'settings' }}
+            onPress={() => setScreen('settings')}
+            style={[
+              styles.demoButton,
+              screen === 'settings' && styles.selectedDemoButton,
+            ]}
+          >
+            <Text
+              style={[
+                styles.demoButtonLabel,
+                screen === 'settings' && styles.selectedDemoButtonLabel,
+              ]}
+            >
+              Settings
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        {screen === 'chat' ? <Chat /> : <PersonaDemoScreen />}
+        {screen === 'chat' ? (
+          <Chat />
+        ) : screen === 'persona-demo' ? (
+          <PersonaDemoScreen />
+        ) : (
+          <ModelSettingsScreen />
+        )}
       </View>
     </SafeAreaProvider>
   );

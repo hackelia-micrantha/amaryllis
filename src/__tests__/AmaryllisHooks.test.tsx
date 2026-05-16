@@ -46,7 +46,10 @@ describe('useInferenceAsync', () => {
     });
 
     expect(mockPipe.generateAsync).toHaveBeenCalledWith(
-      params,
+      {
+        prompt:
+          '<start_of_turn>user\ntest<end_of_turn>\n<start_of_turn>model\n',
+      },
       expect.any(Object)
     );
     expect(results).toEqual(['partial', 'final']);
@@ -113,7 +116,9 @@ describe('useInference', () => {
       await result.current?.(params);
     });
 
-    expect(mockPipe.generate).toHaveBeenCalledWith(params);
+    expect(mockPipe.generate).toHaveBeenCalledWith({
+      prompt: '<start_of_turn>user\ntest<end_of_turn>\n<start_of_turn>model\n',
+    });
     expect(results).toEqual(['test response']);
   });
 
@@ -216,7 +221,8 @@ describe('context-aware hooks', () => {
     expect(engine.search).toHaveBeenCalledWith(query);
     expect(engine.formatRequest).toHaveBeenCalled();
     expect(mockPipe.generate).toHaveBeenCalledWith({
-      prompt: 'Context:\n- saved\n\nhello',
+      prompt:
+        '<start_of_turn>user\nContext:\n- saved\n\nhello<end_of_turn>\n<start_of_turn>model\n',
     });
   });
 
@@ -283,7 +289,10 @@ describe('context-aware hooks', () => {
 
     expect(engine.search).toHaveBeenCalledWith(query);
     expect(mockPipe.generateAsync).toHaveBeenCalledWith(
-      { prompt: 'ctx:hello' },
+      {
+        prompt:
+          '<start_of_turn>user\nctx:hello<end_of_turn>\n<start_of_turn>model\n',
+      },
       expect.any(Object)
     );
   });

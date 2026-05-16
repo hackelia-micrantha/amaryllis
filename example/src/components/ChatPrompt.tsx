@@ -12,6 +12,7 @@ import {
   useContextEngine,
   useContextInferenceAsync,
 } from '@micrantha/react-native-amaryllis/context';
+import { useLLMContext } from '@micrantha/react-native-amaryllis';
 import {
   launchImageLibrary,
   type ImageLibraryOptions,
@@ -37,6 +38,7 @@ export const ChatPrompt = () => {
   } = usePromptContext();
 
   const contextEngine = useContextEngine();
+  const { controller } = useLLMContext();
 
   const addContextItem = useCallback(
     async (text: string, tag: string) => {
@@ -93,6 +95,11 @@ export const ChatPrompt = () => {
     await generate({ prompt, images });
   }, [generate, images, prompt]);
 
+  const onCancelInference = useCallback(() => {
+    controller?.cancelAsync();
+    setIsBusy(false);
+  }, [controller, setIsBusy]);
+
   const onSelectImage = useCallback(() => {
     const options: ImageLibraryOptions = {
       mediaType: 'photo',
@@ -132,11 +139,11 @@ export const ChatPrompt = () => {
         />
 
         <Pressable
-          disabled={isBusy || !isSessionReady}
+          disabled={!isBusy && !isSessionReady}
           style={styles.iconButton}
-          onPress={onInference}
+          onPress={isBusy ? onCancelInference : onInference}
         >
-          <Text style={styles.icon}>{isBusy ? '⏳' : '➤'}</Text>
+          <Text style={styles.icon}>{isBusy ? '■' : '➤'}</Text>
         </Pressable>
 
         <Pressable

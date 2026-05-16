@@ -4,6 +4,7 @@ import { useLLMContext } from './AmaryllisContext';
 import { createLLMObservable } from './AmaryllisRx';
 import { useContextEngine } from './ContextEngineContext';
 import type { ContextEngine, ContextQuery } from './ContextTypes';
+import { formatGemmaRequest, sanitizeGemmaOutput } from './GemmaFormatting';
 
 export type ContextInferenceProps = InferenceProps & {
   contextEngine?: ContextEngine;
@@ -55,7 +56,10 @@ export const useInferenceAsync = (props: InferenceProps = {}) => {
 
       try {
         onGenerate?.();
-        await controller.generateAsync(params, llm$.callbacks);
+        await controller.generateAsync(
+          formatGemmaRequest(params),
+          llm$.callbacks
+        );
       } catch (err) {
         onError?.(
           err instanceof Error ? err : new Error('An unknown error occurred')
@@ -72,7 +76,7 @@ export const useInferenceAsync = (props: InferenceProps = {}) => {
   useEffect(() => {
     const sub = llm$.observable.subscribe({
       next: ({ text, isFinal }) => {
-        onResult?.(text, isFinal);
+        onResult?.(sanitizeGemmaOutput(text), isFinal);
       },
       complete: () => onComplete?.(),
       error: (err) => onError?.(err),
@@ -107,8 +111,8 @@ export const useInference = (props: InferenceProps = {}) => {
 
       try {
         onGenerate?.();
-        const response = await controller.generate(params);
-        onResult?.(response ?? '', true);
+        const response = await controller.generate(formatGemmaRequest(params));
+        onResult?.(sanitizeGemmaOutput(response ?? ''), true);
       } catch (err) {
         onError?.(
           err instanceof Error ? err : new Error('An unknown error occurred')

@@ -57,7 +57,7 @@ export type LlmEngine = {
   /**
    * Start a new session.
    */
-  newSession(params: LlmSessionParams): Promise<void>;
+  newSession(params?: LlmSessionParams): Promise<void>;
 
   /**
    * Generate a response synchronously (blocking).

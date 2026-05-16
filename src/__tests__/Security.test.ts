@@ -2,6 +2,7 @@ import { renderHook, act } from './test-utils';
 import { useInference, useInferenceAsync } from '../AmaryllisHooks';
 import { mockPipe } from './test-utils';
 import { GenerationError, ResourceError, isAmaryllisError } from '../Errors';
+import { formatGemmaRequest } from '../GemmaFormatting';
 
 describe('Security Tests', () => {
   beforeEach(() => {
@@ -17,7 +18,9 @@ describe('Security Tests', () => {
         await result.current?.({ prompt: longPrompt });
       });
 
-      expect(mockPipe.generate).toHaveBeenCalledWith({ prompt: longPrompt });
+      expect(mockPipe.generate).toHaveBeenCalledWith(
+        formatGemmaRequest({ prompt: longPrompt })
+      );
       unmount();
     });
 
@@ -29,9 +32,9 @@ describe('Security Tests', () => {
         await result.current?.({ prompt: maliciousPrompt });
       });
 
-      expect(mockPipe.generate).toHaveBeenCalledWith({
-        prompt: maliciousPrompt,
-      });
+      expect(mockPipe.generate).toHaveBeenCalledWith(
+        formatGemmaRequest({ prompt: maliciousPrompt })
+      );
       unmount();
     });
 
@@ -43,7 +46,9 @@ describe('Security Tests', () => {
         await result.current?.({ prompt: unicodePrompt });
       });
 
-      expect(mockPipe.generate).toHaveBeenCalledWith({ prompt: unicodePrompt });
+      expect(mockPipe.generate).toHaveBeenCalledWith(
+        formatGemmaRequest({ prompt: unicodePrompt })
+      );
       unmount();
     });
 
@@ -55,10 +60,12 @@ describe('Security Tests', () => {
         await result.current?.({ prompt: 'test', images });
       });
 
-      expect(mockPipe.generate).toHaveBeenCalledWith({
-        prompt: 'test',
-        images,
-      });
+      expect(mockPipe.generate).toHaveBeenCalledWith(
+        formatGemmaRequest({
+          prompt: 'test',
+          images,
+        })
+      );
       unmount();
     });
   });
