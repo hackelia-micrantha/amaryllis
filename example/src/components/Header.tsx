@@ -1,12 +1,19 @@
 import { useCallback, useEffect } from 'react';
 import { TouchableHighlight, StyleSheet, Text, View } from 'react-native';
-import { useLLMContext } from 'react-native-amaryllis';
+import { useLLMContext } from '@micrantha/react-native-amaryllis';
 import { usePromptContext } from '../PromptContext';
+import { useModelContext } from '../ModelContext';
 
 export const Header = () => {
   const { controller, isReady } = useLLMContext();
   const { setResults, setIsBusy, setError, setPrompt, setImages } =
     usePromptContext();
+
+  const { setPaths: setModelPaths } = useModelContext();
+
+  const importModels = useCallback(() => {
+    setModelPaths(null);
+  }, [setModelPaths]);
 
   const newSession = useCallback(() => {
     if (isReady) {
@@ -40,6 +47,9 @@ export const Header = () => {
       <Text style={styles.title}>Amaryllis Chat</Text>
       <TouchableHighlight onPress={newSession} style={styles.iconButton}>
         <Text style={styles.icon}>➕</Text>
+      </TouchableHighlight>
+      <TouchableHighlight onPress={importModels} style={styles.iconButton}>
+        <Text style={styles.icon}>📥</Text>
       </TouchableHighlight>
     </View>
   );

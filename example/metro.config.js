@@ -3,6 +3,14 @@ const { getDefaultConfig } = require('@react-native/metro-config');
 const { withMetroConfig } = require('react-native-monorepo-config');
 
 const root = path.resolve(__dirname, '..');
+const defaultConfig = getDefaultConfig(__dirname);
+
+if (
+  defaultConfig.resolver.blockList &&
+  !Array.isArray(defaultConfig.resolver.blockList)
+) {
+  defaultConfig.resolver.blockList = [defaultConfig.resolver.blockList];
+}
 
 /**
  * Metro configuration
@@ -10,7 +18,7 @@ const root = path.resolve(__dirname, '..');
  *
  * @type {import('metro-config').MetroConfig}
  */
-module.exports = withMetroConfig(getDefaultConfig(__dirname), {
+module.exports = withMetroConfig(defaultConfig, {
   root,
   dirname: __dirname,
 });

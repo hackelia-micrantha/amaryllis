@@ -5,7 +5,7 @@ import type { ValidatedComponentSpec } from '../schema/spec.schema';
 import { JSONSchemaGenerator } from '../generator/schema';
 import { PersonalizedComponent } from '../runtime/PersonalizedComponent';
 import { resolveUiPrimitives } from '../runtime/primitives';
-import { globalRegistry } from '../runtime/registry';
+import { RegistryProvider } from '../runtime/registryContext';
 
 jest.mock('react-native', () => ({
   View: 'native-view',
@@ -54,14 +54,6 @@ describe('PersonalizedComponent primitives', () => {
     Record<string, unknown>
   >;
 
-  beforeAll(() => {
-    globalRegistry.register('primitive-card', {
-      component: Component,
-      spec,
-      contract,
-    });
-  });
-
   beforeEach(() => {
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
@@ -79,14 +71,31 @@ describe('PersonalizedComponent primitives', () => {
       React.createElement('primitive-text', { testID: 'error' }, children);
     let rendered: TestRendererInstance | undefined;
 
+    const initializeRegistry = (registry: {
+      get: (name: string) => unknown;
+      register: typeof import('../runtime/registry').ComponentRegistry.prototype.register;
+    }) => {
+      if (!registry.get('primitive-card')) {
+        registry.register('primitive-card', {
+          component: Component,
+          spec,
+          contract,
+        });
+      }
+    };
+
     testRenderer.act(() => {
       rendered = testRenderer.create(
-        React.createElement(PersonalizedComponent, {
-          name: 'primitive-card',
-          baseProps: { title: 'Base' },
-          personalizationData: { props: { title: 123 } },
-          primitives: { View, Text },
-        })
+        React.createElement(
+          RegistryProvider,
+          { initialize: initializeRegistry },
+          React.createElement(PersonalizedComponent, {
+            name: 'primitive-card',
+            baseProps: { title: 'Base' },
+            personalizationData: { props: { title: 123 } },
+            primitives: { View, Text },
+          })
+        )
       );
     });
 

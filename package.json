@@ -94,6 +94,9 @@
     "turbo": "^2.9.14",
     "typescript": "^5.9.3"
   },
+  "dependencies": {
+    "@micrantha/amaryllis": "workspace:*"
+  },
   "peerDependencies": {
     "react": "*",
     "react-native": "*"
@@ -108,8 +111,10 @@
     "moduleNameMapper": {
       "^react$": "<rootDir>/node_modules/react",
       "^react-native$": "<rootDir>/node_modules/react-native",
-      "^react-native-amaryllis$": "<rootDir>/src/index.tsx",
-      "^react-native-amaryllis/context$": "<rootDir>/src/context.ts"
+      "^@micrantha/react-native-amaryllis$": "<rootDir>/src/index.tsx",
+      "^@micrantha/react-native-amaryllis/context$": "<rootDir>/src/context.ts",
+      "^@micrantha/amaryllis$": "<rootDir>/packages/amaryllis/src/index.ts",
+      "^@micrantha/amaryllis/context$": "<rootDir>/packages/amaryllis/src/context.ts"
     },
     "modulePathIgnorePatterns": [
       "<rootDir>/example/node_modules",

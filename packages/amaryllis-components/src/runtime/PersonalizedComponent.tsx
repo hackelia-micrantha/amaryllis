@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { globalRegistry } from './registry';
 import { PersonalizationEngine } from './engine';
 import { resolveUiPrimitives, type UiPrimitives } from './primitives';
+import { useRegistry } from './registryContext';
 
 export interface PersonalizedComponentProps {
   /** Name of the registered component to render */
@@ -30,7 +30,8 @@ export const PersonalizedComponent: React.FC<PersonalizedComponentProps> = ({
   fallback,
   primitives,
 }) => {
-  const registered = globalRegistry.get(name);
+  const registry = useRegistry();
+  const registered = registry.get(name);
   const engine = useMemo(() => new PersonalizationEngine(), []);
   const { View, Text } = useMemo(
     () => resolveUiPrimitives(primitives),

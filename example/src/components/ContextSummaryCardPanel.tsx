@@ -1,9 +1,6 @@
 import { PersonalizedComponent } from '@micrantha/amaryllis-components';
 import { useMemo } from 'react';
 import { usePromptContext } from '../PromptContext';
-import { registerExampleAiComponents } from '../ai/registerComponents';
-
-registerExampleAiComponents();
 
 export const ContextSummaryCardPanel = () => {
   const { results, images } = usePromptContext();

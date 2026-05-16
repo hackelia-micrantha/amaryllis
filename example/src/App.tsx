@@ -1,16 +1,19 @@
 import { useMemo } from 'react';
-import { LLMProvider } from 'react-native-amaryllis';
+import { LLMProvider } from '@micrantha/react-native-amaryllis';
 import {
-  ContextEngineProvider,
   createContextEngine,
   type ContextItem,
   type ContextQuery,
   type ContextStore,
-} from 'react-native-amaryllis/context';
+} from '@micrantha/amaryllis/context';
+import { ContextEngineProvider } from '@micrantha/react-native-amaryllis/context';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { RegistryProvider } from '@micrantha/amaryllis-components';
 import { Chat } from './components';
 import { PromptProvider } from './PromptContext';
-import DL from '@kesha-antonov/react-native-background-downloader';
+import { ModelProvider, useModelContext } from './ModelContext';
+import { default as WelcomeScreen } from './ImportModels';
+import { registerExampleAiComponents } from './ai/registerComponents';
 
 const createMemoryStore = (): ContextStore => {
   let items: ContextItem[] = [];
@@ -59,7 +62,9 @@ const createMemoryStore = (): ContextStore => {
   };
 };
 
-export default function App() {
+function AppGate() {
+  const { paths: models, setPaths: setModelsReady } = useModelContext();
+
   const contextEngine = useMemo(() => {
     return createContextEngine({
       store: createMemoryStore(),
@@ -68,11 +73,15 @@ export default function App() {
     });
   }, []);
 
+  if (!models) {
+    return <WelcomeScreen onComplete={(paths) => setModelsReady(paths)} />;
+  }
+
   return (
     <LLMProvider
       config={{
-        modelPath: `${DL.directories.documents}/amaryllis.model`,
-        visionEncoderPath: `${DL.directories.documents}/amaryllis.vision`,
+        modelPath: models.llmModelPath,
+        visionEncoderPath: models.imageEmbedderModelPath,
         maxNumImages: 2,
       }}
     >
@@ -84,5 +93,15 @@ export default function App() {
         </PromptProvider>
       </ContextEngineProvider>
     </LLMProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <ModelProvider>
+      <RegistryProvider initialize={registerExampleAiComponents}>
+        <AppGate />
+      </RegistryProvider>
+    </ModelProvider>
   );
 }

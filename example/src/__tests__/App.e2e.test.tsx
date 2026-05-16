@@ -26,9 +26,25 @@ jest.mock('react-native/Libraries/Components/TextInput/TextInput', () => {
 jest.mock('@kesha-antonov/react-native-background-downloader', () => ({
   __esModule: true,
   default: {
+    completeHandler: jest.fn(),
     directories: {
       documents: '/documents',
     },
+    download: jest.fn(() => {
+      const task = {
+        done(callback: () => void) {
+          callback();
+          return task;
+        },
+        error() {
+          return task;
+        },
+        progress() {
+          return task;
+        },
+      };
+      return task;
+    }),
   },
 }));
 
@@ -36,8 +52,30 @@ jest.mock('react-native-image-picker', () => ({
   launchImageLibrary: (...args: unknown[]) => mockLaunchImageLibrary(...args),
 }));
 
-jest.mock('react-native-amaryllis/context', () => {
-  const actual = jest.requireActual('react-native-amaryllis/context');
+jest.mock('react-native-progress', () => ({
+  Bar: () => null,
+}));
+
+jest.mock('../ImportModels', () => ({
+  __esModule: true,
+  default: () => null,
+}));
+
+jest.mock('../ModelContext', () => ({
+  ModelProvider: ({ children }: { children: React.ReactNode }) => children,
+  useModelContext: () => ({
+    paths: {
+      llmModelPath: '/documents/amaryllis.model',
+      imageEmbedderModelPath: '/documents/amaryllis.vision',
+    },
+    setPaths: jest.fn(),
+  }),
+}));
+
+jest.mock('@micrantha/react-native-amaryllis/context', () => {
+  const actual = jest.requireActual(
+    '@micrantha/react-native-amaryllis/context'
+  );
   return {
     ...actual,
     useContextInferenceAsync: (...args: unknown[]) =>

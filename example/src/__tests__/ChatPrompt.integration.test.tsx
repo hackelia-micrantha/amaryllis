@@ -1,7 +1,7 @@
 import React from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
-import { LLMProvider } from 'react-native-amaryllis';
-import { ContextEngineProvider } from 'react-native-amaryllis/context';
+import { LLMProvider } from '@micrantha/react-native-amaryllis';
+import { ContextEngineProvider } from '@micrantha/react-native-amaryllis/context';
 import type { LlmEngine } from '../../../src/Types';
 import type { ContextEngine } from '../../../src/ContextTypes';
 import { PromptProvider } from '../PromptContext';
@@ -32,8 +32,10 @@ jest.mock('react-native-image-picker', () => ({
   launchImageLibrary: (...args: unknown[]) => mockLaunchImageLibrary(...args),
 }));
 
-jest.mock('react-native-amaryllis/context', () => {
-  const actual = jest.requireActual('react-native-amaryllis/context');
+jest.mock('@micrantha/react-native-amaryllis/context', () => {
+  const actual = jest.requireActual(
+    '@micrantha/react-native-amaryllis/context'
+  );
   return {
     ...actual,
     useContextInferenceAsync: (...args: unknown[]) =>

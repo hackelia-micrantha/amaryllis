@@ -1,4 +1,4 @@
-import type { LlmRequestParams } from './Types';
+import type { LlmRequestParams } from '../types';
 
 export type EvictionStrategy = 'lru' | 'recency' | 'size';
 

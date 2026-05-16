@@ -9,6 +9,7 @@ export * from './integrations/agent-ui';
 // Runtime
 export * from './runtime/engine';
 export * from './runtime/registry';
+export * from './runtime/registryContext';
 export * from './runtime/PersonalizedComponent';
 export * from './runtime/hooks';
 export * from './runtime/primitives';

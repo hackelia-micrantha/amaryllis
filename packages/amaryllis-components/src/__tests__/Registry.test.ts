@@ -1,9 +1,10 @@
 import type { ComponentType } from 'react';
 import type { ValidatedComponentSpec } from '../schema/spec.schema';
-
+import { createTestComponentRegistry } from './testRegistry';
 import {
   ComponentRegistry,
   createRegistryIdentity,
+  fnv1aHash,
   hashRegistryValue,
 } from '../runtime/registry';
 
@@ -44,7 +45,7 @@ const contract = {
 
 describe('ComponentRegistry identity binding', () => {
   test('registers components by versioned identity and keeps legacy name lookup', () => {
-    const registry = new ComponentRegistry();
+    const registry = createTestComponentRegistry();
     const entry = {
       component: Component,
       spec: baseSpec,
@@ -67,25 +68,50 @@ describe('ComponentRegistry identity binding', () => {
   });
 
   test('creates deterministic hashes for registry identity metadata', () => {
-    const identity = createRegistryIdentity({
+    const identity = createRegistryIdentity(
+      {
+        component: Component,
+        spec: baseSpec,
+        contract,
+        implementationIdentity: 'registry-card/react',
+      },
+      fnv1aHash
+    );
+
+    expect(identity).toEqual({
+      key: 'registry-card@1.0.0',
+      componentName: 'registry-card',
+      version: '1.0.0',
+      specHash: hashRegistryValue(baseSpec, fnv1aHash),
+      runtimeContractHash: hashRegistryValue(contract, fnv1aHash),
+      implementationIdentity: 'registry-card/react',
+    });
+  });
+
+  test('uses a deterministic default hash for registry metadata', () => {
+    const registry = new ComponentRegistry();
+
+    registry.register('registry-card', {
       component: Component,
       spec: baseSpec,
       contract,
       implementationIdentity: 'registry-card/react',
     });
 
-    expect(identity).toEqual({
-      key: 'registry-card@1.0.0',
-      componentName: 'registry-card',
-      version: '1.0.0',
-      specHash: hashRegistryValue(baseSpec),
-      runtimeContractHash: hashRegistryValue(contract),
-      implementationIdentity: 'registry-card/react',
+    expect(registry.get('registry-card')).toMatchObject({
+      specHash: hashRegistryValue(baseSpec, fnv1aHash),
+      runtimeContractHash: hashRegistryValue(contract, fnv1aHash),
     });
   });
 
+  test('matches the stable FNV-1a digest for registry metadata', () => {
+    expect(hashRegistryValue({ title: 'hello', count: 3 }, fnv1aHash)).toBe(
+      'd72af607'
+    );
+  });
+
   test('rejects registration when supplied identity metadata does not match the entry', () => {
-    const registry = new ComponentRegistry();
+    const registry = createTestComponentRegistry();
 
     expect(() =>
       registry.register('registry-card', {
@@ -102,14 +128,14 @@ describe('ComponentRegistry identity binding', () => {
         component: Component,
         spec: baseSpec,
         contract,
-        specHash: hashRegistryValue({ different: true }),
+        specHash: hashRegistryValue({ different: true }, fnv1aHash),
         implementationIdentity: 'registry-card/react',
       })
     ).toThrow('specHash does not match spec');
   });
 
   test('rejects silent replacement unless replace is explicit', () => {
-    const registry = new ComponentRegistry();
+    const registry = createTestComponentRegistry();
     const entry = {
       component: Component,
       spec: baseSpec,
@@ -135,7 +161,7 @@ describe('ComponentRegistry identity binding', () => {
   });
 
   test('snapshots and hydrates registry entries with resolved implementations', () => {
-    const registry = new ComponentRegistry();
+    const registry = createTestComponentRegistry();
     registry.register('registry-card', {
       component: Component,
       spec: baseSpec,
@@ -144,7 +170,7 @@ describe('ComponentRegistry identity binding', () => {
     });
 
     const snapshot = registry.snapshot();
-    const restored = new ComponentRegistry();
+    const restored = createTestComponentRegistry();
     restored.hydrate(snapshot, (entry) => {
       expect(entry.key).toBe('registry-card@1.0.0');
       expect(entry.implementationIdentity).toBe('registry-card/react');
@@ -156,8 +182,8 @@ describe('ComponentRegistry identity binding', () => {
         key: 'registry-card@1.0.0',
         componentName: 'registry-card',
         version: '1.0.0',
-        specHash: hashRegistryValue(baseSpec),
-        runtimeContractHash: hashRegistryValue(contract),
+        specHash: hashRegistryValue(baseSpec, fnv1aHash),
+        runtimeContractHash: hashRegistryValue(contract, fnv1aHash),
         implementationIdentity: 'registry-card/react',
         spec: baseSpec,
         contract,

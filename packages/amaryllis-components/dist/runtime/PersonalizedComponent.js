@@ -3,15 +3,16 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PersonalizedComponent = void 0;
 const jsx_runtime_1 = require("react/jsx-runtime");
 const react_1 = require("react");
-const registry_1 = require("./registry");
 const engine_1 = require("./engine");
 const primitives_1 = require("./primitives");
+const registryContext_1 = require("./registryContext");
 /**
  * A wrapper component that handles on-device personalization.
  * It validates AI output against the component's contract before rendering.
  */
 const PersonalizedComponent = ({ name, baseProps = {}, personalizationData, loading, fallback, primitives, }) => {
-    const registered = registry_1.globalRegistry.get(name);
+    const registry = (0, registryContext_1.useRegistry)();
+    const registered = registry.get(name);
     const engine = (0, react_1.useMemo)(() => new engine_1.PersonalizationEngine(), []);
     const { View, Text } = (0, react_1.useMemo)(() => (0, primitives_1.resolveUiPrimitives)(primitives), [primitives]);
     const [finalProps, setFinalProps] = (0, react_1.useState)(baseProps);

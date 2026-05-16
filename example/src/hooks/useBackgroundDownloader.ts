@@ -8,6 +8,7 @@ export type DownloadInfo = { jobId: string; url: string; filename: string };
 
 export const useBackgroundDownloader = (params: BackgroundDownloaderParams) => {
   const [tasks, setTasks] = useState<DownloadTask[]>([]);
+  const [completedDownloads, setCompletedDownloads] = useState(0);
 
   const startDownload = useCallback(
     async (jobId: string, url: string, filename: string) => {
@@ -17,6 +18,7 @@ export const useBackgroundDownloader = (params: BackgroundDownloaderParams) => {
         destination: `${Downloader.directories.documents}/${filename}`,
       }).done(() => {
         Downloader.completeHandler(jobId);
+        setCompletedDownloads((count) => count + 1);
       });
       setTasks((prev: DownloadTask[]) => [...prev, task]);
     },
@@ -27,7 +29,7 @@ export const useBackgroundDownloader = (params: BackgroundDownloaderParams) => {
     params.forEach((param) =>
       startDownload(param.jobId, param.url, param.filename)
     );
-  });
+  }, [params, startDownload]);
 
-  return tasks;
+  return { completedDownloads, tasks };
 };

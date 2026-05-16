@@ -7,11 +7,11 @@ import {
   StyleSheet,
   ScrollView,
 } from 'react-native';
-import type { InferenceProps } from 'react-native-amaryllis';
+import type { InferenceProps } from '@micrantha/react-native-amaryllis';
 import {
   useContextEngine,
   useContextInferenceAsync,
-} from 'react-native-amaryllis/context';
+} from '@micrantha/react-native-amaryllis/context';
 import {
   launchImageLibrary,
   type ImageLibraryOptions,

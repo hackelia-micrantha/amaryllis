@@ -7,13 +7,14 @@ exports.createAmaryllisPersonalizationAction = createAmaryllisPersonalizationAct
 exports.useAmaryllisPersonalizationAction = useAmaryllisPersonalizationAction;
 const react_1 = require("react");
 const engine_1 = require("./engine");
-const registry_1 = require("./registry");
+const registryContext_1 = require("./registryContext");
 function usePersonalization({ name, baseProps = {}, }) {
     const engine = (0, react_1.useMemo)(() => new engine_1.PersonalizationEngine(), []);
     const [personalizedProps, setPersonalizedProps] = (0, react_1.useState)(baseProps);
     const [error, setError] = (0, react_1.useState)(null);
+    const registry = (0, registryContext_1.useRegistry)();
     const applyPersonalization = (0, react_1.useCallback)((aiOutput) => {
-        const registered = registry_1.globalRegistry.get(name);
+        const registered = registry.get(name);
         if (!registered) {
             setError([`Component ${name} not registered`]);
             return;
@@ -26,7 +27,7 @@ function usePersonalization({ name, baseProps = {}, }) {
         else {
             setError(result.errors || ['Unknown validation error']);
         }
-    }, [name, baseProps, engine]);
+    }, [registry, name, engine, baseProps]);
     const reset = (0, react_1.useCallback)(() => {
         setPersonalizedProps(baseProps);
         setError(null);
@@ -44,20 +45,21 @@ function createAmaryllisInferenceAdapter(generate) {
         return parseAmaryllisInferenceOutput(output);
     };
 }
-function createAmaryllisInferencePersonalizationAction({ componentName, baseProps = {}, generate, recovery, }) {
+function createAmaryllisInferencePersonalizationAction({ componentName, baseProps = {}, generate, recovery, registry, }) {
     return createAmaryllisPersonalizationAction({
         componentName,
         baseProps,
         infer: createAmaryllisInferenceAdapter(generate),
         recovery,
+        registry,
     });
 }
-function createAmaryllisPersonalizationAction({ componentName, baseProps = {}, infer, recovery, }) {
+function createAmaryllisPersonalizationAction({ componentName, baseProps = {}, infer, recovery, registry, }) {
     const engine = new engine_1.PersonalizationEngine();
     const maxRecoveryAttempts = Math.max(0, recovery?.maxAttempts ?? 0);
     return async (request) => {
         const props = request.baseProps ?? baseProps;
-        const registered = registry_1.globalRegistry.get(componentName);
+        const registered = registry.get(componentName);
         if (!registered) {
             return {
                 valid: false,
@@ -103,12 +105,14 @@ function createAmaryllisPersonalizationAction({ componentName, baseProps = {}, i
 }
 function useAmaryllisPersonalizationAction(options) {
     const { componentName, baseProps, infer, recovery } = options;
+    const registry = (0, registryContext_1.useRegistry)();
     return (0, react_1.useMemo)(() => createAmaryllisPersonalizationAction({
         componentName,
         baseProps,
         infer,
         recovery,
-    }), [componentName, baseProps, infer, recovery]);
+        registry,
+    }), [componentName, baseProps, infer, recovery, registry]);
 }
 function parseAmaryllisInferenceOutput(output) {
     if (typeof output !== 'string') {

@@ -1,8 +1,7 @@
 import type { ComponentType } from 'react';
 import type { ValidatedComponentSpec } from '../schema/spec.schema';
-
+import { registry as globalRegistry } from './testRegistry';
 import { PersonalizationEngine } from '../runtime/engine';
-import { globalRegistry } from '../runtime/registry';
 import { JSONSchemaGenerator } from '../generator/schema';
 
 describe('Personalization', () => {

@@ -1,10 +1,10 @@
 import { useState, useMemo, useCallback } from 'react';
 import { PersonalizationEngine } from './engine';
-import { globalRegistry } from './registry';
 import type {
   AgentUIInvocation,
   AgentUIOverlayResult,
 } from '../integrations/agent-ui';
+import { useRegistry } from './registryContext';
 
 export interface UsePersonalizationOptions {
   name: string;
@@ -18,10 +18,11 @@ export function usePersonalization({
   const engine = useMemo(() => new PersonalizationEngine(), []);
   const [personalizedProps, setPersonalizedProps] = useState(baseProps);
   const [error, setError] = useState<string[] | null>(null);
+  const registry = useRegistry();
 
   const applyPersonalization = useCallback(
     (aiOutput: unknown) => {
-      const registered = globalRegistry.get(name);
+      const registered = registry.get(name);
       if (!registered) {
         setError([`Component ${name} not registered`]);
         return;
@@ -35,7 +36,7 @@ export function usePersonalization({
         setError(result.errors || ['Unknown validation error']);
       }
     },
-    [name, baseProps, engine]
+    [registry, name, engine, baseProps]
   );
 
   const reset = useCallback(() => {
@@ -53,6 +54,7 @@ export function usePersonalization({
 
 export interface AmaryllisPersonalizationActionOptions {
   componentName: string;
+  registry: ReturnType<typeof useRegistry>;
   baseProps?: Record<string, unknown>;
   infer: AmaryllisPersonalizationInfer;
   recovery?: AmaryllisPersonalizationRecoveryOptions;
@@ -60,6 +62,7 @@ export interface AmaryllisPersonalizationActionOptions {
 
 export interface AmaryllisInferencePersonalizationActionOptions {
   componentName: string;
+  registry: ReturnType<typeof useRegistry>;
   baseProps?: Record<string, unknown>;
   generate: AmaryllisGenerateFunction;
   recovery?: AmaryllisPersonalizationRecoveryOptions;
@@ -101,12 +104,14 @@ export function createAmaryllisInferencePersonalizationAction({
   baseProps = {},
   generate,
   recovery,
+  registry,
 }: AmaryllisInferencePersonalizationActionOptions): AmaryllisPersonalizationAction {
   return createAmaryllisPersonalizationAction({
     componentName,
     baseProps,
     infer: createAmaryllisInferenceAdapter(generate),
     recovery,
+    registry,
   });
 }
 
@@ -115,13 +120,14 @@ export function createAmaryllisPersonalizationAction({
   baseProps = {},
   infer,
   recovery,
+  registry,
 }: AmaryllisPersonalizationActionOptions): AmaryllisPersonalizationAction {
   const engine = new PersonalizationEngine();
   const maxRecoveryAttempts = Math.max(0, recovery?.maxAttempts ?? 0);
 
   return async (request) => {
     const props = request.baseProps ?? baseProps;
-    const registered = globalRegistry.get(componentName);
+    const registered = registry.get(componentName);
 
     if (!registered) {
       return {
@@ -181,6 +187,7 @@ export function useAmaryllisPersonalizationAction(
   options: AmaryllisPersonalizationActionOptions
 ): AmaryllisPersonalizationAction {
   const { componentName, baseProps, infer, recovery } = options;
+  const registry = useRegistry();
 
   return useMemo(
     () =>
@@ -189,8 +196,9 @@ export function useAmaryllisPersonalizationAction(
         baseProps,
         infer,
         recovery,
+        registry,
       }),
-    [componentName, baseProps, infer, recovery]
+    [componentName, baseProps, infer, recovery, registry]
   );
 }
 

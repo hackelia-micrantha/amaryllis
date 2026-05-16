@@ -1,10 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.globalRegistry = exports.ComponentRegistry = void 0;
-exports.hashRegistryValue = hashRegistryValue;
+exports.ComponentRegistry = exports.hashRegistryValue = void 0;
+exports.stableStringify = stableStringify;
+exports.fnv1aHash = fnv1aHash;
 exports.getRegistryKey = getRegistryKey;
 exports.createRegistryIdentity = createRegistryIdentity;
-const crypto_1 = require("crypto");
 function stableStringify(value) {
     if (value === undefined) {
         return 'undefined';
@@ -21,21 +21,30 @@ function stableStringify(value) {
     }
     return JSON.stringify(value);
 }
-function hashRegistryValue(value) {
-    return (0, crypto_1.createHash)('sha256').update(stableStringify(value)).digest('hex');
+function fnv1aHash(value) {
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < value.length; i += 1) {
+        hash ^= value.charCodeAt(i);
+        hash = Math.imul(hash, 0x01000193);
+    }
+    return (hash >>> 0).toString(16).padStart(8, '0');
 }
+const hashRegistryValue = (value, hash = fnv1aHash) => {
+    return hash(stableStringify(value));
+};
+exports.hashRegistryValue = hashRegistryValue;
 function getRegistryKey(componentName, version) {
     return `${componentName}@${version}`;
 }
-function createRegistryIdentity(entry) {
+function createRegistryIdentity(entry, hash = fnv1aHash) {
     const componentName = entry.spec.metadata.name;
     const version = entry.spec.metadata.version;
     return {
         key: getRegistryKey(componentName, version),
         componentName,
         version,
-        specHash: hashRegistryValue(entry.spec),
-        runtimeContractHash: hashRegistryValue(entry.contract),
+        specHash: (0, exports.hashRegistryValue)(entry.spec, hash),
+        runtimeContractHash: (0, exports.hashRegistryValue)(entry.contract, hash),
         implementationIdentity: entry.implementationIdentity ??
             `${componentName}@${version}:implementation`,
     };
@@ -43,8 +52,12 @@ function createRegistryIdentity(entry) {
 class ComponentRegistry {
     components = new Map();
     latestByName = new Map();
+    hash;
+    constructor(options = {}) {
+        this.hash = options.hash ?? fnv1aHash;
+    }
     register(name, entry, options = {}) {
-        const identity = createRegistryIdentity(entry);
+        const identity = createRegistryIdentity(entry, this.hash);
         this.assertRegistrationMatches(name, entry, identity);
         if (!options.replace && this.components.has(identity.key)) {
             throw new Error(`Component ${identity.key} is already registered. Pass { replace: true } to replace it.`);
@@ -121,5 +134,3 @@ function compareRegistryKeys(left, right) {
     const rightVersion = right.slice(right.lastIndexOf('@') + 1);
     return leftVersion.localeCompare(rightVersion, undefined, { numeric: true });
 }
-// Global registry instance
-exports.globalRegistry = new ComponentRegistry();

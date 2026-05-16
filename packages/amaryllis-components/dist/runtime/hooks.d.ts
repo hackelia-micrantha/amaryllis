@@ -1,4 +1,5 @@
 import type { AgentUIInvocation, AgentUIOverlayResult } from '../integrations/agent-ui';
+import { useRegistry } from './registryContext';
 export interface UsePersonalizationOptions {
     name: string;
     baseProps?: Record<string, unknown>;
@@ -11,12 +12,14 @@ export declare function usePersonalization({ name, baseProps, }: UsePersonalizat
 };
 export interface AmaryllisPersonalizationActionOptions {
     componentName: string;
+    registry: ReturnType<typeof useRegistry>;
     baseProps?: Record<string, unknown>;
     infer: AmaryllisPersonalizationInfer;
     recovery?: AmaryllisPersonalizationRecoveryOptions;
 }
 export interface AmaryllisInferencePersonalizationActionOptions {
     componentName: string;
+    registry: ReturnType<typeof useRegistry>;
     baseProps?: Record<string, unknown>;
     generate: AmaryllisGenerateFunction;
     recovery?: AmaryllisPersonalizationRecoveryOptions;
@@ -33,6 +36,6 @@ export type AmaryllisPersonalizationAction = (request: Omit<AgentUIInvocation, '
     baseProps?: Record<string, unknown>;
 }) => Promise<AgentUIOverlayResult>;
 export declare function createAmaryllisInferenceAdapter(generate: AmaryllisGenerateFunction): AmaryllisPersonalizationInfer;
-export declare function createAmaryllisInferencePersonalizationAction({ componentName, baseProps, generate, recovery, }: AmaryllisInferencePersonalizationActionOptions): AmaryllisPersonalizationAction;
-export declare function createAmaryllisPersonalizationAction({ componentName, baseProps, infer, recovery, }: AmaryllisPersonalizationActionOptions): AmaryllisPersonalizationAction;
+export declare function createAmaryllisInferencePersonalizationAction({ componentName, baseProps, generate, recovery, registry, }: AmaryllisInferencePersonalizationActionOptions): AmaryllisPersonalizationAction;
+export declare function createAmaryllisPersonalizationAction({ componentName, baseProps, infer, recovery, registry, }: AmaryllisPersonalizationActionOptions): AmaryllisPersonalizationAction;
 export declare function useAmaryllisPersonalizationAction(options: AmaryllisPersonalizationActionOptions): AmaryllisPersonalizationAction;

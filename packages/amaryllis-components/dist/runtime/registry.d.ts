@@ -25,12 +25,20 @@ export type RegistryComponentResolver = (entry: RegistrySnapshotEntry) => Compon
 export interface RegisterOptions {
     replace?: boolean;
 }
-export declare function hashRegistryValue(value: unknown): string;
+export declare function stableStringify(value: unknown): string;
+export type RegistryHashFunction = (canonicalValue: string) => string;
+export declare function fnv1aHash(value: string): string;
+export declare const hashRegistryValue: (value: unknown, hash?: RegistryHashFunction) => string;
 export declare function getRegistryKey(componentName: string, version: string): string;
-export declare function createRegistryIdentity(entry: RegisteredComponent): RegistryIdentity;
+export declare function createRegistryIdentity(entry: RegisteredComponent, hash?: RegistryHashFunction): RegistryIdentity;
+export interface ComponentRegistryOptions {
+    hash?: RegistryHashFunction;
+}
 export declare class ComponentRegistry {
     private components;
     private latestByName;
+    private hash;
+    constructor(options?: ComponentRegistryOptions);
     register(name: string, entry: RegisteredComponent, options?: RegisterOptions): void;
     get(name: string): BoundRegisteredComponent | undefined;
     list(): string[];
@@ -40,4 +48,3 @@ export declare class ComponentRegistry {
     private getLatestByComponentName;
     private updateLatest;
 }
-export declare const globalRegistry: ComponentRegistry;

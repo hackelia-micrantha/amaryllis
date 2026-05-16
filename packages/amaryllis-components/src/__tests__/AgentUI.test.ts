@@ -8,7 +8,7 @@ import {
   createAmaryllisInferencePersonalizationAction,
   createAmaryllisPersonalizationAction,
 } from '../runtime/hooks';
-import { globalRegistry } from '../runtime/registry';
+import { registry } from './testRegistry';
 
 describe('Agent UI integration', () => {
   const spec: ValidatedComponentSpec = {
@@ -48,7 +48,7 @@ describe('Agent UI integration', () => {
   const Component = (() => null) as ComponentType<Record<string, unknown>>;
 
   beforeAll(() => {
-    globalRegistry.register('summary-card', {
+    registry.register('summary-card', {
       component: Component,
       spec,
       contract,
@@ -56,7 +56,7 @@ describe('Agent UI integration', () => {
   });
 
   test('maps registered component to an AG-UI-shaped tool contract', () => {
-    const entry = globalRegistry.get('summary-card');
+    const entry = registry.get('summary-card');
     const tool = createAgentUIToolContract('summary-card', entry);
 
     expect(tool.name).toBe('amaryllis.personalize.summary-card');
@@ -91,6 +91,7 @@ describe('Agent UI integration', () => {
           slots: { summary: 'Local summary' },
         };
       },
+      registry,
     });
 
     const result = await action({ prompt: 'summarize locally' });
@@ -117,6 +118,7 @@ describe('Agent UI integration', () => {
       componentName: 'summary-card',
       baseProps: { title: 'Base', count: 0 },
       infer,
+      registry,
     });
 
     const result = await action({
@@ -144,6 +146,7 @@ describe('Agent UI integration', () => {
           variant: 'compact',
         });
       },
+      registry,
     });
 
     const result = await action({
@@ -168,6 +171,7 @@ describe('Agent UI integration', () => {
       infer: async () => ({
         props: { title: 123 },
       }),
+      registry,
     });
 
     const result = await action({ prompt: 'bad output' });
@@ -186,6 +190,7 @@ describe('Agent UI integration', () => {
       componentName: 'summary-card',
       baseProps: { title: 'Base', count: 0 },
       infer,
+      registry,
     });
 
     const result = await action({ prompt: 'bad output' });
@@ -210,6 +215,7 @@ describe('Agent UI integration', () => {
       baseProps: { title: 'Base', count: 0 },
       infer,
       recovery: { maxAttempts: 1 },
+      registry,
     });
 
     const result = await action({ prompt: 'recover output' });
@@ -224,6 +230,7 @@ describe('Agent UI integration', () => {
       componentName: 'summary-card',
       baseProps: { title: 'Base' },
       infer: async () => '<SummaryCard title="Unsafe" />',
+      registry,
     });
 
     const result = await action({ prompt: 'write jsx' });

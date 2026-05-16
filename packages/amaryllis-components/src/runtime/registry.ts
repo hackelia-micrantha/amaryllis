@@ -1,4 +1,4 @@
-import { createHash } from 'crypto';
+/* eslint-disable no-bitwise */
 import type { ComponentType } from 'react';
 import type { ValidatedComponentSpec } from '../schema/spec.schema';
 import type { PersonalizationContract } from './engine';
@@ -35,7 +35,7 @@ export interface RegisterOptions {
   replace?: boolean;
 }
 
-function stableStringify(value: unknown): string {
+export function stableStringify(value: unknown): string {
   if (value === undefined) {
     return 'undefined';
   }
@@ -46,6 +46,7 @@ function stableStringify(value: unknown): string {
 
   if (value && typeof value === 'object') {
     const record = value as Record<string, unknown>;
+
     return `{${Object.keys(record)
       .sort()
       .map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`)
@@ -55,16 +56,33 @@ function stableStringify(value: unknown): string {
   return JSON.stringify(value);
 }
 
-export function hashRegistryValue(value: unknown): string {
-  return createHash('sha256').update(stableStringify(value)).digest('hex');
+export type RegistryHashFunction = (canonicalValue: string) => string;
+
+export function fnv1aHash(value: string): string {
+  let hash = 0x811c9dc5;
+
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+
+  return (hash >>> 0).toString(16).padStart(8, '0');
 }
+
+export const hashRegistryValue = (
+  value: unknown,
+  hash: RegistryHashFunction = fnv1aHash
+): string => {
+  return hash(stableStringify(value));
+};
 
 export function getRegistryKey(componentName: string, version: string): string {
   return `${componentName}@${version}`;
 }
 
 export function createRegistryIdentity(
-  entry: RegisteredComponent
+  entry: RegisteredComponent,
+  hash: RegistryHashFunction = fnv1aHash
 ): RegistryIdentity {
   const componentName = entry.spec.metadata.name;
   const version = entry.spec.metadata.version;
@@ -73,24 +91,33 @@ export function createRegistryIdentity(
     key: getRegistryKey(componentName, version),
     componentName,
     version,
-    specHash: hashRegistryValue(entry.spec),
-    runtimeContractHash: hashRegistryValue(entry.contract),
+    specHash: hashRegistryValue(entry.spec, hash),
+    runtimeContractHash: hashRegistryValue(entry.contract, hash),
     implementationIdentity:
       entry.implementationIdentity ??
       `${componentName}@${version}:implementation`,
   };
 }
+export interface ComponentRegistryOptions {
+  hash?: RegistryHashFunction;
+}
 
 export class ComponentRegistry {
   private components: Map<string, BoundRegisteredComponent> = new Map();
   private latestByName: Map<string, string> = new Map();
+  private hash: RegistryHashFunction;
+
+  constructor(options: ComponentRegistryOptions = {}) {
+    this.hash = options.hash ?? fnv1aHash;
+  }
 
   register(
     name: string,
     entry: RegisteredComponent,
     options: RegisterOptions = {}
   ): void {
-    const identity = createRegistryIdentity(entry);
+    const identity = createRegistryIdentity(entry, this.hash);
+
     this.assertRegistrationMatches(name, entry, identity);
 
     if (!options.replace && this.components.has(identity.key)) {
@@ -103,6 +130,7 @@ export class ComponentRegistry {
       ...entry,
       ...identity,
     });
+
     this.updateLatest(identity.componentName);
   }
 
@@ -204,6 +232,3 @@ function compareRegistryKeys(left: string, right: string): number {
   const rightVersion = right.slice(right.lastIndexOf('@') + 1);
   return leftVersion.localeCompare(rightVersion, undefined, { numeric: true });
 }
-
-// Global registry instance
-export const globalRegistry = new ComponentRegistry();
