@@ -8,7 +8,7 @@ import {
 } from '@micrantha/amaryllis/context';
 import { ContextEngineProvider } from '@micrantha/react-native-amaryllis/context';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { RegistryProvider } from '@micrantha/amaryllis-components';
 import { Chat } from './components';
 import { PromptProvider } from './PromptContext';
@@ -98,6 +98,36 @@ function AppGate() {
 
 type DemoScreen = 'chat' | 'persona-demo' | 'settings';
 
+type DemoTabProps = {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+};
+
+function DemoTab({ label, selected, onPress }: DemoTabProps) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.demoButton,
+        selected && styles.selectedDemoButton,
+        pressed && styles.pressedDemoButton,
+      ]}
+    >
+      <Text
+        style={[
+          styles.demoButtonLabel,
+          selected && styles.selectedDemoButtonLabel,
+        ]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 function DemoExperience() {
   const [screen, setScreen] = useState<DemoScreen>('chat');
 
@@ -106,60 +136,21 @@ function DemoExperience() {
       <View style={styles.demoContainer}>
         <View style={styles.demoSwitcher}>
           <Text style={styles.demoLabel}>Demo</Text>
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityState={{ selected: screen === 'chat' }}
+          <DemoTab
+            label="Chat"
+            selected={screen === 'chat'}
             onPress={() => setScreen('chat')}
-            style={[
-              styles.demoButton,
-              screen === 'chat' && styles.selectedDemoButton,
-            ]}
-          >
-            <Text
-              style={[
-                styles.demoButtonLabel,
-                screen === 'chat' && styles.selectedDemoButtonLabel,
-              ]}
-            >
-              Chat
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityState={{ selected: screen === 'persona-demo' }}
+          />
+          <DemoTab
+            label="Personas"
+            selected={screen === 'persona-demo'}
             onPress={() => setScreen('persona-demo')}
-            style={[
-              styles.demoButton,
-              screen === 'persona-demo' && styles.selectedDemoButton,
-            ]}
-          >
-            <Text
-              style={[
-                styles.demoButtonLabel,
-                screen === 'persona-demo' && styles.selectedDemoButtonLabel,
-              ]}
-            >
-              Personas
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityState={{ selected: screen === 'settings' }}
+          />
+          <DemoTab
+            label="Settings"
+            selected={screen === 'settings'}
             onPress={() => setScreen('settings')}
-            style={[
-              styles.demoButton,
-              screen === 'settings' && styles.selectedDemoButton,
-            ]}
-          >
-            <Text
-              style={[
-                styles.demoButtonLabel,
-                screen === 'settings' && styles.selectedDemoButtonLabel,
-              ]}
-            >
-              Settings
-            </Text>
-          </TouchableOpacity>
+          />
         </View>
 
         {screen === 'chat' ? (
@@ -210,6 +201,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 999,
+  },
+  pressedDemoButton: {
+    opacity: 0.6,
   },
   selectedDemoButton: {
     backgroundColor: '#dbeafe',
