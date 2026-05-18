@@ -4,6 +4,7 @@ import { useLLMContext } from './AmaryllisContext';
 import { createLLMObservable } from './AmaryllisRx';
 import { useContextEngine } from './ContextEngineContext';
 import type { ContextEngine, ContextQuery } from './ContextTypes';
+import { validateLlmRequestParams } from './TypeConverters';
 
 const defaultProtocol = {
   formatRequest: (params: LlmRequestParams) => params,
@@ -60,6 +61,7 @@ export const useInferenceAsync = (props: InferenceProps = {}) => {
       }
 
       try {
+        validateLlmRequestParams(params);
         onGenerate?.();
         await controller.generateAsync(
           protocol.formatRequest(params),
@@ -116,6 +118,7 @@ export const useInference = (props: InferenceProps = {}) => {
       }
 
       try {
+        validateLlmRequestParams(params);
         onGenerate?.();
         const response = await controller.generate(
           protocol.formatRequest(params)

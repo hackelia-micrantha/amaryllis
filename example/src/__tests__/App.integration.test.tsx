@@ -104,7 +104,7 @@ const pressNearestHandler = (node: {
   throw new Error('No press handler found for node');
 };
 
-describe('App e2e flow', () => {
+describe('App integration flow', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseContextInferenceAsync.mockImplementation(

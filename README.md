@@ -66,11 +66,11 @@ ComponentSpec / policy / registry
 ## 🚀 Installation
 
 ```sh
-npm install react-native-amaryllis
+npm install @micrantha/react-native-amaryllis
 # or
-yarn add react-native-amaryllis
+yarn add @micrantha/react-native-amaryllis
 # or
-pnpm add react-native-amaryllis
+pnpm add @micrantha/react-native-amaryllis
 ```
 
 For the companion package in this branch:
@@ -128,7 +128,7 @@ yarn workspace @micrantha/amaryllis-components build
 Wrap your application with `LLMProvider` and provide the necessary model paths. The models should be downloaded to the device.
 
 ```tsx
-import { LLMProvider } from 'react-native-amaryllis';
+import { LLMProvider } from '@micrantha/react-native-amaryllis';
 
 <LLMProvider
   config={{
@@ -160,7 +160,7 @@ const {
 Use the `useInferenceAsync` hook to access the LLM runtime.
 
 ```tsx
-import { useInferenceAsync } from 'react-native-amaryllis';
+import { useInferenceAsync } from '@micrantha/react-native-amaryllis';
 import { useCallback, useMemo, useState } from 'react';
 import { View, TextInput, Button, Text } from 'react-native';
 
@@ -261,10 +261,10 @@ Not in the component model described by this branch. The RFC constrains device-t
 ## 🧠 Context Engine
 
 The Context Engine is an interface-first layer for memory and retrieval. You bring your own `ContextStore` (SQLite, files, or custom DB) while the engine handles validation, policy bounds, and optional scoring.
-Context APIs are also available via the `react-native-amaryllis/context` subpath.
+Context APIs are also available via the `@micrantha/react-native-amaryllis/context` subpath.
 
 ```ts
-import { ContextEngine } from 'react-native-amaryllis/context';
+import { ContextEngine } from '@micrantha/react-native-amaryllis/context';
 
 const engine = new ContextEngine({
   store: myStore,

@@ -3,6 +3,10 @@ import type {
   LlmSessionParams,
   LlmRequestParams,
 } from './Types';
+import { ValidationError } from './Errors';
+
+export const MAX_PROMPT_LENGTH = 100_000;
+export const MAX_REQUEST_IMAGES = 2;
 
 /**
  * Convert rich LlmEngineConfig to codegen-compatible object structure
@@ -70,10 +74,25 @@ export function fromNativeSessionParams(
  * Convert rich LlmRequestParams to codegen-compatible object structure
  */
 export function toNativeRequestParams(params: LlmRequestParams) {
+  validateLlmRequestParams(params);
   return {
     prompt: params.prompt,
     images: params.images,
   };
+}
+
+export function validateLlmRequestParams(params: LlmRequestParams): void {
+  if (params.prompt.length > MAX_PROMPT_LENGTH) {
+    throw new ValidationError(
+      `prompt must be ${MAX_PROMPT_LENGTH} characters or fewer`
+    );
+  }
+
+  if (params.images && params.images.length > MAX_REQUEST_IMAGES) {
+    throw new ValidationError(
+      `images must contain ${MAX_REQUEST_IMAGES} items or fewer`
+    );
+  }
 }
 
 /**

@@ -28,7 +28,10 @@ NSString *const AmaryllisErrorDomain = @"com.example.amaryllis";
 
 static NSString *const ERR_NOT_INITIALIZED = @"please initialize the SDK first";
 static NSString *const ERR_INVALID_ARGUMENT = @"invalid argument provided";
+static NSString *const ERR_INVALID_MODEL_PATH = @"invalid model path";
+static NSString *const ERR_INVALID_IMAGE_PATH = @"invalid image path";
 static NSString *const ERR_NO_SESSION = @"new session required";
+static const unsigned long long MAX_IMAGE_FILE_SIZE = 10 * 1024 * 1024;
 
 @interface Amaryllis ()
 
@@ -42,6 +45,14 @@ static NSString *const ERR_NO_SESSION = @"new session required";
 - (void) initWithParams: (NSDictionary*) params error: (NSError**) error {
 
   NSString *modelPath = params[PARAM_MODEL_PATH];
+  if (![self isValidPathString:modelPath]) {
+    if (error) {
+      *error = [NSError errorWithDomain:AmaryllisErrorDomain
+                                   code:AmaryllisErrorCodeInvalidModelPath
+                               userInfo:@{NSLocalizedDescriptionKey: ERR_INVALID_MODEL_PATH}];
+    }
+    return;
+  }
 
   MPPLLMInferenceOptions *taskOptions = [[MPPLLMInferenceOptions alloc]
                                          initWithModelPath:modelPath];
@@ -67,7 +78,16 @@ static NSString *const ERR_NO_SESSION = @"new session required";
   sessionOptions.topk = [params[PARAM_TOP_K] intValue];
   sessionOptions.topp = [params[PARAM_TOP_P] floatValue];
   sessionOptions.temperature = [params[PARAM_TEMPERATURE] floatValue];
-  sessionOptions.loraPath = params[PARAM_LORA_PATH];
+  NSString *loraPath = params[PARAM_LORA_PATH];
+  if (loraPath && ![self isValidPathString:loraPath]) {
+    if (error) {
+      *error = [NSError errorWithDomain:AmaryllisErrorDomain
+                                   code:AmaryllisInvalidArgument
+                               userInfo:@{NSLocalizedDescriptionKey: ERR_INVALID_ARGUMENT}];
+    }
+    return;
+  }
+  sessionOptions.loraPath = loraPath;
   sessionOptions.randomSeed = [params[PARAM_RANDOM_SEED] intValue];
   sessionOptions.enableVisionModality =
       [params[PARAM_ENABLE_VISION] boolValue];
@@ -160,7 +180,10 @@ static NSString *const ERR_NO_SESSION = @"new session required";
 
   if (images) {
     for (NSString *path in images) {
-      CGImageRef image = [self imageFromPath:path];
+      CGImageRef image = [self imageFromPath:path error:error];
+      if (!image) {
+        return NO;
+      }
       [self.session addImageWithImage:image error:error];
       CGImageRelease(image);
       if (error && *error != nil) {
@@ -192,10 +215,43 @@ static NSString *const ERR_NO_SESSION = @"new session required";
   return YES;
 }
 
-- (CGImageRef)imageFromPath:(NSString *)path {
-  UIImage *uiImage = [UIImage imageWithContentsOfFile:path];
-  if (!uiImage)
+- (CGImageRef)imageFromPath:(NSString *)path error:(NSError **)error {
+  NSString *normalizedPath = [self normalizedLocalPath:path];
+  if (![self isValidPathString:normalizedPath]) {
+    if (error) {
+      *error = [NSError errorWithDomain:AmaryllisErrorDomain
+                                   code:AmaryllisInvalidArgument
+                               userInfo:@{NSLocalizedDescriptionKey: ERR_INVALID_IMAGE_PATH}];
+    }
     return nil;
+  }
+
+  NSDictionary *attributes =
+      [[NSFileManager defaultManager] attributesOfItemAtPath:normalizedPath
+                                                       error:error];
+  if (!attributes) {
+    return nil;
+  }
+
+  NSNumber *fileSize = attributes[NSFileSize];
+  if (fileSize.unsignedLongLongValue > MAX_IMAGE_FILE_SIZE) {
+    if (error) {
+      *error = [NSError errorWithDomain:AmaryllisErrorDomain
+                                   code:AmaryllisInvalidArgument
+                               userInfo:@{NSLocalizedDescriptionKey: ERR_INVALID_IMAGE_PATH}];
+    }
+    return nil;
+  }
+
+  UIImage *uiImage = [UIImage imageWithContentsOfFile:normalizedPath];
+  if (!uiImage) {
+    if (error) {
+      *error = [NSError errorWithDomain:AmaryllisErrorDomain
+                                   code:AmaryllisInvalidArgument
+                               userInfo:@{NSLocalizedDescriptionKey: ERR_INVALID_IMAGE_PATH}];
+    }
+    return nil;
+  }
 
   // Resize to 512x512 if necessary
   CGSize targetSize = CGSizeMake(512, 512);
@@ -206,6 +262,36 @@ static NSString *const ERR_NO_SESSION = @"new session required";
 
   // Convert to MLImage
   return CGImageRetain(resized.CGImage);
+}
+
+- (NSString *)normalizedLocalPath:(NSString *)path {
+  if (!path) {
+    return nil;
+  }
+
+  NSURL *url = [NSURL URLWithString:path];
+  if (url && url.scheme.length > 0) {
+    if (![url.scheme isEqualToString:@"file"]) {
+      return nil;
+    }
+    return url.path;
+  }
+
+  return path;
+}
+
+- (BOOL)isValidPathString:(NSString *)path {
+  if (![path isKindOfClass:[NSString class]] || path.length == 0) {
+    return NO;
+  }
+
+  if ([path containsString:@".."] || [path containsString:@"~"]) {
+    return NO;
+  }
+
+  NSCharacterSet *invalidCharacters =
+      [NSCharacterSet characterSetWithCharactersInString:@"|<>\"?*"];
+  return [path rangeOfCharacterFromSet:invalidCharacters].location == NSNotFound;
 }
 
 - (BOOL) validateInitialized: (NSError**) error {
