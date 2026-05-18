@@ -47,8 +47,7 @@ describe('useInferenceAsync', () => {
 
     expect(mockPipe.generateAsync).toHaveBeenCalledWith(
       {
-        prompt:
-          '<start_of_turn>user\ntest<end_of_turn>\n<start_of_turn>model\n',
+        prompt: 'test',
       },
       expect.any(Object)
     );
@@ -117,7 +116,7 @@ describe('useInference', () => {
     });
 
     expect(mockPipe.generate).toHaveBeenCalledWith({
-      prompt: '<start_of_turn>user\ntest<end_of_turn>\n<start_of_turn>model\n',
+      prompt: 'test',
     });
     expect(results).toEqual(['test response']);
   });
@@ -221,8 +220,7 @@ describe('context-aware hooks', () => {
     expect(engine.search).toHaveBeenCalledWith(query);
     expect(engine.formatRequest).toHaveBeenCalled();
     expect(mockPipe.generate).toHaveBeenCalledWith({
-      prompt:
-        '<start_of_turn>user\nContext:\n- saved\n\nhello<end_of_turn>\n<start_of_turn>model\n',
+      prompt: 'Context:\n- saved\n\nhello',
     });
   });
 
@@ -290,10 +288,50 @@ describe('context-aware hooks', () => {
     expect(engine.search).toHaveBeenCalledWith(query);
     expect(mockPipe.generateAsync).toHaveBeenCalledWith(
       {
-        prompt:
-          '<start_of_turn>user\nctx:hello<end_of_turn>\n<start_of_turn>model\n',
+        prompt: 'ctx:hello',
       },
       expect.any(Object)
     );
+  });
+
+  it('should use configured protocol for request and response shaping', async () => {
+    let results: string[] = [];
+    const protocol = {
+      formatRequest: jest.fn((params: LlmRequestParams) => ({
+        ...params,
+        prompt: `wrapped:${params.prompt}`,
+      })),
+      sanitizeOutput: jest.fn((text: string) => text.replace('raw:', '')),
+    };
+
+    const { result } = renderHook(
+      () =>
+        useInference({
+          onResult: (res) => {
+            results.push(res);
+          },
+        }),
+      {
+        wrapper: ({ children }: { children: React.ReactNode }) => (
+          <LLMProvider
+            config={{ ...config, protocol }}
+            llmPipe={{
+              ...mockPipe,
+              generate: jest.fn(() => Promise.resolve('raw:done')),
+            }}
+          >
+            {children}
+          </LLMProvider>
+        ),
+      }
+    );
+
+    await act(async () => {
+      await result.current?.({ prompt: 'hello' });
+    });
+
+    expect(protocol.formatRequest).toHaveBeenCalledWith({ prompt: 'hello' });
+    expect(protocol.sanitizeOutput).toHaveBeenCalledWith('raw:done');
+    expect(results).toEqual(['done']);
   });
 });

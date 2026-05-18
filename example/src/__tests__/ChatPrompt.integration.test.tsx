@@ -211,6 +211,11 @@ describe('ChatPrompt integration', () => {
       });
     });
 
+    fireEvent.changeText(
+      screen.getByPlaceholderText('Enter prompt...'),
+      'cancel me'
+    );
+
     await act(async () => {
       getPressables(screen)[0].props.onPress();
     });
@@ -223,5 +228,25 @@ describe('ChatPrompt integration', () => {
 
     expect(pipe.cancelAsync).toHaveBeenCalled();
     expect(screen.getByText('➤')).toBeTruthy();
+  });
+
+  it('should not generate when prompt is blank', async () => {
+    const engine = createContextEngineMock();
+    const pipe = createPipe();
+    const screen = renderChatPrompt(pipe, engine);
+    await waitFor(() => {
+      expect(pipe.init).toHaveBeenCalledWith({
+        modelPath: '/models/amaryllis.task',
+      });
+    });
+
+    fireEvent.changeText(screen.getByPlaceholderText('Enter prompt...'), '   ');
+
+    await act(async () => {
+      getPressables(screen)[0].props.onPress();
+    });
+
+    expect(mockUseContextInferenceAsync).toHaveBeenCalled();
+    expect(engine.add).not.toHaveBeenCalled();
   });
 });

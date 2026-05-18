@@ -81,6 +81,17 @@ export default function ModelImportScreen({
               </Pressable>
             </View>
 
+            {spec.alternateDownloadUrls?.map((alternative) => (
+              <View key={alternative.url} style={styles.row}>
+                <Text style={styles.label}>Alternative</Text>
+                <Pressable onPress={() => openUrl(alternative.url)}>
+                  <Text style={styles.link} numberOfLines={3}>
+                    {alternative.label}
+                  </Text>
+                </Pressable>
+              </View>
+            ))}
+
             {imported ? (
               <View style={styles.importedBox}>
                 <Text style={styles.importedTitle}>Imported</Text>

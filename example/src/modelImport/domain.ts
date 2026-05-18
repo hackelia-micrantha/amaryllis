@@ -11,6 +11,10 @@ export type ModelSpec = {
   extension: '.litertlm' | '.tflite';
   minBytes: number;
   downloadUrl: string;
+  alternateDownloadUrls?: Array<{
+    label: string;
+    url: string;
+  }>;
   storageSubdir: string;
   gated: boolean;
 };
@@ -42,6 +46,12 @@ export const MODEL_SPECS: ModelSpec[] = [
     minBytes: 50 * 1024 * 1024,
     downloadUrl:
       'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/blob/main/gemma-4-E4B-it.litertlm',
+    alternateDownloadUrls: [
+      {
+        label: 'Gemma 4 E2B LiteRT-LM',
+        url: 'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/blob/main/gemma-4-E2B-it.litertlm',
+      },
+    ],
     storageSubdir: 'models/llm',
     gated: true,
   },

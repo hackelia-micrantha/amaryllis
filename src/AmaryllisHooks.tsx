@@ -4,7 +4,11 @@ import { useLLMContext } from './AmaryllisContext';
 import { createLLMObservable } from './AmaryllisRx';
 import { useContextEngine } from './ContextEngineContext';
 import type { ContextEngine, ContextQuery } from './ContextTypes';
-import { formatGemmaRequest, sanitizeGemmaOutput } from './GemmaFormatting';
+
+const defaultProtocol = {
+  formatRequest: (params: LlmRequestParams) => params,
+  sanitizeOutput: (text: string) => text,
+};
 
 export type ContextInferenceProps = InferenceProps & {
   contextEngine?: ContextEngine;
@@ -40,8 +44,9 @@ const useContextAugmentation = (
 };
 
 export const useInferenceAsync = (props: InferenceProps = {}) => {
-  const { controller } = useLLMContext();
+  const { controller, config } = useLLMContext();
   const { onResult, onGenerate, onError, onComplete } = props;
+  const protocol = config?.protocol ?? defaultProtocol;
 
   const llm$ = useMemo(() => createLLMObservable(), []);
 
@@ -57,7 +62,7 @@ export const useInferenceAsync = (props: InferenceProps = {}) => {
       try {
         onGenerate?.();
         await controller.generateAsync(
-          formatGemmaRequest(params),
+          protocol.formatRequest(params),
           llm$.callbacks
         );
       } catch (err) {
@@ -70,13 +75,13 @@ export const useInferenceAsync = (props: InferenceProps = {}) => {
         onComplete?.();
       };
     },
-    [controller, llm$.callbacks, onComplete, onGenerate, onError]
+    [controller, llm$.callbacks, onComplete, onGenerate, onError, protocol]
   );
 
   useEffect(() => {
     const sub = llm$.observable.subscribe({
       next: ({ text, isFinal }) => {
-        onResult?.(sanitizeGemmaOutput(text), isFinal);
+        onResult?.(protocol.sanitizeOutput(text), isFinal);
       },
       complete: () => onComplete?.(),
       error: (err) => onError?.(err),
@@ -86,13 +91,14 @@ export const useInferenceAsync = (props: InferenceProps = {}) => {
       sub.unsubscribe();
       controller?.cancelAsync();
     };
-  }, [llm$.observable, controller, onResult, onComplete, onError]);
+  }, [llm$.observable, controller, onResult, onComplete, onError, protocol]);
   return generate;
 };
 
 export const useInference = (props: InferenceProps = {}) => {
-  const { controller, error: contextError } = useLLMContext();
+  const { controller, error: contextError, config } = useLLMContext();
   const { onResult, onError, onGenerate, onComplete } = props;
+  const protocol = config?.protocol ?? defaultProtocol;
 
   useEffect(() => {
     if (contextError) {
@@ -111,8 +117,10 @@ export const useInference = (props: InferenceProps = {}) => {
 
       try {
         onGenerate?.();
-        const response = await controller.generate(formatGemmaRequest(params));
-        onResult?.(sanitizeGemmaOutput(response ?? ''), true);
+        const response = await controller.generate(
+          protocol.formatRequest(params)
+        );
+        onResult?.(protocol.sanitizeOutput(response ?? ''), true);
       } catch (err) {
         onError?.(
           err instanceof Error ? err : new Error('An unknown error occurred')
@@ -124,7 +132,7 @@ export const useInference = (props: InferenceProps = {}) => {
         onComplete?.();
       };
     },
-    [onGenerate, controller, onResult, onError, onComplete]
+    [onGenerate, controller, onResult, onError, onComplete, protocol]
   );
 
   return generate;

@@ -90,10 +90,14 @@ export const ChatPrompt = () => {
   );
 
   const generate = useContextInferenceAsync(props);
+  const hasPrompt = prompt.trim().length > 0;
 
   const onInference = useCallback(async () => {
+    if (!hasPrompt) {
+      return;
+    }
     await generate({ prompt, images });
-  }, [generate, images, prompt]);
+  }, [generate, hasPrompt, images, prompt]);
 
   const onCancelInference = useCallback(() => {
     controller?.cancelAsync();
@@ -139,7 +143,7 @@ export const ChatPrompt = () => {
         />
 
         <Pressable
-          disabled={!isBusy && !isSessionReady}
+          disabled={!isBusy && (!isSessionReady || !hasPrompt)}
           style={styles.iconButton}
           onPress={isBusy ? onCancelInference : onInference}
         >

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { LLMProvider } from '@micrantha/react-native-amaryllis';
+import { LLMProvider, gemmaProtocol } from '@micrantha/react-native-amaryllis';
 import {
   createContextEngine,
   type ContextItem,
@@ -84,6 +84,7 @@ function AppGate() {
     <LLMProvider
       config={{
         modelPath: models.llmModelPath,
+        protocol: gemmaProtocol,
       }}
     >
       <ContextEngineProvider engine={contextEngine}>

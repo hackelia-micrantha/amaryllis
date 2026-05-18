@@ -27,6 +27,11 @@ export type LlmRequestParams = {
   images?: string[];
 };
 
+export type LlmProtocol = {
+  formatRequest(params: LlmRequestParams): LlmRequestParams;
+  sanitizeOutput(text: string): string;
+};
+
 export type LlmSessionParams = {
   // Optional generation settings
   topK?: number; // default: 40
@@ -45,6 +50,7 @@ export type LlmEngineConfig = {
   maxTokens?: number; // default: 512
   visionEncoderPath?: string; // Optional: vision encoder model path for multimodal
   visionAdapterPath?: string; // Optional: vision adapter model path for multimodal
+  protocol?: LlmProtocol; // Optional model-specific request/response shaping
 };
 
 // Unified LLM interface
