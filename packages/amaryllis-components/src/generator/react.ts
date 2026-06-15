@@ -2,17 +2,10 @@ import type { ValidatedComponentSpec } from '../schema/spec.schema';
 import type { JsonSchemaValue } from '../types/spec';
 
 export interface ReactGeneratorOptions {
-  specHash?: string;
-  modelId?: string;
-  promptVersion?: string;
-  validationSummary?: string;
   generatedAt?: Date;
 }
 
 type ComponentVariants = NonNullable<ValidatedComponentSpec['ui']>['variants'];
-type ComponentDesignTokens = NonNullable<
-  ValidatedComponentSpec['ui']
->['designTokens'];
 
 export class ReactGenerator {
   generate(
@@ -22,11 +15,7 @@ export class ReactGenerator {
     const { metadata, props, ui, target } = spec;
     const componentName = this.toPascalCase(metadata.name);
 
-    const propsType = this.generatePropsType(
-      props,
-      ui?.slots,
-      ui?.designTokens
-    );
+    const propsType = this.generatePropsType(props, ui?.slots);
     const layout = ui?.layout || this.getDefaultLayout(target.runtime);
 
     const imports = this.generateImports(target.runtime);
@@ -34,7 +23,7 @@ export class ReactGenerator {
     const propKeys = [
       ...Object.keys(props.properties),
       ...(ui?.slots || []),
-      ...(ui?.designTokens ? ['designTokens'] : []),
+      'designTokens',
       'variant',
       'children',
     ];
@@ -92,8 +81,7 @@ ${cases.join('\n')}
 
   private generatePropsType(
     props: ValidatedComponentSpec['props'],
-    slots?: string[],
-    designTokens?: ComponentDesignTokens
+    slots?: string[]
   ): string {
     const lines = Object.entries(props.properties).map(([key, schema]) => {
       const isRequired = props.required?.includes(key);
@@ -107,53 +95,14 @@ ${cases.join('\n')}
       });
     }
 
-    const designTokenType = this.generateDesignTokensType(designTokens);
-    if (designTokenType) {
-      lines.push(`  designTokens?: ${designTokenType};`);
-    }
+    // designTokens is always untyped; design system rules live in spec/context
+    lines.push(`  designTokens?: Record<string, unknown>;`);
 
     return `{
 ${lines.join('\n')}
   variant?: string;
   children?: React.ReactNode;
 }`;
-  }
-
-  private generateDesignTokensType(
-    designTokens?: ComponentDesignTokens
-  ): string | null {
-    if (!designTokens) {
-      return null;
-    }
-
-    const groups = [
-      this.generateDesignTokenGroupType('spacing', designTokens.spacing),
-      this.generateDesignTokenGroupType('typography', designTokens.typography),
-      this.generateDesignTokenGroupType('colorRoles', designTokens.colorRoles),
-    ].filter((line): line is string => Boolean(line));
-
-    if (groups.length === 0) {
-      return null;
-    }
-
-    return `{
-${groups.join('\n')}
-  }`;
-  }
-
-  private generateDesignTokenGroupType(
-    groupName: string,
-    tokens?: string[]
-  ): string | null {
-    if (!tokens || tokens.length === 0) {
-      return null;
-    }
-
-    const tokenLines = tokens.map((token) => `      ${token}?: string;`);
-
-    return `    ${groupName}?: {
-${tokenLines.join('\n')}
-    };`;
   }
 
   private jsonSchemaToTsType(schema: JsonSchemaValue): string {
@@ -205,12 +154,7 @@ ${tokenLines.join('\n')}
   ): string {
     return [
       ` * Spec Version: ${specVersion}`,
-      ` * Spec Hash: ${options.specHash ?? 'unavailable'}`,
-      ` * Model: ${options.modelId ?? 'deterministic-generator'}`,
-      ` * Prompt Version: ${options.promptVersion ?? 'none'}`,
-      ` * Validation: ${options.validationSummary ?? 'policy-passed'}`,
       ` * Generated At: ${(options.generatedAt ?? new Date()).toISOString()}`,
-      ' * Previous Diff: available through the customize command',
     ].join('\n');
   }
 }
