@@ -26,11 +26,11 @@ describe('AmaryllisRx', () => {
 
       expect(results).toEqual([
         { text: 'partial1', isFinal: false },
-        { text: 'partial2', isFinal: false },
+        { text: 'partial1partial2', isFinal: false },
       ]);
     });
 
-    it('should emit final result when onEvent is called', () => {
+    it('should emit final result with accumulated text when onEvent is called', () => {
       const { observable, callbacks } = createLLMObservable();
       const results: LLMResult[] = [];
 
@@ -45,7 +45,7 @@ describe('AmaryllisRx', () => {
 
       expect(results).toEqual([
         { text: 'partial', isFinal: false },
-        { text: 'final', isFinal: true },
+        { text: 'partialfinal', isFinal: true },
       ]);
     });
 
@@ -124,9 +124,9 @@ describe('AmaryllisRx', () => {
 
       expect(results).toEqual([
         { text: 'p1', isFinal: false },
-        { text: 'p2', isFinal: false },
-        { text: 'p3', isFinal: false },
-        { text: 'final', isFinal: true },
+        { text: 'p1p2', isFinal: false },
+        { text: 'p1p2p3', isFinal: false },
+        { text: 'p1p2p3final', isFinal: true },
       ]);
     });
 

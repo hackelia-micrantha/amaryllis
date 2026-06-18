@@ -6,7 +6,7 @@ import { usePromptContext } from '../PromptContext';
 export const Header = () => {
   const { controller, isReady } = useLLMContext();
   const {
-    setResults,
+    setMessages,
     setIsBusy,
     setError,
     setPrompt,
@@ -19,7 +19,7 @@ export const Header = () => {
       try {
         setIsSessionReady(false);
         await controller?.newSession(undefined);
-        setResults([]);
+        setMessages([]);
         setIsBusy(false);
         setError(undefined);
         setPrompt('');
@@ -36,7 +36,7 @@ export const Header = () => {
   }, [
     controller,
     isReady,
-    setResults,
+    setMessages,
     setIsBusy,
     setError,
     setPrompt,

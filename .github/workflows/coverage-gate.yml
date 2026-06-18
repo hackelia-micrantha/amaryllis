@@ -30,7 +30,11 @@ jobs:
         run: |
           yarn test --maxWorkers=2 --coverage \
             --coverageReporters=json-summary \
-            --coverageReporters=text-summary
+            --coverageReporters=text-summary \
+            --collectCoverageFrom='src/**/*.{ts,tsx}' \
+            --collectCoverageFrom='packages/amaryllis/src/**/*.{ts,tsx}' \
+            --collectCoverageFrom='!**/__tests__/**' \
+            --collectCoverageFrom='!**/*.test.{ts,tsx}'
 
       - name: Validate coverage thresholds
         id: validate_coverage

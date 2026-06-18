@@ -51,7 +51,7 @@ export declare const ComponentPropsSchema: z.ZodEffects<z.ZodObject<{
     properties: Record<string, any>;
     required?: string[] | undefined;
 }>;
-export declare const ComponentUISchema: z.ZodObject<{
+export declare const ComponentUISchema: z.ZodEffects<z.ZodObject<{
     layout: z.ZodOptional<z.ZodString>;
     slots: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
     variants: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
@@ -85,6 +85,36 @@ export declare const ComponentUISchema: z.ZodObject<{
         rules?: string[] | undefined;
     }>>;
 }, "strip", z.ZodTypeAny, {
+    layout?: string | undefined;
+    slots?: string[] | undefined;
+    variants?: Record<string, {
+        layout?: string | undefined;
+        props?: Record<string, unknown> | undefined;
+    }> | undefined;
+    designTokens?: {
+        spacing?: string[] | undefined;
+        typography?: string[] | undefined;
+        colorRoles?: string[] | undefined;
+    } | undefined;
+    accessibility?: {
+        rules?: string[] | undefined;
+    } | undefined;
+}, {
+    layout?: string | undefined;
+    slots?: string[] | undefined;
+    variants?: Record<string, {
+        layout?: string | undefined;
+        props?: Record<string, unknown> | undefined;
+    }> | undefined;
+    designTokens?: {
+        spacing?: string[] | undefined;
+        typography?: string[] | undefined;
+        colorRoles?: string[] | undefined;
+    } | undefined;
+    accessibility?: {
+        rules?: string[] | undefined;
+    } | undefined;
+}>, {
     layout?: string | undefined;
     slots?: string[] | undefined;
     variants?: Record<string, {
@@ -310,7 +340,7 @@ export declare const ComponentSpecSchema: z.ZodObject<{
         properties: Record<string, any>;
         required?: string[] | undefined;
     }>;
-    ui: z.ZodOptional<z.ZodObject<{
+    ui: z.ZodOptional<z.ZodEffects<z.ZodObject<{
         layout: z.ZodOptional<z.ZodString>;
         slots: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
         variants: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
@@ -344,6 +374,36 @@ export declare const ComponentSpecSchema: z.ZodObject<{
             rules?: string[] | undefined;
         }>>;
     }, "strip", z.ZodTypeAny, {
+        layout?: string | undefined;
+        slots?: string[] | undefined;
+        variants?: Record<string, {
+            layout?: string | undefined;
+            props?: Record<string, unknown> | undefined;
+        }> | undefined;
+        designTokens?: {
+            spacing?: string[] | undefined;
+            typography?: string[] | undefined;
+            colorRoles?: string[] | undefined;
+        } | undefined;
+        accessibility?: {
+            rules?: string[] | undefined;
+        } | undefined;
+    }, {
+        layout?: string | undefined;
+        slots?: string[] | undefined;
+        variants?: Record<string, {
+            layout?: string | undefined;
+            props?: Record<string, unknown> | undefined;
+        }> | undefined;
+        designTokens?: {
+            spacing?: string[] | undefined;
+            typography?: string[] | undefined;
+            colorRoles?: string[] | undefined;
+        } | undefined;
+        accessibility?: {
+            rules?: string[] | undefined;
+        } | undefined;
+    }>, {
         layout?: string | undefined;
         slots?: string[] | undefined;
         variants?: Record<string, {

@@ -41,16 +41,28 @@ const ajv_1 = __importDefault(require("ajv"));
 const jsonpatch = __importStar(require("fast-json-patch"));
 class PersonalizationEngine {
     ajv;
+    sanitizedKeys = [];
     constructor() {
         this.ajv = new ajv_1.default({ allErrors: true, useDefaults: true });
     }
     validate(contract, aiOutput) {
+        this.sanitizedKeys = [];
         const validate = this.ajv.compile(contract);
         const valid = validate(aiOutput);
         if (!valid) {
+            const errors = this.formatErrors(validate.errors);
             return {
                 valid: false,
-                errors: validate.errors?.map((err) => `${err.instancePath || err.schemaPath} ${err.message}`),
+                errors,
+                diagnostics: this.createDiagnostics(false, errors.length, false),
+            };
+        }
+        const unsafeValueErrors = this.validateSafeValues(aiOutput);
+        if (unsafeValueErrors.length > 0) {
+            return {
+                valid: false,
+                errors: unsafeValueErrors,
+                diagnostics: this.createDiagnostics(false, unsafeValueErrors.length, false),
             };
         }
         const patchResult = this.applyValidatedPatches(contract, aiOutput);
@@ -60,12 +72,14 @@ class PersonalizationEngine {
         return {
             valid: true,
             data: patchResult.data,
+            diagnostics: this.createDiagnostics(true, 0, Boolean(aiOutput.patches?.length)),
         };
     }
     /**
      * Applies the validated personalization data to the base props.
      */
     apply(baseProps, personalization) {
+        this.sanitizedKeys = [];
         const result = this.safeMerge({}, baseProps);
         if (personalization.props) {
             this.safeMerge(result, personalization.props);
@@ -74,16 +88,17 @@ class PersonalizationEngine {
             result.variant = personalization.variant;
         }
         if (personalization.slots) {
-            Object.assign(result, personalization.slots);
+            this.safeMerge(result, personalization.slots);
         }
         if (personalization.designTokens) {
-            result.designTokens = personalization.designTokens;
+            result.designTokens = this.safeMerge({}, personalization.designTokens);
         }
         return result;
     }
     safeMerge(target, source) {
         Object.entries(source).forEach(([key, value]) => {
             if (this.isUnsafeObjectKey(key)) {
+                this.sanitizedKeys.push(key);
                 return;
             }
             const current = target[key];
@@ -104,6 +119,7 @@ class PersonalizationEngine {
             return {
                 valid: true,
                 data: personalization,
+                diagnostics: this.createDiagnostics(true, 0, false),
             };
         }
         const pathErrors = this.validatePatchPaths(contract, personalization.patches);
@@ -111,6 +127,15 @@ class PersonalizationEngine {
             return {
                 valid: false,
                 errors: pathErrors,
+                diagnostics: this.createDiagnostics(false, pathErrors.length, true),
+            };
+        }
+        const unsafePatchErrors = this.validatePatchValues(personalization.patches);
+        if (unsafePatchErrors.length > 0) {
+            return {
+                valid: false,
+                errors: unsafePatchErrors,
+                diagnostics: this.createDiagnostics(false, unsafePatchErrors.length, true),
             };
         }
         try {
@@ -122,11 +147,13 @@ class PersonalizationEngine {
                 return {
                     valid: false,
                     errors: validationErrors,
+                    diagnostics: this.createDiagnostics(false, validationErrors.length, true),
                 };
             }
             return {
                 valid: true,
                 data: patchedData,
+                diagnostics: this.createDiagnostics(true, 0, true),
             };
         }
         catch (err) {
@@ -137,6 +164,7 @@ class PersonalizationEngine {
                         ? `Invalid personalization patch: ${err.message}`
                         : 'Invalid personalization patch',
                 ],
+                diagnostics: this.createDiagnostics(false, 1, true),
             };
         }
     }
@@ -154,6 +182,24 @@ class PersonalizationEngine {
         });
         return errors;
     }
+    validatePatchValues(patches) {
+        const errors = [];
+        patches.forEach((patch, index) => {
+            if ('value' in patch && this.containsUnsafeObjectKey(patch.value)) {
+                errors.push(`/patches/${index}/value contains an unsafe object key`);
+            }
+        });
+        return errors;
+    }
+    containsUnsafeObjectKey(value) {
+        if (Array.isArray(value)) {
+            return value.some((item) => this.containsUnsafeObjectKey(item));
+        }
+        if (!this.isRecord(value)) {
+            return false;
+        }
+        return Object.entries(value).some(([key, nested]) => this.isUnsafeObjectKey(key) || this.containsUnsafeObjectKey(nested));
+    }
     isAllowedPatchPath(contract, path) {
         const segments = this.parseJsonPointer(path);
         if (!segments) {
@@ -166,7 +212,7 @@ class PersonalizationEngine {
             return false;
         }
         const [section, name] = segments;
-        if (!name) {
+        if (!name || this.isUnsafeObjectKey(name)) {
             return false;
         }
         if (section === 'props') {
@@ -238,7 +284,25 @@ class PersonalizationEngine {
         if (valid) {
             return [];
         }
-        return (validate.errors?.map((err) => `${err.instancePath || err.schemaPath} ${err.message}`) ?? ['Patched personalization data failed validation']);
+        return this.formatErrors(validate.errors, [
+            'Patched personalization data failed validation',
+        ]);
+    }
+    validateSafeValues(value) {
+        return this.containsUnsafeObjectKey(value)
+            ? ['Personalization data contains an unsafe object key']
+            : [];
+    }
+    formatErrors(errors, fallback = []) {
+        return (errors?.map((err) => `${err.instancePath || err.schemaPath} ${err.message}`) ?? fallback);
+    }
+    createDiagnostics(accepted, errorCount, usedPatchOverlay) {
+        return {
+            accepted,
+            errorCount,
+            usedPatchOverlay,
+            sanitizedKeys: [...this.sanitizedKeys],
+        };
     }
     isRecord(value) {
         return typeof value === 'object' && value !== null && !Array.isArray(value);

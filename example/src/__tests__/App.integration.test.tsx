@@ -157,7 +157,7 @@ describe('App integration flow', () => {
 
     await waitFor(() => {
       expect(mockUseContextInferenceAsync).toHaveBeenCalled();
-      expect(screen.getByText(/mock-partial.*mock-output/)).toBeTruthy();
+      expect(screen.getByText('mock-output')).toBeTruthy();
     });
 
     await act(async () => {

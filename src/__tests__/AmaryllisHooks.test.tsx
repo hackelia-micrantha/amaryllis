@@ -51,7 +51,7 @@ describe('useInferenceAsync', () => {
       },
       expect.any(Object)
     );
-    expect(results).toEqual(['partial', 'final']);
+    expect(results).toEqual(['partial', 'partialfinal']);
     expect(isBusy).toBe(false);
   });
 

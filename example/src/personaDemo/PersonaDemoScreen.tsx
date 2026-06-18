@@ -1,4 +1,6 @@
+import { useCallback } from 'react';
 import {
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -6,10 +8,63 @@ import {
   View,
 } from 'react-native';
 import { PersonalizedComponent } from '@micrantha/amaryllis-components';
+import { useInference } from '@micrantha/react-native-amaryllis';
 import { usePersonaDemoViewModel } from './usePersonaDemoViewModel';
 
 export const PersonaDemoScreen = () => {
-  const { state, selectPersona } = usePersonaDemoViewModel();
+  const { state, selectPersona, setAiPersonalization, setIsGenerating } =
+    usePersonaDemoViewModel();
+
+  const onResult = useCallback(
+    (result: string) => {
+      try {
+        // Try to find JSON in the response
+        const jsonMatch = result.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const data = JSON.parse(jsonMatch[0]);
+          setAiPersonalization(data);
+        } else {
+          console.warn('No JSON found in AI response:', result);
+        }
+      } catch (err) {
+        console.error('Failed to parse AI personalization:', err);
+      } finally {
+        setIsGenerating(false);
+      }
+    },
+    [setAiPersonalization, setIsGenerating]
+  );
+
+  const generate = useInference({
+    onGenerate: () => setIsGenerating(true),
+    onResult,
+    onError: (err) => {
+      console.error('AI generation error:', err);
+      setIsGenerating(false);
+    },
+  });
+
+  const handleSelectPersona = (id: string) => {
+    selectPersona(id as any);
+    if (id === 'ai') {
+      generate({
+        prompt: `Generate a JSON personalization for a product card. 
+The product is "Amaryllis", an on-device AI component library.
+Target Audience: A tech-savvy product manager.
+The output MUST be a single JSON object with this structure:
+{
+  "variant": "momentum",
+  "props": {
+    "eyebrow": "AI GEN",
+    "title": "title here",
+    "summary": "summary here",
+    "proofPoints": ["point 1", "point 2", "point 3"]
+  }
+}
+Do not include any other text.`,
+      });
+    }
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -28,7 +83,7 @@ export const PersonaDemoScreen = () => {
               key={persona.id}
               accessibilityRole="button"
               accessibilityState={{ selected: isSelected }}
-              onPress={() => selectPersona(persona.id)}
+              onPress={() => handleSelectPersona(persona.id)}
               style={[
                 styles.personaButton,
                 isSelected && styles.selectedPersonaButton,
@@ -47,11 +102,19 @@ export const PersonaDemoScreen = () => {
         })}
       </View>
 
-      <PersonalizedComponent
-        name="persona-profile-card"
-        baseProps={state.baseProps}
-        personalizationData={state.personalizationData}
-      />
+      {state.isGenerating ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2563eb" />
+          <Text style={styles.loadingText}>Generating AI Persona...</Text>
+        </View>
+      ) : (
+        <PersonalizedComponent
+          name="persona-profile-card"
+          baseProps={state.baseProps}
+          personalizationData={state.personalizationData}
+          fallback={<Text>Select a persona to see it in action.</Text>}
+        />
+      )}
     </ScrollView>
   );
 };
@@ -96,5 +159,14 @@ const styles = StyleSheet.create({
   },
   selectedPersonaButtonLabel: {
     color: '#1d4ed8',
+  },
+  loadingContainer: {
+    padding: 32,
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    color: '#6b7280',
+    fontSize: 14,
   },
 });

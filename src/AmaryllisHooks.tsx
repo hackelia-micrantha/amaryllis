@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useEffect } from 'react';
+import { useCallback, useMemo, useEffect, useRef } from 'react';
 import type { InferenceProps, LlmRequestParams } from './Types';
 import { useLLMContext } from './AmaryllisContext';
 import { createLLMObservable } from './AmaryllisRx';
@@ -49,14 +49,24 @@ export const useInferenceAsync = (props: InferenceProps = {}) => {
   const { onResult, onGenerate, onError, onComplete } = props;
   const protocol = config?.protocol ?? defaultProtocol;
 
+  const onResultRef = useRef(onResult);
+  const onCompleteRef = useRef(onComplete);
+  const onErrorRef = useRef(onError);
+
+  useEffect(() => {
+    onResultRef.current = onResult;
+    onCompleteRef.current = onComplete;
+    onErrorRef.current = onError;
+  }, [onResult, onComplete, onError]);
+
   const llm$ = useMemo(() => createLLMObservable(), []);
 
   const generate = useCallback(
     async (params: LlmRequestParams) => {
       if (!controller) {
-        onError?.(new Error('Controller not initialized'));
+        onErrorRef.current?.(new Error('Controller not initialized'));
         return () => {
-          onComplete?.();
+          onCompleteRef.current?.();
         };
       }
 
@@ -68,32 +78,38 @@ export const useInferenceAsync = (props: InferenceProps = {}) => {
           llm$.callbacks
         );
       } catch (err) {
-        onError?.(
+        onErrorRef.current?.(
           err instanceof Error ? err : new Error('An unknown error occurred')
         );
       }
       return () => {
         controller.cancelAsync();
-        onComplete?.();
+        onCompleteRef.current?.();
       };
     },
-    [controller, llm$.callbacks, onComplete, onGenerate, onError, protocol]
+    [controller, llm$.callbacks, onGenerate, protocol]
   );
 
   useEffect(() => {
     const sub = llm$.observable.subscribe({
       next: ({ text, isFinal }) => {
-        onResult?.(protocol.sanitizeOutput(text), isFinal);
+        onResultRef.current?.(protocol.sanitizeOutput(text), isFinal);
       },
-      complete: () => onComplete?.(),
-      error: (err) => onError?.(err),
+      complete: () => onCompleteRef.current?.(),
+      error: (err) => onErrorRef.current?.(err),
     });
 
     return () => {
       sub.unsubscribe();
+    };
+  }, [llm$.observable, protocol]);
+
+  useEffect(() => {
+    return () => {
       controller?.cancelAsync();
     };
-  }, [llm$.observable, controller, onResult, onComplete, onError, protocol]);
+  }, [controller]);
+
   return generate;
 };
 
@@ -102,18 +118,28 @@ export const useInference = (props: InferenceProps = {}) => {
   const { onResult, onError, onGenerate, onComplete } = props;
   const protocol = config?.protocol ?? defaultProtocol;
 
+  const onResultRef = useRef(onResult);
+  const onErrorRef = useRef(onError);
+  const onCompleteRef = useRef(onComplete);
+
+  useEffect(() => {
+    onResultRef.current = onResult;
+    onErrorRef.current = onError;
+    onCompleteRef.current = onComplete;
+  }, [onResult, onError, onComplete]);
+
   useEffect(() => {
     if (contextError) {
-      onError?.(contextError);
+      onErrorRef.current?.(contextError);
     }
-  }, [contextError, onError]);
+  }, [contextError]);
 
   const generate = useCallback(
     async (params: LlmRequestParams) => {
       if (!controller) {
-        onError?.(new Error('Controller not initialized'));
+        onErrorRef.current?.(new Error('Controller not initialized'));
         return () => {
-          onComplete?.();
+          onCompleteRef.current?.();
         };
       }
 
@@ -123,19 +149,19 @@ export const useInference = (props: InferenceProps = {}) => {
         const response = await controller.generate(
           protocol.formatRequest(params)
         );
-        onResult?.(protocol.sanitizeOutput(response ?? ''), true);
+        onResultRef.current?.(protocol.sanitizeOutput(response ?? ''), true);
       } catch (err) {
-        onError?.(
+        onErrorRef.current?.(
           err instanceof Error ? err : new Error('An unknown error occurred')
         );
       }
 
       return () => {
         controller.cancelAsync();
-        onComplete?.();
+        onCompleteRef.current?.();
       };
     },
-    [onGenerate, controller, onResult, onError, onComplete, protocol]
+    [onGenerate, controller, protocol]
   );
 
   return generate;

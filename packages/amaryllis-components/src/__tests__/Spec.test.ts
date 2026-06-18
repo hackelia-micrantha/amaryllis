@@ -16,6 +16,8 @@ props:
   properties:
     label:
       type: string
+  required:
+    - label
 ai:
   mode: scaffold
   execution: build
@@ -84,6 +86,66 @@ ai:
 
     expect(() => parseComponentSpec(yaml)).toThrow(
       'generated component prop names must be valid JavaScript identifiers'
+    );
+  });
+
+  it('should reject required props that are not declared', () => {
+    const yaml = `
+apiVersion: amaryllis/v1alpha1
+kind: ComponentSpec
+metadata:
+  name: invalid-required
+  version: 1.0.0
+target:
+  framework: react
+  runtime: web
+props:
+  type: object
+  properties:
+    title:
+      type: string
+  required:
+    - title
+    - missing
+ai:
+  mode: scaffold
+  execution: build
+`;
+
+    expect(() => parseComponentSpec(yaml)).toThrow(
+      "required prop 'missing' must reference a declared property"
+    );
+  });
+
+  it('should reject unsafe slot, variant, and layout declarations', () => {
+    const yaml = `
+apiVersion: amaryllis/v1alpha1
+kind: ComponentSpec
+metadata:
+  name: unsafe-ui
+  version: 1.0.0
+target:
+  framework: react
+  runtime: web
+props:
+  type: object
+  properties:
+    title:
+      type: string
+ui:
+  layout: "<script>alert('x')</script>"
+  slots:
+    - footer-text
+  variants:
+    compact-card:
+      layout: "<div>{title}</div>"
+ai:
+  mode: scaffold
+  execution: build
+`;
+
+    expect(() => parseComponentSpec(yaml)).toThrow(
+      'component layout must not contain imports, exports, scripts, eval, require, or Function constructors'
     );
   });
 });

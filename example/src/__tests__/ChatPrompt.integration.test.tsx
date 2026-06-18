@@ -134,7 +134,7 @@ describe('ChatPrompt integration', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/draft.*done/)).toBeTruthy();
+      expect(screen.getByText('done')).toBeTruthy();
     });
 
     expect(mockUseContextInferenceAsync).toHaveBeenCalled();

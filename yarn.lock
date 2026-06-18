@@ -2584,10 +2584,10 @@ __metadata:
     eslint-plugin-prettier: ^5.5.5
     jest: ^29.7.0
     prettier: ^3.8.3
-    react: 19.2.6
+    react: 19.2.3
     react-native: 0.85.3
     react-native-builder-bob: ^0.41.0
-    react-test-renderer: 19.2.6
+    react-test-renderer: 19.2.3
     release-it: ^19.2.4
     turbo: ^2.9.14
     typescript: ^5.9.3
@@ -9924,7 +9924,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-is-19@npm:react-is@^19.2.5, react-is@npm:^19.2.6":
+"react-is-19@npm:react-is@^19.2.5":
   version: 19.2.6
   resolution: "react-is@npm:19.2.6"
   checksum: aad99621b2e5c47ea715ab719a3caae60b6d2be828374dc5ad663372f4603ab26bde5f0c9f3efd6107ed9152dfff5f8f3df044121967a3280e00796e4c560635
@@ -9935,6 +9935,13 @@ __metadata:
   version: 16.13.1
   resolution: "react-is@npm:16.13.1"
   checksum: f7a19ac3496de32ca9ae12aa030f00f14a3d45374f1ceca0af707c831b2a6098ef0d6bdae51bd437b0a306d7f01d4677fcc8de7c0d331eb47ad0f46130e53c5f
+  languageName: node
+  linkType: hard
+
+"react-is@npm:^19.2.3":
+  version: 19.2.7
+  resolution: "react-is@npm:19.2.7"
+  checksum: 148ee03b481ace8370cb9b96de386598423ed44ad36090c45ce3f905aec496db6f2675da720bbe43f39d66c43c9a16757cb71e9e55217825707dae97f0cf200f
   languageName: node
   linkType: hard
 
@@ -9956,7 +9963,7 @@ __metadata:
     "@react-native/typescript-config": 0.85.3
     "@types/react": ^19.2.14
     jotai: ^2.20.0
-    react: 19.2.6
+    react: 19.2.3
     react-native: 0.85.3
     react-native-builder-bob: ^0.41.0
     react-native-fs: ^2.20.0
@@ -10128,22 +10135,22 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-test-renderer@npm:19.2.6":
-  version: 19.2.6
-  resolution: "react-test-renderer@npm:19.2.6"
+"react-test-renderer@npm:19.2.3":
+  version: 19.2.3
+  resolution: "react-test-renderer@npm:19.2.3"
   dependencies:
-    react-is: ^19.2.6
+    react-is: ^19.2.3
     scheduler: ^0.27.0
   peerDependencies:
-    react: ^19.2.6
-  checksum: 35bb4f1abf83e83bebf1949cfb72702436dad216d747b0e478784a85e30d4ee8b8f8da0b8c1177e10c80db808818247bf7aefb507bd7f0bff4902b18ef5ab26f
+    react: ^19.2.3
+  checksum: 3dffbf1c340953bb79f67e9abb126f2f977e4109f29be66b9056dfaaaaf6b06dfa29fe7e0efc16023d56c0dbcdaad07607a672812df35145f7aa1475fcdca613
   languageName: node
   linkType: hard
 
-"react@npm:19.2.6":
-  version: 19.2.6
-  resolution: "react@npm:19.2.6"
-  checksum: e250029064bff3f3308ee61e52c44bc9a0c938f6ef11a3f39c31db487ca173eb9b4b0cd3261e32613d3498df0da5586f3c582bc83cef54ad99bc5643772c4535
+"react@npm:19.2.3":
+  version: 19.2.3
+  resolution: "react@npm:19.2.3"
+  checksum: 506e369ae13cb46b7f303c0201aadf856642f482cdf5b1c3730c3a6d1762fd5a3ae1dd31196a4686bfbbe56456dcd0c48a4656c75cbcb45620e3028c54789ae9
   languageName: node
   linkType: hard
 

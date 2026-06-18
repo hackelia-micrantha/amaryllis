@@ -1,12 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReactGenerator = void 0;
+const TS_IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 class ReactGenerator {
     generate(spec, options = {}) {
         const { metadata, props, ui, target } = spec;
         const componentName = this.toPascalCase(metadata.name);
         const propsType = this.generatePropsType(props, ui?.slots, ui?.designTokens);
-        const layout = ui?.layout || this.getDefaultLayout(target.runtime);
+        const layout = this.safeLayout(ui?.layout || this.getDefaultLayout(target.runtime));
         const imports = this.generateImports(target.runtime);
         const propKeys = [
             ...Object.keys(props.properties),
@@ -38,7 +39,7 @@ export const ${componentName}: React.FC<${componentName}Props> = ({
             return `return (\n    ${this.wrapWithLayout(defaultLayout)}\n  );`;
         }
         const cases = Object.entries(variants).map(([name, config]) => {
-            const layout = config.layout || defaultLayout;
+            const layout = this.safeLayout(config.layout || defaultLayout);
             return `    case '${name}':\n      return (\n        ${this.wrapWithLayout(layout)}\n      );`;
         });
         return `switch (variant) {
@@ -58,11 +59,11 @@ ${cases.join('\n')}
         const lines = Object.entries(props.properties).map(([key, schema]) => {
             const isRequired = props.required?.includes(key);
             const type = this.jsonSchemaToTsType(schema);
-            return `  ${key}${isRequired ? '' : '?'}: ${type};`;
+            return `  ${this.formatPropertyKey(key)}${isRequired ? '' : '?'}: ${type};`;
         });
         if (slots) {
             slots.forEach((slot) => {
-                lines.push(`  ${slot}?: React.ReactNode;`);
+                lines.push(`  ${this.formatPropertyKey(slot)}?: React.ReactNode;`);
             });
         }
         const designTokenType = this.generateDesignTokensType(designTokens);
@@ -95,26 +96,51 @@ ${groups.join('\n')}
         if (!tokens || tokens.length === 0) {
             return null;
         }
-        const tokenLines = tokens.map((token) => `      ${token}?: string;`);
+        const tokenLines = tokens.map((token) => `      ${this.formatPropertyKey(token)}?: string;`);
         return `    ${groupName}?: {
 ${tokenLines.join('\n')}
     };`;
     }
     jsonSchemaToTsType(schema) {
+        if (schema.enum && schema.enum.length > 0) {
+            return schema.enum.map((value) => JSON.stringify(value)).join(' | ');
+        }
         switch (schema.type) {
             case 'string':
                 return 'string';
             case 'number':
+            case 'integer':
                 return 'number';
             case 'boolean':
                 return 'boolean';
             case 'array':
-                return 'unknown[]';
+                return `${this.jsonSchemaToTsType(schema.items ?? {})}[]`;
             case 'object':
-                return 'Record<string, unknown>';
+                return this.objectSchemaToTsType(schema);
+            case 'null':
+                return 'null';
             default:
                 return 'unknown';
         }
+    }
+    objectSchemaToTsType(schema) {
+        if (!schema.properties || Object.keys(schema.properties).length === 0) {
+            return 'Record<string, unknown>';
+        }
+        const required = new Set(schema.required ?? []);
+        const properties = Object.entries(schema.properties).map(([key, value]) => {
+            const optional = required.has(key) ? '' : '?';
+            return `    ${this.formatPropertyKey(key)}${optional}: ${this.jsonSchemaToTsType(value)};`;
+        });
+        return `{
+${properties.join('\n')}
+  }`;
+    }
+    formatPropertyKey(key) {
+        return TS_IDENTIFIER.test(key) &&
+            !['__proto__', 'constructor', 'prototype'].includes(key)
+            ? key
+            : JSON.stringify(key);
     }
     generateImports(runtime) {
         if (runtime === 'rn') {
@@ -139,14 +165,21 @@ ${tokenLines.join('\n')}
         }
         return result;
     }
+    safeLayout(layout) {
+        if (/(<script\b|\bimport\s+|\bexport\s+|\brequire\s*\(|\beval\s*\(|new\s+Function\s*\()/i.test(layout)) {
+            throw new Error('Unsafe layout contains executable code or import/export syntax.');
+        }
+        return layout;
+    }
     generateProvenance(specVersion, options) {
         return [
             ` * Spec Version: ${specVersion}`,
             ` * Spec Hash: ${options.specHash ?? 'unavailable'}`,
+            ` * Generator Version: ${options.generatorVersion ?? '0.1.0'}`,
             ` * Model: ${options.modelId ?? 'deterministic-generator'}`,
             ` * Prompt Version: ${options.promptVersion ?? 'none'}`,
             ` * Validation: ${options.validationSummary ?? 'policy-passed'}`,
-            ` * Generated At: ${(options.generatedAt ?? new Date()).toISOString()}`,
+            ` * Generated At: ${options.generatedAt?.toISOString() ?? 'unavailable'}`,
             ' * Previous Diff: available through the customize command',
         ].join('\n');
     }

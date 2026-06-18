@@ -5,6 +5,7 @@ export interface ReactGeneratorOptions {
     promptVersion?: string;
     validationSummary?: string;
     generatedAt?: Date;
+    generatorVersion?: string;
 }
 export declare class ReactGenerator {
     generate(spec: ValidatedComponentSpec, options?: ReactGeneratorOptions): string;
@@ -14,8 +15,11 @@ export declare class ReactGenerator {
     private generateDesignTokensType;
     private generateDesignTokenGroupType;
     private jsonSchemaToTsType;
+    private objectSchemaToTsType;
+    private formatPropertyKey;
     private generateImports;
     private getDefaultLayout;
     private wrapWithLayout;
+    private safeLayout;
     private generateProvenance;
 }

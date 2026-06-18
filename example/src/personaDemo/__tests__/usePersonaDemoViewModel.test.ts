@@ -10,7 +10,7 @@ describe('persona demo view model', () => {
     const viewState = createPersonaDemoViewState(initialPersonaDemoState);
 
     expect(viewState.selectedPersonaId).toBe('developer');
-    expect(viewState.selectedPersona.label).toBe('Developer');
+    expect(viewState.selectedPersona?.label).toBe('Developer');
   });
 
   it.each(personas)('selects $label deterministically', (persona) => {

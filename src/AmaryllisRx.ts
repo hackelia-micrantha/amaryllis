@@ -3,6 +3,7 @@ import { Observable, Subscriber } from 'rxjs';
 
 export function createLLMObservable(): LLMObservableResult {
   let subscriber: Subscriber<LLMResult> | null = null;
+  let fullText = '';
 
   const observable = new Observable<LLMResult>((sub) => {
     subscriber = sub;
@@ -20,7 +21,15 @@ export function createLLMObservable(): LLMObservableResult {
         subscriber.error(event.error);
         return;
       }
-      subscriber.next({ text: event.text, isFinal: event.type === 'final' });
+
+      fullText += event.text;
+
+      if (event.type === 'final') {
+        subscriber.next({ text: fullText, isFinal: true });
+        subscriber.complete();
+        return;
+      }
+      subscriber.next({ text: fullText, isFinal: false });
     },
   };
 

@@ -6,6 +6,7 @@ import {
   Pressable,
   StyleSheet,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import type { InferenceProps } from '@micrantha/react-native-amaryllis';
 import {
@@ -26,8 +27,8 @@ export const ChatPrompt = () => {
   const {
     prompt,
     setPrompt,
-    results,
-    setResults,
+    messages,
+    setMessages,
     images,
     setImages,
     isBusy,
@@ -66,13 +67,35 @@ export const ChatPrompt = () => {
   const props: InferenceProps = useMemo(
     () => ({
       onGenerate: () => {
-        inputTextRef.current?.setSelection(0, prompt.length);
+        const userMsg = prompt;
+        setPrompt('');
         setError(undefined);
         setIsBusy(true);
-        addContextItem(prompt, 'user');
+
+        setMessages((prev) => [
+          ...prev,
+          { id: `u-${Date.now()}`, role: 'user', content: userMsg },
+          {
+            id: `a-${Date.now()}`,
+            role: 'assistant',
+            content: '',
+            isGenerating: true,
+          },
+        ]);
+
+        addContextItem(userMsg, 'user');
       },
       onResult: (result: string, isFinal: boolean) => {
-        setResults((prev) => [...prev, result]);
+        setMessages((prev) => {
+          const next = [...prev];
+          const last = next[next.length - 1];
+          if (last && last.role === 'assistant') {
+            last.content = result;
+            last.isGenerating = !isFinal;
+          }
+          return next;
+        });
+
         if (isFinal) {
           addContextItem(result, 'assistant');
           setIsBusy(false);
@@ -86,7 +109,7 @@ export const ChatPrompt = () => {
         setIsBusy(false);
       },
     }),
-    [addContextItem, prompt, setError, setIsBusy, setResults]
+    [addContextItem, prompt, setError, setIsBusy, setMessages, setPrompt]
   );
 
   const generate = useContextInferenceAsync(props);
@@ -128,10 +151,30 @@ export const ChatPrompt = () => {
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView}>
-        <Text style={styles.contentText}>{results}</Text>
+        {messages.map((m) => (
+          <View
+            key={m.id}
+            style={[
+              styles.message,
+              m.role === 'user' ? styles.userMessage : styles.assistantMessage,
+            ]}
+          >
+            <Text style={styles.messageRole}>
+              {m.role === 'user' ? 'You' : 'Amaryllis'}
+            </Text>
+            <Text style={styles.messageText}>{m.content}</Text>
+            {m.isGenerating && (
+              <ActivityIndicator
+                size="small"
+                color="#007AFF"
+                style={styles.inlineLoading}
+              />
+            )}
+          </View>
+        ))}
       </ScrollView>
 
-      <Text style={styles.errorText}>{error?.message}</Text>
+      {error && <Text style={styles.errorText}>{error.message}</Text>}
 
       <View style={styles.inputContainer}>
         <TextInput
@@ -188,14 +231,36 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 
-  contentText: {
-    fontSize: 16,
-    lineHeight: 22,
-    color: '#333',
+  message: {
+    marginBottom: 12,
+    padding: 10,
+    borderRadius: 8,
+    maxWidth: '85%',
   },
-
-  keyboardContainer: {
-    flex: 1,
+  userMessage: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#007AFF',
+  },
+  assistantMessage: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#F2F2F7',
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+  },
+  messageRole: {
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    marginBottom: 4,
+    color: '#rgba(0,0,0,0.5)',
+  },
+  messageText: {
+    fontSize: 16,
+    color: '#000',
+  },
+  inlineLoading: {
+    marginTop: 4,
+    alignSelf: 'flex-start',
   },
 
   iconButton: {
@@ -234,7 +299,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8, // RN 0.71+ supports gap
+    gap: 8,
   },
 
   input: {

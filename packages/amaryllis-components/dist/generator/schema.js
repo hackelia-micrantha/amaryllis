@@ -64,14 +64,27 @@ class JSONSchemaGenerator {
     mapProperties(properties) {
         const mapped = {};
         for (const [key, value] of Object.entries(properties)) {
-            mapped[key] = {
-                type: value.type,
-                ...(value.description && { description: value.description }),
-                ...(value.enum && { enum: value.enum }),
-                ...(value.default !== undefined && { default: value.default }),
-            };
+            mapped[key] = this.mapProperty(value);
         }
         return mapped;
+    }
+    mapProperty(value) {
+        return {
+            ...(value.type && { type: value.type }),
+            ...(value.description && { description: value.description }),
+            ...(value.enum && { enum: value.enum }),
+            ...(value.default !== undefined && { default: value.default }),
+            ...(value.items && { items: this.mapProperty(value.items) }),
+            ...(value.properties && {
+                properties: this.mapProperties(value.properties),
+            }),
+            ...(value.required && { required: value.required }),
+            ...(value.additionalProperties !== undefined && {
+                additionalProperties: typeof value.additionalProperties === 'boolean'
+                    ? value.additionalProperties
+                    : this.mapProperty(value.additionalProperties),
+            }),
+        };
     }
     mapDesignTokens(designTokens) {
         const mapped = {};

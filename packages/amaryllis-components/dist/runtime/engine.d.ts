@@ -11,9 +11,17 @@ export interface PersonalizationResult {
     valid: boolean;
     data?: PersonalizationData;
     errors?: string[];
+    diagnostics?: PersonalizationDiagnostics;
+}
+export interface PersonalizationDiagnostics {
+    accepted: boolean;
+    errorCount: number;
+    usedPatchOverlay: boolean;
+    sanitizedKeys: string[];
 }
 export declare class PersonalizationEngine {
     private ajv;
+    private sanitizedKeys;
     constructor();
     validate(contract: PersonalizationContract, aiOutput: unknown): PersonalizationResult;
     /**
@@ -24,11 +32,16 @@ export declare class PersonalizationEngine {
     private isUnsafeObjectKey;
     private applyValidatedPatches;
     private validatePatchPaths;
+    private validatePatchValues;
+    private containsUnsafeObjectKey;
     private isAllowedPatchPath;
     private parseJsonPointer;
     private hasDeclaredProperty;
     private createPatchOverlay;
     private stripEmptyOverlayContainers;
     private validatePatchedData;
+    private validateSafeValues;
+    private formatErrors;
+    private createDiagnostics;
     private isRecord;
 }
