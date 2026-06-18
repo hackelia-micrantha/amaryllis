@@ -25,7 +25,10 @@ function addIdentifierIssue(
 }
 
 function isSafeIdentifier(value: string): boolean {
-  return JS_IDENTIFIER.test(value) && !['__proto__', 'constructor', 'prototype'].includes(value);
+  return (
+    JS_IDENTIFIER.test(value) &&
+    !['__proto__', 'constructor', 'prototype'].includes(value)
+  );
 }
 
 function validateIdentifierList(
@@ -54,7 +57,8 @@ function validateLayout(
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path,
-      message: 'component layout must not contain imports, exports, scripts, eval, require, or Function constructors',
+      message:
+        'component layout must not contain imports, exports, scripts, eval, require, or Function constructors',
     });
   }
 }
