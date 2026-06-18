@@ -28,7 +28,9 @@ export class ReactGenerator {
       ui?.slots,
       ui?.designTokens
     );
-    const layout = this.safeLayout(ui?.layout || this.getDefaultLayout(target.runtime));
+    const layout = this.safeLayout(
+      ui?.layout || this.getDefaultLayout(target.runtime)
+    );
 
     const imports = this.generateImports(target.runtime);
 
@@ -159,9 +161,7 @@ ${tokenLines.join('\n')}
 
   private jsonSchemaToTsType(schema: JsonSchemaValue): string {
     if (schema.enum && schema.enum.length > 0) {
-      return schema.enum
-        .map((value) => JSON.stringify(value))
-        .join(' | ');
+      return schema.enum.map((value) => JSON.stringify(value)).join(' | ');
     }
 
     switch (schema.type) {
@@ -226,8 +226,14 @@ ${properties.join('\n')}
   }
 
   private safeLayout(layout: string): string {
-    if (/(<script\b|\bimport\s+|\bexport\s+|\brequire\s*\(|\beval\s*\(|new\s+Function\s*\()/i.test(layout)) {
-      throw new Error('Unsafe layout contains executable code or import/export syntax.');
+    if (
+      /(<script\b|\bimport\s+|\bexport\s+|\brequire\s*\(|\beval\s*\(|new\s+Function\s*\()/i.test(
+        layout
+      )
+    ) {
+      throw new Error(
+        'Unsafe layout contains executable code or import/export syntax.'
+      );
     }
     return layout;
   }
