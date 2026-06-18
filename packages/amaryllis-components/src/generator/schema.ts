@@ -86,7 +86,9 @@ export class JSONSchemaGenerator {
       ...(value.enum && { enum: value.enum }),
       ...(value.default !== undefined && { default: value.default }),
       ...(value.items && { items: this.mapProperty(value.items) }),
-      ...(value.properties && { properties: this.mapProperties(value.properties) }),
+      ...(value.properties && {
+        properties: this.mapProperties(value.properties),
+      }),
       ...(value.required && { required: value.required }),
       ...(value.additionalProperties !== undefined && {
         additionalProperties:
