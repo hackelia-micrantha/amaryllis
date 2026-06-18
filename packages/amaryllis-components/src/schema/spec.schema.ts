@@ -1,5 +1,68 @@
 import { z } from 'zod';
 
+const JS_IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+const COMPONENT_NAME = /^[a-z][a-z0-9-]*$/;
+const SEMVERISH = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/;
+const UNSAFE_LAYOUT_PATTERNS = [
+  /<script\b/i,
+  /\bimport\s+/,
+  /\bexport\s+/,
+  /\brequire\s*\(/,
+  /\beval\s*\(/,
+  /new\s+Function\s*\(/,
+];
+
+function addIdentifierIssue(
+  ctx: z.RefinementCtx,
+  path: (string | number)[],
+  message: string
+): void {
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    path,
+    message,
+  });
+}
+
+function isSafeIdentifier(value: string): boolean {
+  return (
+    JS_IDENTIFIER.test(value) &&
+    !['__proto__', 'constructor', 'prototype'].includes(value)
+  );
+}
+
+function validateIdentifierList(
+  values: string[] | undefined,
+  ctx: z.RefinementCtx,
+  path: string[],
+  message: string
+): void {
+  values?.forEach((value, index) => {
+    if (!isSafeIdentifier(value)) {
+      addIdentifierIssue(ctx, [...path, index], message);
+    }
+  });
+}
+
+function validateLayout(
+  layout: string | undefined,
+  ctx: z.RefinementCtx,
+  path: string[]
+): void {
+  if (!layout) {
+    return;
+  }
+
+  if (UNSAFE_LAYOUT_PATTERNS.some((pattern) => pattern.test(layout))) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path,
+      message:
+        'component layout must not contain imports, exports, scripts, eval, require, or Function constructors',
+    });
+  }
+}
+
 export const StabilitySchema = z.enum(['experimental', 'stable', 'deprecated']);
 export const JsonSchemaValueSchema: z.ZodType = z.lazy(() =>
   z
@@ -29,11 +92,8 @@ export const JsonSchemaValueSchema: z.ZodType = z.lazy(() =>
 );
 
 export const ComponentMetadataSchema = z.object({
-  name: z
-    .string()
-    .min(1)
-    .regex(/^[a-z][a-z0-9-]*$/),
-  version: z.string().regex(/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/),
+  name: z.string().min(1).regex(COMPONENT_NAME),
+  version: z.string().regex(SEMVERISH),
   owner: z.string().optional(),
   stability: StabilitySchema.optional(),
 });
@@ -51,42 +111,93 @@ export const ComponentPropsSchema = z
     required: z.array(z.string()).optional(),
   })
   .superRefine((props, ctx) => {
+    const declaredProps = new Set(Object.keys(props.properties));
+
     Object.keys(props.properties).forEach((key) => {
-      if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key)) {
+      if (!isSafeIdentifier(key)) {
+        addIdentifierIssue(
+          ctx,
+          ['properties', key],
+          'generated component prop names must be valid JavaScript identifiers'
+        );
+      }
+    });
+
+    props.required?.forEach((key, index) => {
+      if (!declaredProps.has(key)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ['properties', key],
-          message:
-            'generated component prop names must be valid JavaScript identifiers',
+          path: ['required', index],
+          message: `required prop '${key}' must reference a declared property`,
         });
       }
     });
   });
 
-export const ComponentUISchema = z.object({
-  layout: z.string().optional(),
-  slots: z.array(z.string()).optional(),
-  variants: z
-    .record(
-      z.object({
-        layout: z.string().optional(),
-        props: z.record(z.unknown()).optional(),
+export const ComponentUISchema = z
+  .object({
+    layout: z.string().optional(),
+    slots: z.array(z.string()).optional(),
+    variants: z
+      .record(
+        z.object({
+          layout: z.string().optional(),
+          props: z.record(z.unknown()).optional(),
+        })
+      )
+      .optional(),
+    designTokens: z
+      .object({
+        spacing: z.array(z.string()).optional(),
+        typography: z.array(z.string()).optional(),
+        colorRoles: z.array(z.string()).optional(),
       })
-    )
-    .optional(),
-  designTokens: z
-    .object({
-      spacing: z.array(z.string()).optional(),
-      typography: z.array(z.string()).optional(),
-      colorRoles: z.array(z.string()).optional(),
-    })
-    .optional(),
-  accessibility: z
-    .object({
-      rules: z.array(z.string()).optional(),
-    })
-    .optional(),
-});
+      .optional(),
+    accessibility: z
+      .object({
+        rules: z.array(z.string()).optional(),
+      })
+      .optional(),
+  })
+  .superRefine((ui, ctx) => {
+    validateLayout(ui.layout, ctx, ['layout']);
+    validateIdentifierList(
+      ui.slots,
+      ctx,
+      ['slots'],
+      'slot names must be safe JavaScript identifiers'
+    );
+
+    Object.entries(ui.variants ?? {}).forEach(([name, config]) => {
+      if (!isSafeIdentifier(name)) {
+        addIdentifierIssue(
+          ctx,
+          ['variants', name],
+          'variant names must be safe JavaScript identifiers'
+        );
+      }
+      validateLayout(config.layout, ctx, ['variants', name, 'layout']);
+    });
+
+    validateIdentifierList(
+      ui.designTokens?.spacing,
+      ctx,
+      ['designTokens', 'spacing'],
+      'design token names must be safe JavaScript identifiers'
+    );
+    validateIdentifierList(
+      ui.designTokens?.typography,
+      ctx,
+      ['designTokens', 'typography'],
+      'design token names must be safe JavaScript identifiers'
+    );
+    validateIdentifierList(
+      ui.designTokens?.colorRoles,
+      ctx,
+      ['designTokens', 'colorRoles'],
+      'design token names must be safe JavaScript identifiers'
+    );
+  });
 
 export const ComponentBehaviorSchema = z.object({
   state: z.record(z.unknown()).optional(),

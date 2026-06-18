@@ -47,6 +47,10 @@ jobs:
         run: npm run lint
         working-directory: packages/amaryllis-components
 
+      - name: Typecheck components library
+        run: npm run typecheck
+        working-directory: packages/amaryllis-components
+
       - name: Build components library
         run: npm run build
         working-directory: packages/amaryllis-components
@@ -63,16 +67,17 @@ jobs:
           test -d packages/amaryllis-components/dist
           ls -la packages/amaryllis-components/dist/
 
-      - name: Test npm pack commands (dry run)
+      - name: Test components library npm pack command (dry run)
         if: github.event.inputs.dry_run == 'true'
         run: |
-          echo "Testing npm publish preparation"
+          echo "Testing components package publish preparation"
           npm pack --dry-run
         working-directory: packages/amaryllis-components
 
       - name: Test main library npm pack command (dry run)
         if: github.event.inputs.dry_run == 'true'
         run: |
+          echo "Testing main package publish preparation"
           npm pack --dry-run
           echo "npm pack dry run successful"
 

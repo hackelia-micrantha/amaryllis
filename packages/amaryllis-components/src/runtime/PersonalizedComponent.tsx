@@ -1,7 +1,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { PersonalizationEngine } from './engine';
+import {
+  PersonalizationEngine,
+  type PersonalizationDiagnostics,
+} from './engine';
 import { resolveUiPrimitives, type UiPrimitives } from './primitives';
 import { useRegistry } from './registryContext';
+
+export interface PersonalizedComponentValidationEvent {
+  name: string;
+  valid: boolean;
+  errors?: string[];
+  diagnostics?: PersonalizationDiagnostics;
+}
 
 export interface PersonalizedComponentProps {
   /** Name of the registered component to render */
@@ -16,6 +26,10 @@ export interface PersonalizedComponentProps {
   fallback?: React.ReactNode;
   /** Optional UI primitive overrides for React Native or custom renderers */
   primitives?: Partial<UiPrimitives>;
+  /** Optional validation callback for telemetry or diagnostics */
+  onValidation?: (event: PersonalizedComponentValidationEvent) => void;
+  /** Enable console warnings for validation failures. Defaults to false. */
+  warnOnValidationFailure?: boolean;
 }
 
 /**
@@ -29,6 +43,8 @@ export const PersonalizedComponent: React.FC<PersonalizedComponentProps> = ({
   loading,
   fallback,
   primitives,
+  onValidation,
+  warnOnValidationFailure = false,
 }) => {
   const registry = useRegistry();
   const registered = registry.get(name);
@@ -46,22 +62,40 @@ export const PersonalizedComponent: React.FC<PersonalizedComponentProps> = ({
 
     if (personalizationData) {
       const result = engine.validate(registered.contract, personalizationData);
+      onValidation?.({
+        name,
+        valid: result.valid,
+        errors: result.errors,
+        diagnostics: result.diagnostics,
+      });
+
       if (result.valid) {
         setFinalProps(engine.apply(baseProps, result.data ?? {}));
         setError(null);
       } else {
-        console.warn(
-          `Personalization validation failed for ${name}:`,
-          result.errors
-        );
+        if (warnOnValidationFailure) {
+          console.warn(
+            `Personalization validation failed for ${name}:`,
+            result.errors
+          );
+        }
         setError('Invalid personalization data');
         // Revert to base props on failure
         setFinalProps(baseProps);
       }
     } else {
       setFinalProps(baseProps);
+      setError(null);
     }
-  }, [name, personalizationData, baseProps, registered, engine]);
+  }, [
+    name,
+    personalizationData,
+    baseProps,
+    registered,
+    engine,
+    onValidation,
+    warnOnValidationFailure,
+  ]);
 
   if (!registered) {
     return <>{fallback || null}</>;

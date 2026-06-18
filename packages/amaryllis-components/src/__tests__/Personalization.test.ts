@@ -37,6 +37,7 @@ describe('Personalization', () => {
     policy: {
       runtime: {
         networkAccess: 'none',
+        domAccess: 'restricted',
       },
     },
   };
@@ -55,6 +56,12 @@ describe('Personalization', () => {
     const result = engine.validate(contract, aiOutput);
     expect(result.valid).toBe(true);
     expect(result.data).toEqual(aiOutput);
+    expect(result.diagnostics).toEqual({
+      accepted: true,
+      errorCount: 0,
+      usedPatchOverlay: false,
+      sanitizedKeys: [],
+    });
   });
 
   test('should fail validation for incorrect data types', () => {
@@ -65,6 +72,7 @@ describe('Personalization', () => {
     const result = engine.validate(contract, aiOutput);
     expect(result.valid).toBe(false);
     expect(result.errors?.length).toBeGreaterThan(0);
+    expect(result.diagnostics?.accepted).toBe(false);
   });
 
   test('should fail validation for missing required props', () => {
@@ -168,6 +176,7 @@ describe('Personalization', () => {
 
     const result = engine.validate(contract, aiOutput);
     expect(result.valid).toBe(true);
+    expect(result.diagnostics?.usedPatchOverlay).toBe(true);
     expect(result.data).toEqual({
       props: { title: 'Patched title' },
       variant: 'compact',
@@ -216,6 +225,26 @@ describe('Personalization', () => {
     const result = engine.validate(contract, aiOutput);
     expect(result.valid).toBe(false);
     expect(result.errors?.join('\n')).toContain('/props/title must be string');
+  });
+
+  test('should reject unsafe JSON Patch values', () => {
+    const aiOutput = {
+      props: { title: 'Hello' },
+      patches: [
+        {
+          op: 'add',
+          path: '/props/title',
+          value: JSON.parse('{"__proto__":{"polluted":true}}'),
+        },
+      ],
+    };
+
+    const result = engine.validate(contract, aiOutput);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain(
+      '/patches/0/value contains an unsafe object key'
+    );
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
   });
 
   test('should register and retrieve components in registry', () => {
