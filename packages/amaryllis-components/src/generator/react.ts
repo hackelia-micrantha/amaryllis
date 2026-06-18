@@ -15,6 +15,8 @@ type ComponentDesignTokens = NonNullable<
   ValidatedComponentSpec['ui']
 >['designTokens'];
 
+const TS_IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+
 export class ReactGenerator {
   generate(
     spec: ValidatedComponentSpec,
@@ -101,12 +103,12 @@ ${cases.join('\n')}
     const lines = Object.entries(props.properties).map(([key, schema]) => {
       const isRequired = props.required?.includes(key);
       const type = this.jsonSchemaToTsType(schema);
-      return `  ${key}${isRequired ? '' : '?'}: ${type};`;
+      return `  ${this.formatPropertyKey(key)}${isRequired ? '' : '?'}: ${type};`;
     });
 
     if (slots) {
       slots.forEach((slot) => {
-        lines.push(`  ${slot}?: React.ReactNode;`);
+        lines.push(`  ${this.formatPropertyKey(slot)}?: React.ReactNode;`);
       });
     }
 
@@ -152,7 +154,9 @@ ${groups.join('\n')}
       return null;
     }
 
-    const tokenLines = tokens.map((token) => `      ${token}?: string;`);
+    const tokenLines = tokens.map(
+      (token) => `      ${this.formatPropertyKey(token)}?: string;`
+    );
 
     return `    ${groupName}?: {
 ${tokenLines.join('\n')}
@@ -191,12 +195,19 @@ ${tokenLines.join('\n')}
     const required = new Set(schema.required ?? []);
     const properties = Object.entries(schema.properties).map(([key, value]) => {
       const optional = required.has(key) ? '' : '?';
-      return `    ${key}${optional}: ${this.jsonSchemaToTsType(value)};`;
+      return `    ${this.formatPropertyKey(key)}${optional}: ${this.jsonSchemaToTsType(value)};`;
     });
 
     return `{
 ${properties.join('\n')}
   }`;
+  }
+
+  private formatPropertyKey(key: string): string {
+    return TS_IDENTIFIER.test(key) &&
+      !['__proto__', 'constructor', 'prototype'].includes(key)
+      ? key
+      : JSON.stringify(key);
   }
 
   private generateImports(runtime: string): string {
