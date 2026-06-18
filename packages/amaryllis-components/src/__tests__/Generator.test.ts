@@ -92,6 +92,33 @@ describe('ReactGenerator', () => {
     expect(code).toContain('source: string;');
   });
 
+  it('should quote nested object keys that are not TypeScript identifiers', () => {
+    const spec: ValidatedComponentSpec = {
+      apiVersion: 'amaryllis/v1alpha1',
+      kind: 'ComponentSpec',
+      metadata: { name: 'quoted-card', version: '1.0.0' },
+      props: {
+        type: 'object',
+        properties: {
+          meta: {
+            type: 'object',
+            properties: {
+              'source-id': { type: 'string' },
+            },
+            required: ['source-id'],
+          },
+        },
+      },
+      target: { framework: 'react', runtime: 'web' },
+      ai: { mode: 'scaffold', execution: 'build' },
+    };
+
+    const code = generator.generate(spec);
+
+    expect(code).toContain('"source-id": string;');
+    expect(code).not.toContain('source-id: string;');
+  });
+
   it('should expose declared design tokens as typed component props', () => {
     const spec: ValidatedComponentSpec = {
       apiVersion: 'amaryllis/v1alpha1',
