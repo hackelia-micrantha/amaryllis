@@ -238,7 +238,7 @@ ${properties.join('\n')}
 
   private safeLayout(layout: string): string {
     if (
-      /(<script\b|\bimport\s+|\bexport\s+|\brequire\s*\(|\beval\s*\(|new\s+Function\s*\()/i.test(
+      /(<script\b|\bimport\s*(?:\(|\s)|\bexport\s+|\brequire\s*\(|\beval\s*\(|\b(?:new\s+)?Function\s*\()/i.test(
         layout
       )
     ) {
