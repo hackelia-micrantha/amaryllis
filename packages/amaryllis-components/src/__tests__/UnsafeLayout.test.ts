@@ -23,6 +23,9 @@ describe('unsafe layout rejection', () => {
   const unsafeLayouts = [
     "<div>{Function('return 1')()}</div>",
     "<div>{import('unsafe-package')}</div>",
+    "<div>{Function/* bypass */('return 1')()}</div>",
+    "<div>{import/* bypass */('unsafe-package')}</div>",
+    "<div>{new/* bypass */Function/* bypass */('return 1')()}</div>",
   ];
 
   it.each(unsafeLayouts)(
@@ -59,7 +62,7 @@ describe('unsafe layout rejection', () => {
       layout: '<div>{children}</div>',
       variants: {
         unsafe: {
-          layout: "<div>{Function('return 1')()}</div>",
+          layout: "<div>{Function/* bypass */('return 1')()}</div>",
         },
       },
     };
