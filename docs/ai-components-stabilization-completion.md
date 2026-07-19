@@ -1,29 +1,37 @@
 # AI components stabilization progress ledger
 
-Issue #34 defines the ordered stabilization plan for the AI-enabled components work introduced by PR #30. PR #41 implemented the schema, policy, runtime-personalization, and generator hardening slices, plus part of the CI and documentation work. This ledger records that progress without overstating completion of the remaining roadmap.
+Issue #34 defines the ordered stabilization plan for the AI-enabled components work introduced by PR #30. PR #41 implemented schema, policy, runtime-personalization, and generator hardening on `feature/ai-components`, plus part of the CI and documentation work. Those changes are not yet present on `main` because PR #30 remains open.
+
+This ledger records feature-branch progress without closing issues before their implementation reaches the default branch.
 
 ## Progress status
 
 | Issue | Area | Status |
 | --- | --- | --- |
-| #35 | `ComponentSpec` schema and DSL contract | Completed in PR #41. The schema rejects undeclared required props and unsafe prop, slot, variant, and design token identifiers. |
-| #36 | Policy enforcement and threat boundaries | Completed in PR #41. Policy failures expose stable codes/issues and device execution remains fail-closed for executable, unsafe, or under-declared runtime behavior. |
-| #37 | Runtime personalization safety | Completed in PR #41. Personalization validation rejects unsafe object keys, constrains patch paths to declared personalization paths, and exposes validation diagnostics. |
-| #38 | React generation and provenance | Completed in PR #41. Generated output is deterministic by default, includes generator provenance, and rejects unsafe layout constructs before code generation. |
-| #39 | Components workspace CI/package checks | Partially completed in PR #41. Explicit components `typecheck` coverage was added to publish and test-publish workflows. Independent lint/test/build/pack validation, package metadata checks, permission documentation, release artifact validation, `dist` policy documentation, and PR #33 review remain open. |
-| #40 | Branch-aware documentation and examples | Partially completed in PR #41. Stabilization and security documentation was added, but runnable YAML/CLI/runtime examples with success and failure paths and CI or manual verification remain open. |
+| #35 | `ComponentSpec` schema and DSL contract | Implemented on `feature/ai-components` by PR #41; pending integration through PR #30. |
+| #36 | Policy enforcement and threat boundaries | Implemented on `feature/ai-components` by PR #41; pending integration through PR #30. |
+| #37 | Runtime personalization safety | Implemented on `feature/ai-components` by PR #41; pending integration through PR #30. |
+| #38 | React generation and provenance | Implemented on `feature/ai-components` by PR #41; pending integration through PR #30. |
+| #39 | Components workspace CI/package checks | Partially implemented on `feature/ai-components`. Explicit components `typecheck` coverage was added, but independent lint/test/build/pack validation, package metadata checks, permission documentation, release artifact validation, `dist` policy documentation, and PR #33 review remain open. |
+| #40 | Branch-aware documentation and examples | Partially implemented on `feature/ai-components`. Stabilization and security documentation was added, but runnable YAML/CLI/runtime examples with success and failure paths and CI or manual verification remain open. |
 
 ## Parent issue status
 
-PR #41 intentionally grouped several ordered child slices into one stabilization PR rather than splitting every child into a separate PR. It is sufficient to close #35 through #38 because those implementation boundaries were directly addressed and tested.
+Issue #34 remains open because:
 
-Issue #34 remains open because its ordered roadmap is not complete:
-
-- #39 still requires the remaining CI, packaging, release, and dependency-review acceptance criteria.
+- PR #30 has not merged `feature/ai-components` into `main`;
+- #35 through #38 should remain open until their implementation reaches the default branch;
+- #39 still requires the remaining CI, packaging, release, and dependency-review acceptance criteria;
 - #40 still requires runnable end-to-end examples and verification instructions.
-- #34 should close only after #39 and #40 are completed or explicitly deferred with rationale.
+
+Issue #34 should close only after PR #30 is integrated and #39 and #40 are completed or explicitly deferred with rationale.
 
 ## Remaining work
+
+### Integration
+
+- merge or otherwise integrate PR #30 into `main`;
+- close #35 through #38 only after the implementation is present on the default branch.
 
 ### Issue #39
 
@@ -46,4 +54,4 @@ Issue #34 remains open because its ordered roadmap is not complete:
 
 ## Scope boundary
 
-This progress record does not declare `@micrantha/amaryllis-components` generally stable. The package and `amaryllis/v1alpha1` contract remain experimental while #39 and #40 are open.
+This progress record does not declare `@micrantha/amaryllis-components` generally stable. The package and `amaryllis/v1alpha1` contract remain experimental while PR #30, #39, and #40 are open.
