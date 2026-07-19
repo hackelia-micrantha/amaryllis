@@ -5,11 +5,11 @@ const COMPONENT_NAME = /^[a-z][a-z0-9-]*$/;
 const SEMVERISH = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/;
 const UNSAFE_LAYOUT_PATTERNS = [
   /<script\b/i,
-  /\bimport\s+/,
-  /\bexport\s+/,
-  /\brequire\s*\(/,
-  /\beval\s*\(/,
-  /new\s+Function\s*\(/,
+  /\bimport\s*(?:\(|\s)/i,
+  /\bexport\s+/i,
+  /\brequire\s*\(/i,
+  /\beval\s*\(/i,
+  /\b(?:new\s+)?Function\s*\(/i,
 ];
 
 function addIdentifierIssue(
