@@ -142,6 +142,14 @@ describe('ReactGenerator source hardening', () => {
     ['event handlers', '<div onClick={children}>{children}</div>'],
     ['spread props', '<div {...children}>{children}</div>'],
     ['unapproved web elements', '<iframe>{children}</iframe>'],
+    [
+      'statement breakout',
+      '<div>{children}</div>); arbitraryCall(); return (<div>{children}</div>',
+    ],
+    ['unbalanced elements', '<div><span>{children}</div>'],
+    ['non-JSX source', 'plainIdentifier'],
+    ['multiple roots', '<div>{children}</div><div>{children}</div>'],
+    ['attributes', '<div className="card">{children}</div>'],
   ])('rejects %s in web layouts', (_name, layout) => {
     const spec = createSpec('web');
     spec.ui = { ...spec.ui, layout };
