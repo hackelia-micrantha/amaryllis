@@ -27,6 +27,25 @@ async function assertPath(path, description) {
   }
 }
 
+function getFieldPaths(packageJson, field, packageName) {
+  const value = packageJson[field];
+
+  if (typeof value === 'string' && value.length > 0) {
+    return [value];
+  }
+
+  if (field === 'bin' && value && typeof value === 'object') {
+    const paths = Object.values(value).filter(
+      (entry) => typeof entry === 'string' && entry.length > 0
+    );
+    if (paths.length > 0 && paths.length === Object.keys(value).length) {
+      return paths;
+    }
+  }
+
+  throw new Error(`${packageName} is missing package.json#${field}`);
+}
+
 for (const packageConfig of packages) {
   const packageJsonPath = resolve(packageConfig.directory, 'package.json');
   const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf8'));
@@ -44,15 +63,16 @@ for (const packageConfig of packages) {
   }
 
   for (const field of packageConfig.requiredFields) {
-    const value = packageJson[field];
-    if (typeof value !== 'string' || value.length === 0) {
-      throw new Error(`${packageConfig.expectedName} is missing package.json#${field}`);
+    for (const path of getFieldPaths(
+      packageJson,
+      field,
+      packageConfig.expectedName
+    )) {
+      await assertPath(
+        resolve(packageConfig.directory, path),
+        `${packageConfig.expectedName} ${field} output`
+      );
     }
-
-    await assertPath(
-      resolve(packageConfig.directory, value),
-      `${packageConfig.expectedName} ${field} output`
-    );
   }
 
   console.log(`Validated ${packageJson.name}@${packageJson.version}`);
