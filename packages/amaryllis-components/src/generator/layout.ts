@@ -53,10 +53,14 @@ export function validateAndNormalizeLayout(
       const expressionMatch = /^\{([^{}]+)\}/.exec(remaining);
       const expression = expressionMatch?.[1]?.trim();
       if (!expressionMatch || !expression || elementStack.length === 0) {
-        return invalidLayout('component layout contains an invalid JSX expression');
+        return invalidLayout(
+          'component layout contains an invalid JSX expression'
+        );
       }
 
-      const slotMatch = /^slots\.([A-Za-z_$][A-Za-z0-9_$]*)$/.exec(expression);
+      const slotMatch = /^slots\.([A-Za-z_$][A-Za-z0-9_$]*)$/.exec(
+        expression
+      );
       const normalizedExpression = slotMatch?.[1] ?? expression;
       if (!allowedExpressions.has(normalizedExpression)) {
         return invalidLayout(
@@ -70,7 +74,9 @@ export function validateAndNormalizeLayout(
     }
 
     if (remaining.startsWith('<')) {
-      const tagMatch = /^<(\/)?([A-Za-z][A-Za-z0-9]*)(\s*\/?)>/.exec(remaining);
+      const tagMatch = /^<(\/)?([A-Za-z][A-Za-z0-9]*)(\s*\/?)>/.exec(
+        remaining
+      );
       const closing = tagMatch?.[1] === '/';
       const tagName = tagMatch?.[2];
       const suffix = tagMatch?.[3];
@@ -89,7 +95,9 @@ export function validateAndNormalizeLayout(
       const selfClosing = !closing && suffix.trim() === '/';
       if (closing) {
         if (suffix.trim() !== '' || elementStack.pop() !== tagName) {
-          return invalidLayout('component layout contains unbalanced JSX elements');
+          return invalidLayout(
+            'component layout contains unbalanced JSX elements'
+          );
         }
       } else {
         if (elementStack.length === 0) {
@@ -110,8 +118,12 @@ export function validateAndNormalizeLayout(
       continue;
     }
 
-    const nextToken = remaining.search(/[<{]/);
+    const nextToken = remaining.search(/[<{}]/);
     const textLength = nextToken === -1 ? remaining.length : nextToken;
+    if (textLength === 0) {
+      return invalidLayout('component layout contains an unmatched JSX brace');
+    }
+
     const text = remaining.slice(0, textLength);
     if (elementStack.length === 0 && text.trim() !== '') {
       return invalidLayout(
