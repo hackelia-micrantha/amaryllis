@@ -93,19 +93,16 @@ declare module 'react/jsx-runtime' {
   );
 
   try {
-    const program = ts.createProgram(
-      [sourcePath, declarationsPath],
-      {
-        target: ts.ScriptTarget.ESNext,
-        module: ts.ModuleKind.CommonJS,
-        moduleResolution: ts.ModuleResolutionKind.Node10,
-        strict: true,
-        esModuleInterop: true,
-        skipLibCheck: true,
-        jsx: ts.JsxEmit.ReactJSX,
-        noEmit: true,
-      }
-    );
+    const program = ts.createProgram([sourcePath, declarationsPath], {
+      target: ts.ScriptTarget.ESNext,
+      module: ts.ModuleKind.CommonJS,
+      moduleResolution: ts.ModuleResolutionKind.Node10,
+      strict: true,
+      esModuleInterop: true,
+      skipLibCheck: true,
+      jsx: ts.JsxEmit.ReactJSX,
+      noEmit: true,
+    });
 
     return ts.getPreEmitDiagnostics(program);
   } finally {
