@@ -61,9 +61,9 @@ function typecheckGeneratedSource(source: string): readonly ts.Diagnostic[] {
   writeFileSync(
     declarationsPath,
     `declare namespace React {
-  type ReactNode = unknown;
+  type ReactNode = any;
   interface FC<P = Record<string, never>> {
-    (props: P): ReactNode;
+    (props: P): any;
   }
 }
 declare module 'react' { export = React; }
@@ -72,20 +72,20 @@ declare module 'react-native' {
   export const Text: React.FC<Record<string, unknown>>;
 }
 declare module 'react/jsx-runtime' {
-  export const jsx: unknown;
-  export const jsxs: unknown;
-  export const Fragment: unknown;
-}
-declare namespace JSX {
-  interface IntrinsicElements {
-    article: Record<string, unknown>;
-    aside: Record<string, unknown>;
-    div: Record<string, unknown>;
-    footer: Record<string, unknown>;
-    header: Record<string, unknown>;
-    main: Record<string, unknown>;
-    section: Record<string, unknown>;
-    span: Record<string, unknown>;
+  export const jsx: any;
+  export const jsxs: any;
+  export const Fragment: any;
+  namespace JSX {
+    interface IntrinsicElements {
+      article: Record<string, unknown>;
+      aside: Record<string, unknown>;
+      div: Record<string, unknown>;
+      footer: Record<string, unknown>;
+      header: Record<string, unknown>;
+      main: Record<string, unknown>;
+      section: Record<string, unknown>;
+      span: Record<string, unknown>;
+    }
   }
 }
 `,
