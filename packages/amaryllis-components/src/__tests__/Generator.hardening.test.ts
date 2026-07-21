@@ -150,6 +150,8 @@ describe('ReactGenerator source hardening', () => {
     ['non-JSX source', 'plainIdentifier'],
     ['multiple roots', '<div>{children}</div><div>{children}</div>'],
     ['attributes', '<div className="card">{children}</div>'],
+    ['unmatched closing brace', '<div>}</div>'],
+    ['unmatched closing brace after text', '<div>text }</div>'],
   ])('rejects %s in web layouts', (_name, layout) => {
     const spec = createSpec('web');
     spec.ui = { ...spec.ui, layout };
