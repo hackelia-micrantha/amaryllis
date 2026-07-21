@@ -16,14 +16,23 @@ const GENERATION_OPTIONS = {
 
 type Runtime = ValidatedComponentSpec['target']['runtime'];
 
-function createRepresentativeSpec(runtime: Runtime): ValidatedComponentSpec {
-  const runtimeName = runtime === 'rn' ? 'native' : runtime === 'nextjs' ? 'next' : 'web';
+function runtimeComponentName(runtime: Runtime): string {
+  switch (runtime) {
+    case 'rn':
+      return 'native';
+    case 'nextjs':
+      return 'next';
+    default:
+      return 'web';
+  }
+}
 
+function createRepresentativeSpec(runtime: Runtime): ValidatedComponentSpec {
   return {
     apiVersion: 'amaryllis/v1alpha1',
     kind: 'ComponentSpec',
     metadata: {
-      name: `deterministic-${runtimeName}-card`,
+      name: `deterministic-${runtimeComponentName(runtime)}-card`,
       version: '1.2.3',
     },
     props: {
@@ -79,6 +88,16 @@ describe('ReactGenerator deterministic golden output', () => {
       expect(first).toBe(readGolden(runtime));
     }
   );
+
+  it('accepts defaults without emitting runtime default behavior', () => {
+    const code = generator.generate(
+      createRepresentativeSpec('web'),
+      GENERATION_OPTIONS
+    );
+
+    expect(code).not.toContain('Untitled');
+    expect(code).not.toContain('default:');
+  });
 
   it('emits deterministic provenance metadata', () => {
     const code = generator.generate(
