@@ -31,8 +31,7 @@ export function validateAndNormalizeLayout(
 ): LayoutValidationResult {
   if (UNSAFE_LAYOUT_PATTERN.test(layout)) {
     return {
-      error:
-        'component layout must not contain executable code, imports, event handlers, spread props, or raw HTML sinks',
+      error: 'Unsafe layout contains executable code or import/export syntax.',
     };
   }
 
