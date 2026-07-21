@@ -58,9 +58,7 @@ export function validateAndNormalizeLayout(
         );
       }
 
-      const slotMatch = /^slots\.([A-Za-z_$][A-Za-z0-9_$]*)$/.exec(
-        expression
-      );
+      const slotMatch = /^slots\.([A-Za-z_$][A-Za-z0-9_$]*)$/.exec(expression);
       const normalizedExpression = slotMatch?.[1] ?? expression;
       if (!allowedExpressions.has(normalizedExpression)) {
         return invalidLayout(
@@ -74,9 +72,7 @@ export function validateAndNormalizeLayout(
     }
 
     if (remaining.startsWith('<')) {
-      const tagMatch = /^<(\/)?([A-Za-z][A-Za-z0-9]*)(\s*\/?)>/.exec(
-        remaining
-      );
+      const tagMatch = /^<(\/)?([A-Za-z][A-Za-z0-9]*)(\s*\/?)>/.exec(remaining);
       const closing = tagMatch?.[1] === '/';
       const tagName = tagMatch?.[2];
       const suffix = tagMatch?.[3];
@@ -121,9 +117,7 @@ export function validateAndNormalizeLayout(
     const nextToken = remaining.search(/[<{}]/);
     const textLength = nextToken === -1 ? remaining.length : nextToken;
     if (textLength === 0) {
-      return invalidLayout(
-        'component layout contains an unmatched JSX brace'
-      );
+      return invalidLayout('component layout contains an unmatched JSX brace');
     }
 
     const text = remaining.slice(0, textLength);
@@ -138,9 +132,7 @@ export function validateAndNormalizeLayout(
   }
 
   if (rootElements !== 1 || elementStack.length !== 0) {
-    return invalidLayout(
-      'component layout contains unbalanced JSX elements'
-    );
+    return invalidLayout('component layout contains unbalanced JSX elements');
   }
 
   return { layout: normalized };
