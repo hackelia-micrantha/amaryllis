@@ -1,9 +1,6 @@
 import type { ValidatedComponentSpec } from '../schema/spec.schema';
 import type { JsonSchemaValue } from '../types/spec';
-import {
-  validateAndNormalizeLayout,
-  type ReactLayoutRuntime,
-} from './layout';
+import { validateAndNormalizeLayout, type ReactLayoutRuntime } from './layout';
 
 export interface ReactGeneratorOptions {
   specHash?: string;
@@ -30,11 +27,7 @@ export class ReactGenerator {
     const componentName = this.toPascalCase(metadata.name);
     const slots = ui?.slots ?? [];
 
-    const propsType = this.generatePropsType(
-      props,
-      slots,
-      ui?.designTokens
-    );
+    const propsType = this.generatePropsType(props, slots, ui?.designTokens);
     const layout = this.safeLayout(
       ui?.layout || this.getDefaultLayout(target.runtime),
       target.runtime,
