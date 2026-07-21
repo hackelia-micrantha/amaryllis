@@ -121,7 +121,9 @@ export function validateAndNormalizeLayout(
     const nextToken = remaining.search(/[<{}]/);
     const textLength = nextToken === -1 ? remaining.length : nextToken;
     if (textLength === 0) {
-      return invalidLayout('component layout contains an unmatched JSX brace');
+      return invalidLayout(
+        'component layout contains an unmatched JSX brace'
+      );
     }
 
     const text = remaining.slice(0, textLength);
@@ -136,7 +138,9 @@ export function validateAndNormalizeLayout(
   }
 
   if (rootElements !== 1 || elementStack.length !== 0) {
-    return invalidLayout('component layout contains unbalanced JSX elements');
+    return invalidLayout(
+      'component layout contains unbalanced JSX elements'
+    );
   }
 
   return { layout: normalized };
