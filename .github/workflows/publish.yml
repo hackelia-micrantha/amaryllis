@@ -128,30 +128,17 @@ jobs:
         run: npm run build
         working-directory: packages/amaryllis-components
 
-      - name: Validate packages
-        run: |
-          echo "Package validation before publishing"
-          node -e "console.log('Main package:', JSON.parse(require('fs').readFileSync('./package.json', 'utf8')).name)"
-          node -e "console.log('Main version:', JSON.parse(require('fs').readFileSync('./package.json', 'utf8')).version)"
-          test -d lib
-          ls -la lib/
-          node -e "console.log('Components package:', JSON.parse(require('fs').readFileSync('./packages/amaryllis-components/package.json', 'utf8')).name)"
-          node -e "console.log('Components version:', JSON.parse(require('fs').readFileSync('./packages/amaryllis-components/package.json', 'utf8')).version)"
-          test -d packages/amaryllis-components/dist
-          ls -la packages/amaryllis-components/dist/
-          echo "Package validation complete"
+      - name: Validate package metadata and outputs
+        run: node scripts/validate-packages.mjs
 
       - name: Prepare GitHub release assets directory
-        run: |
-          mkdir -p release-artifacts
+        run: mkdir -p release-artifacts
 
       - name: Pack main library GitHub release asset
-        run: |
-          npm pack --json --pack-destination "$GITHUB_WORKSPACE/release-artifacts"
+        run: npm pack --json --pack-destination "$GITHUB_WORKSPACE/release-artifacts"
 
       - name: Pack components library GitHub release asset
-        run: |
-          npm pack --json --pack-destination "$GITHUB_WORKSPACE/release-artifacts"
+        run: npm pack --json --pack-destination "$GITHUB_WORKSPACE/release-artifacts"
         working-directory: packages/amaryllis-components
 
       - name: Check authentication context
