@@ -3,13 +3,15 @@ import { z } from 'zod';
 const JS_IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 const COMPONENT_NAME = /^[a-z][a-z0-9-]*$/;
 const SEMVERISH = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/;
+const JS_TRIVIA = String.raw`(?:\s|\/\*[\s\S]*?\*\/|\/\/[^\r\n]*(?:\r?\n|$))*`;
 const UNSAFE_LAYOUT_PATTERNS = [
   /<script\b/i,
-  /\bimport\s+/,
-  /\bexport\s+/,
-  /\brequire\s*\(/,
-  /\beval\s*\(/,
-  /new\s+Function\s*\(/,
+  /\bimport\s+/i,
+  new RegExp(`\bimport${JS_TRIVIA}\(`, 'i'),
+  /\bexport\s+/i,
+  new RegExp(`\brequire${JS_TRIVIA}\(`, 'i'),
+  new RegExp(`\beval${JS_TRIVIA}\(`, 'i'),
+  new RegExp(`\b(?:new${JS_TRIVIA})?Function${JS_TRIVIA}\(`, 'i'),
 ];
 
 function addIdentifierIssue(

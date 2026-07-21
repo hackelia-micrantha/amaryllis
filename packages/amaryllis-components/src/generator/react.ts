@@ -16,6 +16,11 @@ type ComponentDesignTokens = NonNullable<
 >['designTokens'];
 
 const TS_IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+const JS_TRIVIA = String.raw`(?:\s|\/\*[\s\S]*?\*\/|\/\/[^\r\n]*(?:\r?\n|$))*`;
+const UNSAFE_LAYOUT_PATTERN = new RegExp(
+  `(?:<script\\b|\\bimport(?:\\s+|${JS_TRIVIA}\\()|\\bexport\\s+|\\brequire${JS_TRIVIA}\\(|\\beval${JS_TRIVIA}\\(|\\b(?:new${JS_TRIVIA})?Function${JS_TRIVIA}\\()`,
+  'i'
+);
 
 export class ReactGenerator {
   generate(
@@ -237,11 +242,7 @@ ${properties.join('\n')}
   }
 
   private safeLayout(layout: string): string {
-    if (
-      /(<script\b|\bimport\s+|\bexport\s+|\brequire\s*\(|\beval\s*\(|new\s+Function\s*\()/i.test(
-        layout
-      )
-    ) {
+    if (UNSAFE_LAYOUT_PATTERN.test(layout)) {
       throw new Error(
         'Unsafe layout contains executable code or import/export syntax.'
       );
