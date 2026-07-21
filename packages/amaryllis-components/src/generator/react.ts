@@ -1,5 +1,6 @@
 import type { ValidatedComponentSpec } from '../schema/spec.schema';
 import type { JsonSchemaValue } from '../types/spec';
+import { validateAndNormalizeLayout, type ReactLayoutRuntime } from './layout';
 
 export interface ReactGeneratorOptions {
   specHash?: string;
@@ -16,11 +17,6 @@ type ComponentDesignTokens = NonNullable<
 >['designTokens'];
 
 const TS_IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
-const JS_TRIVIA = String.raw`(?:\s|\/\*[\s\S]*?\*\/|\/\/[^\r\n]*(?:\r?\n|$))*`;
-const UNSAFE_LAYOUT_PATTERN = new RegExp(
-  `(?:<script\\b|\\bimport(?:\\s+|${JS_TRIVIA}\\()|\\bexport\\s+|\\brequire${JS_TRIVIA}\\(|\\beval${JS_TRIVIA}\\(|\\b(?:new${JS_TRIVIA})?Function${JS_TRIVIA}\\()`,
-  'i'
-);
 
 export class ReactGenerator {
   generate(
@@ -29,27 +25,31 @@ export class ReactGenerator {
   ): string {
     const { metadata, props, ui, target } = spec;
     const componentName = this.toPascalCase(metadata.name);
+    const slots = ui?.slots ?? [];
 
-    const propsType = this.generatePropsType(
-      props,
-      ui?.slots,
-      ui?.designTokens
-    );
+    const propsType = this.generatePropsType(props, slots, ui?.designTokens);
     const layout = this.safeLayout(
-      ui?.layout || this.getDefaultLayout(target.runtime)
+      ui?.layout || this.getDefaultLayout(target.runtime),
+      target.runtime,
+      slots
     );
 
     const imports = this.generateImports(target.runtime);
 
     const propKeys = [
       ...Object.keys(props.properties),
-      ...(ui?.slots || []),
+      ...slots,
       ...(ui?.designTokens ? ['designTokens'] : []),
       'variant',
       'children',
     ];
 
-    const variantLogic = this.generateVariantLogic(ui?.variants, layout);
+    const variantLogic = this.generateVariantLogic(
+      ui?.variants,
+      layout,
+      target.runtime,
+      slots
+    );
     const provenance = this.generateProvenance(metadata.version, options);
 
     return `
@@ -71,21 +71,29 @@ export const ${componentName}: React.FC<${componentName}Props> = ({
 
   private generateVariantLogic(
     variants: ComponentVariants,
-    defaultLayout: string
+    defaultLayout: string,
+    runtime: ReactLayoutRuntime,
+    slots: readonly string[]
   ): string {
     if (!variants || Object.keys(variants).length === 0) {
-      return `return (\n    ${this.wrapWithLayout(defaultLayout)}\n  );`;
+      return `return (\n    ${defaultLayout}\n  );`;
     }
 
     const cases = Object.entries(variants).map(([name, config]) => {
-      const layout = this.safeLayout(config.layout || defaultLayout);
-      return `    case '${name}':\n      return (\n        ${this.wrapWithLayout(layout)}\n      );`;
+      const layout = this.safeLayout(
+        config.layout || defaultLayout,
+        runtime,
+        slots
+      );
+      return `    case '${name}':\n      return (\n        ${layout}\n      );`;
     });
 
     return `switch (variant) {
 ${cases.join('\n')}
     default:
-      return (\n        ${this.wrapWithLayout(defaultLayout)}\n      );
+      return (
+        ${defaultLayout}
+      );
   }`;
   }
 
@@ -102,7 +110,7 @@ ${cases.join('\n')}
 
   private generatePropsType(
     props: ValidatedComponentSpec['props'],
-    slots?: string[],
+    slots?: readonly string[],
     designTokens?: ComponentDesignTokens
   ): string {
     const lines = Object.entries(props.properties).map(([key, schema]) => {
@@ -228,26 +236,16 @@ ${properties.join('\n')}
       : '<div>{children}</div>';
   }
 
-  private wrapWithLayout(layout: string, slots?: string[]): string {
-    // Basic substitution for slots if they exist in layout as {slotName}
-    let result = layout;
-    if (slots) {
-      slots.forEach((slot) => {
-        // Replace both {slot} and {slots.slot} for flexibility
-        result = result.split(`{${slot}}`).join(`{${slot}}`);
-        result = result.split(`{slots.${slot}}`).join(`{${slot}}`);
-      });
+  private safeLayout(
+    layout: string,
+    runtime: ReactLayoutRuntime,
+    slots: readonly string[]
+  ): string {
+    const result = validateAndNormalizeLayout(layout, runtime, slots);
+    if (!result.layout) {
+      throw new Error(result.error ?? 'Unsafe component layout.');
     }
-    return result;
-  }
-
-  private safeLayout(layout: string): string {
-    if (UNSAFE_LAYOUT_PATTERN.test(layout)) {
-      throw new Error(
-        'Unsafe layout contains executable code or import/export syntax.'
-      );
-    }
-    return layout;
+    return result.layout;
   }
 
   private generateProvenance(
