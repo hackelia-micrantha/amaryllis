@@ -53,7 +53,7 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Test components package
-        run: yarn workspace @micrantha/amaryllis-components test -- --runInBand
+        run: yarn workspace @micrantha/amaryllis-components test --runInBand
 
       - name: Lint components package
         run: yarn workspace @micrantha/amaryllis-components lint
