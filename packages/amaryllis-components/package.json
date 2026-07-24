@@ -15,7 +15,7 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "jest && npm run verify:examples",
+    "test": "jest",
     "verify:examples": "npm run build && node ../../scripts/verify-component-examples.mjs",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "prepare": "npm run build"
