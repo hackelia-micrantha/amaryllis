@@ -2,6 +2,6 @@
   {
     "op": "replace",
     "path": "/ui/layout",
-    "value": "compact-card"
+    "value": "<View><Text>{summary}</Text>{children}</View>"
   }
 ]
