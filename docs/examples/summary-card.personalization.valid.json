@@ -1,5 +1,6 @@
 {
   "props": {
+    "title": "Local context",
     "summary": "A validated, structured summary generated from local context."
   },
   "variant": "compact",
