@@ -7,11 +7,11 @@ const JS_TRIVIA = String.raw`(?:\s|\/\*[\s\S]*?\*\/|\/\/[^\r\n]*(?:\r?\n|$))*`;
 const UNSAFE_LAYOUT_PATTERNS = [
   /<script\b/i,
   /\bimport\s+/i,
-  new RegExp(`\bimport${JS_TRIVIA}\(`, 'i'),
+  new RegExp(String.raw`\bimport${JS_TRIVIA}\(`, 'i'),
   /\bexport\s+/i,
-  new RegExp(`\brequire${JS_TRIVIA}\(`, 'i'),
-  new RegExp(`\beval${JS_TRIVIA}\(`, 'i'),
-  new RegExp(`\b(?:new${JS_TRIVIA})?Function${JS_TRIVIA}\(`, 'i'),
+  new RegExp(String.raw`\brequire${JS_TRIVIA}\(`, 'i'),
+  new RegExp(String.raw`\beval${JS_TRIVIA}\(`, 'i'),
+  new RegExp(String.raw`\b(?:new${JS_TRIVIA})?Function${JS_TRIVIA}\(`, 'i'),
 ];
 
 function addIdentifierIssue(
