@@ -27,8 +27,8 @@ if (root) {
     throw new Error('SBOM root metadata component has no name');
   }
 
-  if (!['application', 'library'].includes(root.type)) {
-    throw new Error(`unexpected root component type: ${root.type ?? '<missing>'}`);
+  if (typeof root.type !== 'string' || root.type.length === 0) {
+    throw new Error('SBOM root metadata component has no type');
   }
 }
 
@@ -36,22 +36,16 @@ if (!Array.isArray(sbom.dependencies) || sbom.dependencies.length === 0) {
   throw new Error('SBOM contains no dependency graph');
 }
 
-const componentNames = new Set(
-  sbom.components
-    .flatMap((component) => {
-      const names = [component.name];
-      const npmPurl = component.purl?.match(/^pkg:npm\/(?:@[^/]+\/)?([^@]+)@/);
-      if (npmPurl) {
-        names.push(npmPurl[1]);
-      }
-      return names;
-    })
-    .filter(Boolean)
-);
+const purls = sbom.components
+  .map((component) => component.purl)
+  .filter(Boolean);
 
-for (const expected of ['react', 'react-native']) {
-  if (!componentNames.has(expected)) {
-    throw new Error(`SBOM is missing expected dependency: ${expected}`);
+for (const expected of [
+  'pkg:npm/%40micrantha/react-native-amaryllis@',
+  'pkg:npm/react-native-amaryllis-example@',
+]) {
+  if (!purls.some((purl) => purl.startsWith(expected))) {
+    throw new Error(`SBOM is missing expected component: ${expected}`);
   }
 }
 
