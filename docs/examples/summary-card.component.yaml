@@ -2,7 +2,7 @@ apiVersion: amaryllis/v1alpha1
 kind: ComponentSpec
 
 metadata:
-  name: SummaryCard
+  name: summary-card
   version: 0.1.0
   owner: micrantha
   stability: experimental
@@ -38,14 +38,14 @@ ui:
       layout: '<View><Text>{summary}</Text>{children}</View>'
   designTokens:
     spacing:
-      - spacing-sm
-      - spacing-md
+      - spacingSm
+      - spacingMd
     typography:
-      - body-sm
-      - body-md
+      - bodySm
+      - bodyMd
     colorRoles:
-      - surface-primary
-      - text-primary
+      - surfacePrimary
+      - textPrimary
   accessibility:
     rules:
       - summary slot must expose accessibility label
