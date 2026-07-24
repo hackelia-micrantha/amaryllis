@@ -109,6 +109,14 @@ jobs:
       - name: Dry-run main package archive
         run: npm pack --dry-run
 
+  build-library:
+    needs: components-package
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Confirm validated library build
+        run: echo "Main library build and package outputs were validated by components-package"
+
   build-android:
     runs-on: ubuntu-latest
     timeout-minutes: 30
