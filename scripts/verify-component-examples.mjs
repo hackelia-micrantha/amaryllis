@@ -25,6 +25,19 @@ const invalidOutputPath = path.join(
   'docs/examples/summary-card.personalization.invalid.json'
 );
 
+for (const requiredPath of [
+  cli,
+  path.join(distRoot, 'runtime/registry.js'),
+  path.join(distRoot, 'runtime/engine.js'),
+  path.join(distRoot, 'generator/schema.js'),
+  path.join(distRoot, 'parser/yaml.js'),
+]) {
+  assert.ok(
+    fs.existsSync(requiredPath),
+    `Missing built component artifact: ${path.relative(root, requiredPath)}`
+  );
+}
+
 // Import only the provider-free modules exercised by this verifier. Importing the
 // package barrel also loads React Native runtime primitives, which are not valid
 // in a plain Node.js build/CI process.
