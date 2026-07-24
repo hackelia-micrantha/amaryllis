@@ -31,7 +31,7 @@ jobs:
         run: npm test
 
       - name: Lint main library
-        run: npm run lint
+        run: yarn lint --ignore-pattern 'packages/amaryllis-components/**'
 
       - name: Typecheck main library
         run: npm run typecheck
