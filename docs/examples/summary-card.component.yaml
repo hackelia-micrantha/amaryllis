@@ -28,14 +28,14 @@ props:
     - title
 
 ui:
-  layout: card
+  layout: '<View>{summary}</View>'
   slots:
     - summary
   variants:
     compact:
-      layout: compact-card
+      layout: '<View><Text>{summary}</Text></View>'
     expanded:
-      layout: expanded-card
+      layout: '<View><Text>{summary}</Text>{children}</View>'
   designTokens:
     spacing:
       - spacing-sm
