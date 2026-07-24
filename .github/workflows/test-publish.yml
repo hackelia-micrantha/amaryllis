@@ -44,8 +44,7 @@ jobs:
         working-directory: packages/amaryllis-components
 
       - name: Lint components library
-        run: npm run lint
-        working-directory: packages/amaryllis-components
+        run: yarn eslint "packages/amaryllis-components/src/**/*.{ts,tsx}"
 
       - name: Typecheck components library
         run: npm run typecheck
