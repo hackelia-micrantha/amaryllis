@@ -55,19 +55,19 @@ Generated TSX is a build/CI artifact, not runtime model output. Treat it like so
 
 ## Runtime personalization flow
 
-Register an approved implementation with its validated spec and generated contract, then pass only structured output to `PersonalizedComponent`:
+Register an approved component implementation with its validated spec and generated contract. The model-facing boundary accepts only structured data:
 
 ```tsx
-const registerSummaryCard = (registry: ComponentRegistry) => {
-  registry.register('SummaryCard', {
-    component: SummaryCard,
-    spec,
-    contract,
-    implementationIdentity: 'app/components/SummaryCard',
-  });
-};
+const registry = new ComponentRegistry();
 
-<RegistryProvider initialize={registerSummaryCard}>
+registry.register('SummaryCard', {
+  component: SummaryCard,
+  spec,
+  contract,
+  implementationIdentity: 'app/components/SummaryCard',
+});
+
+<RegistryProvider registry={registry}>
   <PersonalizedComponent
     name="SummaryCard"
     baseProps={{
@@ -75,20 +75,13 @@ const registerSummaryCard = (registry: ComponentRegistry) => {
       summary: 'Base summary',
       variant: 'expanded',
     }}
-    personalizationData={untrustedStructuredOutput}
-    onValidation={({ valid, diagnostics }) => {
-      // Prefer coarse diagnostics. Do not log prompts, user input, or raw model
-      // output unless an explicit data policy permits it.
-      recordValidation({
-        valid,
-        errorCount: diagnostics?.errorCount ?? 0,
-      });
+    personalizationData={structuredOutput}
+    onValidation={({ valid, errors }) => {
+      telemetry.record({ valid, errorCount: errors?.length ?? 0 });
     }}
   />
 </RegistryProvider>;
 ```
-
-The model-facing boundary is:
 
 ```text
 untrusted structured output
@@ -98,17 +91,19 @@ untrusted structured output
   -> approved registered component
 ```
 
-The valid fixture is merged over base props. The invalid fixture is rejected and the component deterministically renders the unchanged base props. Runtime JSX, TSX, JavaScript, imports, and native operations are outside this contract.
+Valid output is merged over base props. Invalid output is rejected and the component deterministically renders its original base props. Runtime JSX, TSX, JavaScript, imports, and native operations are outside this contract.
 
 ## Automated verification
 
-Run the same provider-free verification used by CI:
+Run the provider-free verification from the repository root:
 
 ```sh
 yarn verify:component-examples
 ```
 
-The verifier builds on the package's actual parser, policy engine, generators, registry, and personalization engine. It executes all three CLI commands, validates the valid fixture, rejects the invalid fixture, and asserts fallback to base props.
+The root command builds `@micrantha/amaryllis-components` before running the verifier. CI performs the same operations as separate explicit steps: test, lint, typecheck, build, then example verification.
+
+The verifier uses the package's actual parser, generators, registry, and personalization engine. It executes all three CLI commands, validates the valid fixture, rejects the invalid fixture, and asserts fallback to base props.
 
 ## Security notes
 
