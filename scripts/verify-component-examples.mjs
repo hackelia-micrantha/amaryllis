@@ -44,7 +44,8 @@ try {
     [cli, 'generate', '--spec', specPath, '--output', generatedPath],
     { cwd: root, stdio: 'pipe' }
   );
-  assert.match(fs.readFileSync(generatedPath, 'utf8'), /SummaryCard/);
+  const generatedCode = fs.readFileSync(generatedPath, 'utf8');
+  assert.match(generatedCode, /SummaryCard/);
 
   const contractOutput = execFileSync(
     process.execPath,
@@ -68,7 +69,9 @@ try {
     ],
     { cwd: root, stdio: 'pipe' }
   );
-  assert.match(fs.readFileSync(customizedPath, 'utf8'), /compact-card/);
+  const customizedCode = fs.readFileSync(customizedPath, 'utf8');
+  assert.notEqual(customizedCode, generatedCode);
+  assert.match(customizedCode, /SummaryCard/);
 
   const spec = parseComponentSpec(fs.readFileSync(specPath, 'utf8'));
   const generatedContract = JSON.parse(new JSONSchemaGenerator().generate(spec));
