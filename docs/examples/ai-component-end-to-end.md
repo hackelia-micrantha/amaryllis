@@ -17,7 +17,6 @@ The companion package does not execute a model and does not replace the base run
 - [`summary-card.customization.patch.json`](./summary-card.customization.patch.json): reviewed build-time JSON Patch
 - [`summary-card.personalization.valid.json`](./summary-card.personalization.valid.json): valid structured runtime output
 - [`summary-card.personalization.invalid.json`](./summary-card.personalization.invalid.json): invalid runtime output that must fall back
-- [`runtime-summary-card.tsx`](./runtime-summary-card.tsx): registration and rendering example
 
 ## Build-time CLI flow
 
@@ -56,7 +55,40 @@ Generated TSX is a build/CI artifact, not runtime model output. Treat it like so
 
 ## Runtime personalization flow
 
-The runtime example registers an approved component implementation with its validated spec and generated contract. The model-facing boundary accepts only structured data:
+Register an approved implementation with its validated spec and generated contract, then pass only structured output to `PersonalizedComponent`:
+
+```tsx
+const registerSummaryCard = (registry: ComponentRegistry) => {
+  registry.register('SummaryCard', {
+    component: SummaryCard,
+    spec,
+    contract,
+    implementationIdentity: 'app/components/SummaryCard',
+  });
+};
+
+<RegistryProvider initialize={registerSummaryCard}>
+  <PersonalizedComponent
+    name="SummaryCard"
+    baseProps={{
+      title: 'Base title',
+      summary: 'Base summary',
+      variant: 'expanded',
+    }}
+    personalizationData={untrustedStructuredOutput}
+    onValidation={({ valid, diagnostics }) => {
+      // Prefer coarse diagnostics. Do not log prompts, user input, or raw model
+      // output unless an explicit data policy permits it.
+      recordValidation({
+        valid,
+        errorCount: diagnostics?.errorCount ?? 0,
+      });
+    }}
+  />
+</RegistryProvider>;
+```
+
+The model-facing boundary is:
 
 ```text
 untrusted structured output
@@ -66,7 +98,7 @@ untrusted structured output
   -> approved registered component
 ```
 
-Valid output is merged over base props. Invalid output is rejected and the component deterministically renders its original base props. Runtime JSX, TSX, JavaScript, imports, and native operations are outside this contract.
+The valid fixture is merged over base props. The invalid fixture is rejected and the component deterministically renders the unchanged base props. Runtime JSX, TSX, JavaScript, imports, and native operations are outside this contract.
 
 ## Automated verification
 
