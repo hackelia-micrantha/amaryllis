@@ -22,19 +22,33 @@ if (!Array.isArray(sbom.components) || sbom.components.length === 0) {
 }
 
 const root = sbom.metadata?.component;
-if (!root || typeof root.name !== 'string' || root.name.length === 0) {
-  throw new Error('SBOM contains no root metadata component');
-}
+if (root) {
+  if (typeof root.name !== 'string' || root.name.length === 0) {
+    throw new Error('SBOM root metadata component has no name');
+  }
 
-if (!['application', 'library'].includes(root.type)) {
-  throw new Error(`unexpected root component type: ${root.type ?? '<missing>'}`);
+  if (!['application', 'library'].includes(root.type)) {
+    throw new Error(`unexpected root component type: ${root.type ?? '<missing>'}`);
+  }
 }
 
 if (!Array.isArray(sbom.dependencies) || sbom.dependencies.length === 0) {
   throw new Error('SBOM contains no dependency graph');
 }
 
-const componentNames = new Set(sbom.components.map((component) => component.name));
+const componentNames = new Set(
+  sbom.components
+    .flatMap((component) => {
+      const names = [component.name];
+      const npmPurl = component.purl?.match(/^pkg:npm\/(?:@[^/]+\/)?([^@]+)@/);
+      if (npmPurl) {
+        names.push(npmPurl[1]);
+      }
+      return names;
+    })
+    .filter(Boolean)
+);
+
 for (const expected of ['react', 'react-native']) {
   if (!componentNames.has(expected)) {
     throw new Error(`SBOM is missing expected dependency: ${expected}`);
