@@ -80,7 +80,7 @@ try {
     { cwd: root, encoding: 'utf8' }
   );
   const contract = JSON.parse(contractOutput);
-  assert.equal(contract.title, 'SummaryCard Personalization Contract');
+  assert.equal(contract.title, 'summary-card Personalization Contract');
 
   execFileSync(
     process.execPath,
