@@ -34,6 +34,13 @@ if (!Array.isArray(sbom.dependencies) || sbom.dependencies.length === 0) {
   throw new Error('SBOM contains no dependency graph');
 }
 
+const componentNames = new Set(sbom.components.map((component) => component.name));
+for (const expected of ['react', 'react-native']) {
+  if (!componentNames.has(expected)) {
+    throw new Error(`SBOM is missing expected dependency: ${expected}`);
+  }
+}
+
 console.log(
   `Validated ${path}: CycloneDX ${sbom.specVersion}, ${sbom.components.length} components, ${sbom.dependencies.length} dependency nodes`
 );
