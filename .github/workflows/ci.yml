@@ -67,7 +67,18 @@ jobs:
           retention-days: 7
 
       - name: Lint components package
-        run: yarn workspace @micrantha/amaryllis-components lint
+        run: |
+          set -o pipefail
+          yarn workspace @micrantha/amaryllis-components lint 2>&1 | tee components-lint.log
+
+      - name: Upload components lint log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: components-lint-log
+          path: components-lint.log
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Typecheck components package
         run: yarn workspace @micrantha/amaryllis-components typecheck
