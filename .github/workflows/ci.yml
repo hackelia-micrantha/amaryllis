@@ -25,8 +25,8 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
-      - name: Lint files
-        run: yarn lint
+      - name: Lint root package
+        run: yarn lint --ignore-pattern 'packages/amaryllis-components/**'
 
       - name: Typecheck files
         run: yarn typecheck
@@ -42,6 +42,62 @@ jobs:
 
       - name: Run unit tests
         run: yarn test --maxWorkers=2 --coverage
+
+  components-package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Test components package
+        run: |
+          set -o pipefail
+          yarn workspace @micrantha/amaryllis-components test --runInBand 2>&1 | tee components-test.log
+
+      - name: Upload components test log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: components-test-log
+          path: components-test.log
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Lint components package
+        run: |
+          set -o pipefail
+          yarn eslint "packages/amaryllis-components/src/**/*.{ts,tsx}" 2>&1 | tee components-lint.log
+
+      - name: Upload components lint log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: components-lint-log
+          path: components-lint.log
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Typecheck components package
+        run: yarn workspace @micrantha/amaryllis-components typecheck
+
+      - name: Build components package
+        run: yarn workspace @micrantha/amaryllis-components build
+
+      - name: Build main package for package validation
+        run: yarn prepare
+
+      - name: Validate package metadata and outputs
+        run: node scripts/validate-packages.mjs
+
+      - name: Dry-run components package archive
+        run: npm pack --dry-run
+        working-directory: packages/amaryllis-components
+
+      - name: Dry-run main package archive
+        run: npm pack --dry-run
 
   build-library:
     runs-on: ubuntu-latest
