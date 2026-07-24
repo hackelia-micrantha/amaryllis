@@ -44,6 +44,7 @@
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
     "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build lib",
     "prepare": "bob build",
+    "verify:component-examples": "yarn workspace @micrantha/amaryllis-components build && node scripts/verify-component-examples.mjs",
     "release": "release-it --only-version"
   },
   "keywords": [
