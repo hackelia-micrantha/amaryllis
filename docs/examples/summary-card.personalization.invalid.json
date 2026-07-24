@@ -1,0 +1,7 @@
+{
+  "props": {
+    "title": 42,
+    "summary": "This payload must be rejected."
+  },
+  "variant": "unreviewed-layout"
+}
