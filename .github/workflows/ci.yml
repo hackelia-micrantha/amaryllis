@@ -66,6 +66,9 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Verify AI component examples
+        run: yarn workspace @micrantha/amaryllis-components verify:examples
+
       - name: Lint components package
         run: |
           set -o pipefail
