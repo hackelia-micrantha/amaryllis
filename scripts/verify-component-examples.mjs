@@ -115,13 +115,13 @@ try {
 
   const registry = new ComponentRegistry();
   const SummaryCard = () => null;
-  registry.register('SummaryCard', {
+  registry.register('summary-card', {
     component: SummaryCard,
     spec,
     contract: generatedContract,
     implementationIdentity: 'docs/examples/SummaryCard',
   });
-  assert.ok(registry.get('SummaryCard'));
+  assert.ok(registry.get('summary-card'));
 
   const engine = new PersonalizationEngine();
   const baseProps = {
