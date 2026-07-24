@@ -9,7 +9,8 @@ import { fileURLToPath } from 'node:url';
 const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const packageRoot = path.join(root, 'packages/amaryllis-components');
-const cli = path.join(packageRoot, 'dist/cli/index.js');
+const distRoot = path.join(packageRoot, 'dist');
+const cli = path.join(distRoot, 'cli/index.js');
 const specPath = path.join(root, 'docs/examples/summary-card.component.yaml');
 const patchPath = path.join(
   root,
@@ -24,12 +25,25 @@ const invalidOutputPath = path.join(
   'docs/examples/summary-card.personalization.invalid.json'
 );
 
-const {
-  ComponentRegistry,
-  JSONSchemaGenerator,
-  PersonalizationEngine,
-  parseComponentSpec,
-} = require(path.join(packageRoot, 'dist/index.js'));
+// Import only the provider-free modules exercised by this verifier. Importing the
+// package barrel also loads React Native runtime primitives, which are not valid
+// in a plain Node.js build/CI process.
+const { ComponentRegistry } = require(path.join(
+  distRoot,
+  'runtime/registry.js'
+));
+const { PersonalizationEngine } = require(path.join(
+  distRoot,
+  'runtime/engine.js'
+));
+const { JSONSchemaGenerator } = require(path.join(
+  distRoot,
+  'generator/schema.js'
+));
+const { parseComponentSpec } = require(path.join(
+  distRoot,
+  'parser/yaml.js'
+));
 
 const tempDirectory = fs.mkdtempSync(
   path.join(os.tmpdir(), 'amaryllis-components-example-')
