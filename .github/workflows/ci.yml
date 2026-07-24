@@ -69,7 +69,7 @@ jobs:
       - name: Lint components package
         run: |
           set -o pipefail
-          yarn workspace @micrantha/amaryllis-components lint 2>&1 | tee components-lint.log
+          yarn eslint "packages/amaryllis-components/src/**/*.{ts,tsx}" 2>&1 | tee components-lint.log
 
       - name: Upload components lint log
         if: failure()
