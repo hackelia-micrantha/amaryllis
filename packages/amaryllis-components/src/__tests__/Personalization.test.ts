@@ -242,7 +242,7 @@ describe('Personalization', () => {
     const result = engine.validate(contract, aiOutput);
     expect(result.valid).toBe(false);
     expect(result.errors).toContain(
-      '/patches/0/value contains an unsafe object key'
+      'Personalization data contains an unsafe object key'
     );
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
   });
