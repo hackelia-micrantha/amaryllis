@@ -3,7 +3,8 @@ import type { JsonSchemaValue } from '../types/spec';
 
 export class JSONSchemaGenerator {
   generate(spec: ValidatedComponentSpec): string {
-    const { metadata, props, ui } = spec;
+    const { metadata, props, ui, ai } = spec;
+    const allowsJsonPatch = ai.generationContract?.output === 'json-patch';
 
     const schema = {
       $schema: 'http://json-schema.org/draft-07/schema#',
@@ -45,23 +46,25 @@ export class JSONSchemaGenerator {
               additionalProperties: false,
             }
           : undefined,
-        patches: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              op: {
-                type: 'string',
-                enum: ['add', 'remove', 'replace', 'move', 'copy', 'test'],
+        patches: allowsJsonPatch
+          ? {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  op: {
+                    type: 'string',
+                    enum: ['add', 'remove', 'replace', 'move', 'copy', 'test'],
+                  },
+                  path: { type: 'string' },
+                  from: { type: 'string' },
+                  value: {},
+                },
+                required: ['op', 'path'],
+                additionalProperties: false,
               },
-              path: { type: 'string' },
-              from: { type: 'string' },
-              value: {},
-            },
-            required: ['op', 'path'],
-            additionalProperties: false,
-          },
-        },
+            }
+          : undefined,
       },
       additionalProperties: false,
     };
@@ -87,6 +90,7 @@ export class JSONSchemaGenerator {
       ...(value.description && { description: value.description }),
       ...(value.enum && { enum: value.enum }),
       ...(value.default !== undefined && { default: value.default }),
+      ...(value.minLength !== undefined && { minLength: value.minLength }),
       ...(value.maxLength !== undefined && { maxLength: value.maxLength }),
       ...(value.items && { items: this.mapProperty(value.items) }),
       ...(value.properties && {
