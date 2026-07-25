@@ -2,6 +2,8 @@ import { AmaryllisError, ValidationError } from '@micrantha/amaryllis';
 
 export { AmaryllisError, ValidationError };
 
+export const GENERATION_IN_PROGRESS_CODE = 'GENERATION_IN_PROGRESS';
+
 export class InitializationError extends AmaryllisError {
   constructor(message: string) {
     super(message, 'INIT_ERROR');
@@ -13,6 +15,13 @@ export class GenerationError extends AmaryllisError {
   constructor(message: string) {
     super(message, 'GENERATION_ERROR');
     this.name = 'GenerationError';
+  }
+}
+
+export class GenerationInProgressError extends AmaryllisError {
+  constructor(message = 'An asynchronous generation is already in progress') {
+    super(message, GENERATION_IN_PROGRESS_CODE);
+    this.name = 'GenerationInProgressError';
   }
 }
 
