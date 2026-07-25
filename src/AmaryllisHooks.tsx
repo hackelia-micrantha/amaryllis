@@ -21,6 +21,7 @@ type ActiveAsyncGeneration = {
   settled: boolean;
   unsubscribe: () => void;
   cancel: (notifyComplete?: boolean) => void;
+  notifyCompleteOnCancellation: boolean;
 };
 
 const useContextAugmentation = (
@@ -115,6 +116,7 @@ export const useInferenceAsync = (props: InferenceProps = {}) => {
         settled: false,
         unsubscribe: () => {},
         cancel: () => {},
+        notifyCompleteOnCancellation: true,
       };
 
       const subscription = llm$.observable.subscribe({
@@ -136,6 +138,7 @@ export const useInferenceAsync = (props: InferenceProps = {}) => {
           return;
         }
 
+        generation.notifyCompleteOnCancellation = notifyComplete;
         try {
           controller.cancelAsync();
         } catch (err) {
@@ -164,6 +167,22 @@ export const useInferenceAsync = (props: InferenceProps = {}) => {
     },
     [controller, finishGeneration, onGenerate, protocol]
   );
+
+  useEffect(() => {
+    if (!controller?.subscribeAsyncLifecycle) {
+      return;
+    }
+
+    return controller.subscribeAsyncLifecycle(() => {
+      const generation = activeGenerationRef.current;
+      if (generation) {
+        finishGeneration(
+          generation,
+          generation.notifyCompleteOnCancellation
+        );
+      }
+    });
+  }, [controller, finishGeneration]);
 
   useEffect(() => {
     return () => {
@@ -232,20 +251,91 @@ export const useContextInferenceAsync = (props: ContextInferenceProps = {}) => {
   const { contextEngine, query, ...inferenceProps } = props;
   const { onComplete, onError } = inferenceProps;
   const augmentRequest = useContextAugmentation(contextEngine, query);
-  const generateBase = useInferenceAsync(inferenceProps);
+  const activeRequestRef = useRef<number | null>(null);
+  const nextRequestIdRef = useRef(1);
+  const mountedRef = useRef(true);
+
+  const handleBaseError = useCallback(
+    (error: Error) => {
+      if (error instanceof GenerationInProgressError) {
+        activeRequestRef.current = null;
+      }
+      onError?.(error);
+    },
+    [onError]
+  );
+
+  const handleBaseComplete = useCallback(() => {
+    activeRequestRef.current = null;
+    onComplete?.();
+  }, [onComplete]);
+
+  const generateBase = useInferenceAsync({
+    ...inferenceProps,
+    onError: handleBaseError,
+    onComplete: handleBaseComplete,
+  });
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      activeRequestRef.current = null;
+    };
+  }, []);
 
   const generate = useCallback(
     async (params: LlmRequestParams) => {
+      if (activeRequestRef.current !== null) {
+        onError?.(new GenerationInProgressError());
+        return () => {};
+      }
+
+      const requestId = nextRequestIdRef.current++;
+      activeRequestRef.current = requestId;
+      let cancelled = false;
+      let cancelBase: (() => void) | undefined;
+
+      const cancel = () => {
+        if (cancelled) {
+          return;
+        }
+        cancelled = true;
+        if (activeRequestRef.current === requestId) {
+          activeRequestRef.current = null;
+        }
+        cancelBase?.();
+      };
+
       try {
         const augmented = await augmentRequest(params);
-        return await generateBase(augmented);
+        if (
+          cancelled ||
+          !mountedRef.current ||
+          activeRequestRef.current !== requestId
+        ) {
+          if (activeRequestRef.current === requestId) {
+            activeRequestRef.current = null;
+          }
+          return cancel;
+        }
+
+        cancelBase = await generateBase(augmented);
+        if (cancelled) {
+          cancelBase();
+        }
+        return cancel;
       } catch (err) {
-        onError?.(
-          err instanceof Error ? err : new Error('An unknown error occurred')
-        );
-        return () => {
+        if (!cancelled && mountedRef.current) {
+          onError?.(
+            err instanceof Error ? err : new Error('An unknown error occurred')
+          );
+          if (activeRequestRef.current === requestId) {
+            activeRequestRef.current = null;
+          }
           onComplete?.();
-        };
+        }
+        return cancel;
       }
     },
     [augmentRequest, generateBase, onComplete, onError]
