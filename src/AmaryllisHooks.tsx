@@ -173,10 +173,14 @@ export const useInferenceAsync = (props: InferenceProps = {}) => {
       return;
     }
 
-    return controller.subscribeAsyncLifecycle(() => {
+    return controller.subscribeAsyncLifecycle((event) => {
       const generation = activeGenerationRef.current;
       if (generation) {
-        finishGeneration(generation, generation.notifyCompleteOnCancellation);
+        finishGeneration(
+          generation,
+          event.type === 'cancelled' &&
+            generation.notifyCompleteOnCancellation
+        );
       }
     });
   }, [controller, finishGeneration]);
