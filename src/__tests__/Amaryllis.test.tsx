@@ -17,7 +17,7 @@ const nativeMock = {
   init: jest.fn(),
   newSession: jest.fn(),
   generate: jest.fn<Promise<string>, [LlmRequestParams]>(),
-  generateAsync: jest.fn<Promise<null>, [LlmRequestParams]>(),
+  generateAsync: jest.fn<Promise<void>, [LlmRequestParams]>(),
   close: jest.fn(),
   cancelAsync: jest.fn(),
   EVENT_ON_PARTIAL_RESULT: 'onPartialResult',
@@ -51,7 +51,7 @@ describe('LlmPipe', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     nativeMock.generate.mockResolvedValue('result');
-    nativeMock.generateAsync.mockResolvedValue(null);
+    nativeMock.generateAsync.mockResolvedValue(undefined);
     listeners = {};
     pipe = new LlmPipe({
       nativeModule: nativeMock,
@@ -177,9 +177,9 @@ describe('LlmPipe', () => {
   it('rejects synchronous generation while async work is active', async () => {
     await pipe.generateAsync(requestParams, { onEvent: jest.fn() });
 
-    await expect(pipe.generate({ prompt: 'sync overlap' })).rejects.toMatchObject(
-      { code: GENERATION_IN_PROGRESS_CODE }
-    );
+    await expect(
+      pipe.generate({ prompt: 'sync overlap' })
+    ).rejects.toMatchObject({ code: GENERATION_IN_PROGRESS_CODE });
     expect(nativeMock.generate).not.toHaveBeenCalled();
   });
 
