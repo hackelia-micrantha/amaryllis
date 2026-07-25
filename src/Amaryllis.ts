@@ -8,6 +8,7 @@ import type {
   LlmEventSubscription,
   LlmPipeParams,
   LlmNativeEngine,
+  LlmAsyncLifecycleEvent,
 } from './Types';
 import {
   toNativeEngineConfig,
@@ -20,8 +21,15 @@ const EVENT_ON_PARTIAL_RESULT = 'onPartialResult';
 const EVENT_ON_FINAL_RESULT = 'onFinalResult';
 const EVENT_ON_ERROR = 'onError';
 
-const activeNativeGenerations = new WeakMap<LlmNativeEngine, number>();
-let nextGenerationId = 1;
+type NativeOperation = {
+  id: number;
+  kind: 'sync' | 'async';
+  owner: LlmPipe;
+};
+
+const activeNativeOperations = new WeakMap<LlmNativeEngine, NativeOperation>();
+const closingNativeEngines = new WeakSet<LlmNativeEngine>();
+let nextOperationId = 1;
 
 export class LlmPipe implements LlmEngine {
   subscriptions: LlmEventSubscription[] = [];
@@ -29,6 +37,9 @@ export class LlmPipe implements LlmEngine {
   llmNative: LlmNativeEngine;
 
   private activeGenerationId: number | null = null;
+  private asyncLifecycleListeners = new Set<
+    (event: LlmAsyncLifecycleEvent) => void
+  >();
 
   constructor(params: LlmPipeParams) {
     this.llmNative = params.nativeModule;
@@ -46,21 +57,21 @@ export class LlmPipe implements LlmEngine {
   }
 
   async generate(params: LlmRequestParams): Promise<string> {
-    const nativeParams = toNativeRequestParams(params);
-    return await this.llmNative.generate(nativeParams);
+    const operationId = this.claimNativeOperation('sync');
+    try {
+      const nativeParams = toNativeRequestParams(params);
+      return await this.llmNative.generate(nativeParams);
+    } finally {
+      this.releaseNativeOperation(operationId);
+    }
   }
 
   async generateAsync(
     params: LlmRequestParams,
     callbacks?: LlmCallbacks
   ): Promise<void> {
-    if (activeNativeGenerations.has(this.llmNative)) {
-      throw new GenerationInProgressError();
-    }
-
-    const generationId = nextGenerationId++;
+    const generationId = this.claimNativeOperation('async');
     this.activeGenerationId = generationId;
-    activeNativeGenerations.set(this.llmNative, generationId);
 
     try {
       this.setupAsyncCallbacks(callbacks ?? {}, generationId);
@@ -73,18 +84,56 @@ export class LlmPipe implements LlmEngine {
   }
 
   close(): void {
-    this.cancelAsync();
-    this.llmNative.close();
-  }
-
-  cancelAsync(): void {
-    const generationId = this.activeGenerationId;
-    if (generationId === null) {
+    const activeOperation = activeNativeOperations.get(this.llmNative);
+    if (activeOperation && activeOperation.owner !== this) {
+      return;
+    }
+    if (activeOperation?.kind === 'sync') {
       return;
     }
 
-    this.releaseGeneration(generationId);
-    this.llmNative.cancelAsync();
+    closingNativeEngines.add(this.llmNative);
+    try {
+      if (activeOperation?.kind === 'async') {
+        try {
+          this.cancelAsync();
+        } catch (error) {
+          console.warn('Failed to cancel generation while closing:', error);
+        }
+      }
+      this.llmNative.close();
+      this.notifyAsyncLifecycle({ type: 'closed' });
+    } finally {
+      closingNativeEngines.delete(this.llmNative);
+    }
+  }
+
+  cancelAsync(): void {
+    const activeOperation = activeNativeOperations.get(this.llmNative);
+    if (
+      !activeOperation ||
+      activeOperation.owner !== this ||
+      activeOperation.kind !== 'async' ||
+      activeOperation.id !== this.activeGenerationId
+    ) {
+      return;
+    }
+
+    this.releaseNativeOperation(activeOperation.id);
+    try {
+      this.llmNative.cancelAsync();
+    } finally {
+      this.notifyAsyncLifecycle({ type: 'cancelled' });
+    }
+  }
+
+  subscribeAsyncLifecycle(
+    listener: (event: LlmAsyncLifecycleEvent) => void
+  ): () => void {
+    this.asyncLifecycleListeners.add(listener);
+    return () => {
+      this.asyncLifecycleListeners.delete(listener);
+    };
   }
 
   setupAsyncCallbacks(callbacks: LlmCallbacks, generationId?: number): void {
@@ -122,7 +171,7 @@ export class LlmPipe implements LlmEngine {
           return;
         }
 
-        this.releaseGeneration(scopedGenerationId);
+        this.releaseNativeOperation(scopedGenerationId);
         try {
           callbacks.onEvent?.({ type: 'final', text: result });
         } catch (error) {
@@ -144,7 +193,7 @@ export class LlmPipe implements LlmEngine {
           return;
         }
 
-        this.releaseGeneration(scopedGenerationId);
+        this.releaseNativeOperation(scopedGenerationId);
         const errorObj = new Error(error);
         try {
           callbacks.onEvent?.({ type: 'error', error: errorObj });
@@ -161,10 +210,30 @@ export class LlmPipe implements LlmEngine {
     this.subscriptions.push(errorSubscription);
   }
 
+  private claimNativeOperation(kind: NativeOperation['kind']): number {
+    if (
+      closingNativeEngines.has(this.llmNative) ||
+      activeNativeOperations.has(this.llmNative)
+    ) {
+      throw new GenerationInProgressError();
+    }
+
+    const operationId = nextOperationId++;
+    activeNativeOperations.set(this.llmNative, {
+      id: operationId,
+      kind,
+      owner: this,
+    });
+    return operationId;
+  }
+
   private isActiveGeneration(generationId: number): boolean {
+    const activeOperation = activeNativeOperations.get(this.llmNative);
     return (
       this.activeGenerationId === generationId &&
-      activeNativeGenerations.get(this.llmNative) === generationId
+      activeOperation?.id === generationId &&
+      activeOperation.kind === 'async' &&
+      activeOperation.owner === this
     );
   }
 
@@ -173,17 +242,37 @@ export class LlmPipe implements LlmEngine {
       return;
     }
 
-    this.releaseGeneration(generationId);
+    this.releaseNativeOperation(generationId);
   }
 
-  private releaseGeneration(generationId: number): void {
-    if (this.activeGenerationId === generationId) {
-      this.activeGenerationId = null;
+  private releaseNativeOperation(operationId: number): boolean {
+    const activeOperation = activeNativeOperations.get(this.llmNative);
+    if (
+      !activeOperation ||
+      activeOperation.id !== operationId ||
+      activeOperation.owner !== this
+    ) {
+      return false;
     }
-    if (activeNativeGenerations.get(this.llmNative) === generationId) {
-      activeNativeGenerations.delete(this.llmNative);
+
+    activeNativeOperations.delete(this.llmNative);
+    if (activeOperation.kind === 'async') {
+      if (this.activeGenerationId === operationId) {
+        this.activeGenerationId = null;
+      }
+      this.removeSubscriptions();
     }
-    this.removeSubscriptions();
+    return true;
+  }
+
+  private notifyAsyncLifecycle(event: LlmAsyncLifecycleEvent): void {
+    [...this.asyncLifecycleListeners].forEach((listener) => {
+      try {
+        listener(event);
+      } catch (error) {
+        console.warn('Failed to notify async lifecycle listener:', error);
+      }
+    });
   }
 
   private removeSubscriptions(): void {
