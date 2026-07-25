@@ -2,6 +2,8 @@ import {
   AmaryllisError,
   InitializationError,
   GenerationError,
+  GenerationInProgressError,
+  GENERATION_IN_PROGRESS_CODE,
   SessionError,
   ValidationError,
   ResourceError,
@@ -43,6 +45,13 @@ describe('Errors', () => {
       expect(error.name).toBe('GenerationError');
     });
 
+    it('should create GenerationInProgressError with correct code', () => {
+      const error = new GenerationInProgressError();
+      expect(error.code).toBe(GENERATION_IN_PROGRESS_CODE);
+      expect(error.name).toBe('GenerationInProgressError');
+      expect(error).toBeInstanceOf(AmaryllisError);
+    });
+
     it('should create SessionError with correct code', () => {
       const error = new SessionError('Session failed');
       expect(error.code).toBe('SESSION_ERROR');
@@ -71,6 +80,7 @@ describe('Errors', () => {
     it('should return true for subclass instances', () => {
       expect(isAmaryllisError(new InitializationError('test'))).toBe(true);
       expect(isAmaryllisError(new GenerationError('test'))).toBe(true);
+      expect(isAmaryllisError(new GenerationInProgressError())).toBe(true);
       expect(isAmaryllisError(new SessionError('test'))).toBe(true);
       expect(isAmaryllisError(new ValidationError('test'))).toBe(true);
       expect(isAmaryllisError(new ResourceError('test'))).toBe(true);
