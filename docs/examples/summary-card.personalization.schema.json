@@ -67,37 +67,6 @@
         }
       },
       "additionalProperties": false
-    },
-    "patches": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "op": {
-            "type": "string",
-            "enum": [
-              "add",
-              "remove",
-              "replace",
-              "move",
-              "copy",
-              "test"
-            ]
-          },
-          "path": {
-            "type": "string"
-          },
-          "from": {
-            "type": "string"
-          },
-          "value": {}
-        },
-        "required": [
-          "op",
-          "path"
-        ],
-        "additionalProperties": false
-      }
     }
   },
   "additionalProperties": false
