@@ -28,7 +28,9 @@ export class JSONSchemaGenerator {
               type: 'object',
               properties: ui.slots.reduce(
                 (acc, slot) => {
-                  acc[slot] = { type: 'string' };
+                  acc[slot] = props.properties[slot]
+                    ? this.mapProperty(props.properties[slot])
+                    : { type: 'string' };
                   return acc;
                 },
                 {} as Record<string, JsonSchemaValue>
@@ -85,6 +87,7 @@ export class JSONSchemaGenerator {
       ...(value.description && { description: value.description }),
       ...(value.enum && { enum: value.enum }),
       ...(value.default !== undefined && { default: value.default }),
+      ...(value.maxLength !== undefined && { maxLength: value.maxLength }),
       ...(value.items && { items: this.mapProperty(value.items) }),
       ...(value.properties && {
         properties: this.mapProperties(value.properties),
