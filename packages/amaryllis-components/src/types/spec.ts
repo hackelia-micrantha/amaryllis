@@ -27,6 +27,7 @@ export interface JsonSchemaValue {
   description?: string;
   enum?: unknown[];
   default?: unknown;
+  minLength?: number;
   maxLength?: number;
   items?: JsonSchemaValue;
   properties?: Record<string, JsonSchemaValue>;
