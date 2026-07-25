@@ -121,6 +121,8 @@ export class LlmPipe implements LlmEngine {
         if (!this.isActiveGeneration(scopedGenerationId)) {
           return;
         }
+
+        this.releaseGeneration(scopedGenerationId);
         try {
           callbacks.onEvent?.({ type: 'final', text: result });
         } catch (error) {
@@ -130,8 +132,6 @@ export class LlmPipe implements LlmEngine {
           callbacks.onFinalResult?.(result);
         } catch (error) {
           console.error('Error in onFinalResult callback:', error);
-        } finally {
-          this.finishAsyncGeneration(scopedGenerationId);
         }
       }
     );
@@ -143,6 +143,8 @@ export class LlmPipe implements LlmEngine {
         if (!this.isActiveGeneration(scopedGenerationId)) {
           return;
         }
+
+        this.releaseGeneration(scopedGenerationId);
         const errorObj = new Error(error);
         try {
           callbacks.onEvent?.({ type: 'error', error: errorObj });
@@ -153,8 +155,6 @@ export class LlmPipe implements LlmEngine {
           callbacks.onError?.(errorObj);
         } catch (callbackError) {
           console.error('Error in onError callback:', callbackError);
-        } finally {
-          this.finishAsyncGeneration(scopedGenerationId);
         }
       }
     );
