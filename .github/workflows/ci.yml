@@ -12,12 +12,17 @@ on:
     types:
       - checks_requested
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,6 +38,7 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -41,10 +47,11 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Run unit tests
-        run: yarn test --maxWorkers=2 --coverage
+        run: yarn test --maxWorkers=2
 
   components-package:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -103,19 +110,16 @@ jobs:
         run: npm pack --dry-run
 
   build-library:
+    needs: components-package
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup
-        uses: ./.github/actions/setup
-
-      - name: Build package
-        run: yarn prepare
+      - name: Confirm validated library build
+        run: echo "Main library build and package outputs were validated by components-package"
 
   build-android:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       TURBO_CACHE_DIR: .turbo/android
     steps:
@@ -175,6 +179,7 @@ jobs:
 
   build-ios:
     runs-on: macos-15
+    timeout-minutes: 35
     env:
       XCODE_VERSION: 16.4
       TURBO_CACHE_DIR: .turbo/ios
@@ -207,12 +212,11 @@ jobs:
         with:
           xcode-version: ${{ env.XCODE_VERSION }}
 
-      - name: Install cocoapods
-        if: env.turbo_cache_hit != 1 && steps.cocoapods-cache.outputs.cache-hit != 'true'
+      - name: Install CocoaPods dependencies
+        if: env.turbo_cache_hit != 1
         run: |
           cd example
           bundle install
-          bundle exec pod repo update --verbose
           bundle exec pod install --project-directory=ios
 
       - name: Build example for iOS

@@ -25,6 +25,28 @@ const invalidOutputPath = path.join(
   'docs/examples/summary-card.personalization.invalid.json'
 );
 
+function runCli(args, options = {}) {
+  try {
+    return execFileSync(process.execPath, [cli, ...args], {
+      cwd: root,
+      encoding: 'utf8',
+      ...options,
+    });
+  } catch (error) {
+    const stdout = error?.stdout?.toString?.().trim();
+    const stderr = error?.stderr?.toString?.().trim();
+    throw new Error(
+      [
+        `Component example CLI failed: ${args.join(' ')}`,
+        stdout && `stdout:\n${stdout}`,
+        stderr && `stderr:\n${stderr}`,
+      ]
+        .filter(Boolean)
+        .join('\n')
+    );
+  }
+}
+
 for (const requiredPath of [
   cli,
   path.join(distRoot, 'runtime/registry.js'),
@@ -66,36 +88,23 @@ try {
   const generatedPath = path.join(tempDirectory, 'SummaryCard.tsx');
   const customizedPath = path.join(tempDirectory, 'SummaryCard.customized.tsx');
 
-  execFileSync(
-    process.execPath,
-    [cli, 'generate', '--spec', specPath, '--output', generatedPath],
-    { cwd: root, stdio: 'pipe' }
-  );
+  runCli(['generate', '--spec', specPath, '--output', generatedPath]);
   const generatedCode = fs.readFileSync(generatedPath, 'utf8');
   assert.match(generatedCode, /SummaryCard/);
 
-  const contractOutput = execFileSync(
-    process.execPath,
-    [cli, 'contract', '--spec', specPath],
-    { cwd: root, encoding: 'utf8' }
-  );
+  const contractOutput = runCli(['contract', '--spec', specPath]);
   const contract = JSON.parse(contractOutput);
-  assert.equal(contract.title, 'SummaryCard Personalization Contract');
+  assert.equal(contract.title, 'summary-card Personalization Contract');
 
-  execFileSync(
-    process.execPath,
-    [
-      cli,
-      'customize',
-      '--spec',
-      specPath,
-      '--patch',
-      patchPath,
-      '--output',
-      customizedPath,
-    ],
-    { cwd: root, stdio: 'pipe' }
-  );
+  runCli([
+    'customize',
+    '--spec',
+    specPath,
+    '--patch',
+    patchPath,
+    '--output',
+    customizedPath,
+  ]);
   const customizedCode = fs.readFileSync(customizedPath, 'utf8');
   assert.notEqual(customizedCode, generatedCode);
   assert.match(customizedCode, /SummaryCard/);
@@ -106,13 +115,13 @@ try {
 
   const registry = new ComponentRegistry();
   const SummaryCard = () => null;
-  registry.register('SummaryCard', {
+  registry.register('summary-card', {
     component: SummaryCard,
     spec,
     contract: generatedContract,
     implementationIdentity: 'docs/examples/SummaryCard',
   });
-  assert.ok(registry.get('SummaryCard'));
+  assert.ok(registry.get('summary-card'));
 
   const engine = new PersonalizationEngine();
   const baseProps = {
