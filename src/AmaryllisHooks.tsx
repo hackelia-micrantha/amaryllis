@@ -254,6 +254,7 @@ export const useContextInferenceAsync = (props: ContextInferenceProps = {}) => {
   const activeRequestRef = useRef<number | null>(null);
   const nextRequestIdRef = useRef(1);
   const mountedRef = useRef(true);
+  const cancelBaseRef = useRef<(() => void) | undefined>(undefined);
 
   const handleBaseError = useCallback(
     (error: Error) => {
@@ -276,11 +277,12 @@ export const useContextInferenceAsync = (props: ContextInferenceProps = {}) => {
     onComplete: handleBaseComplete,
   });
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
       activeRequestRef.current = null;
+      cancelBaseRef.current?.();
     };
   }, []);
 
@@ -294,7 +296,6 @@ export const useContextInferenceAsync = (props: ContextInferenceProps = {}) => {
       const requestId = nextRequestIdRef.current++;
       activeRequestRef.current = requestId;
       let cancelled = false;
-      let cancelBase: (() => void) | undefined;
 
       const cancel = () => {
         if (cancelled) {
@@ -304,7 +305,8 @@ export const useContextInferenceAsync = (props: ContextInferenceProps = {}) => {
         if (activeRequestRef.current === requestId) {
           activeRequestRef.current = null;
         }
-        cancelBase?.();
+        cancelBaseRef.current?.();
+        cancelBaseRef.current = undefined;
       };
 
       try {
@@ -320,9 +322,10 @@ export const useContextInferenceAsync = (props: ContextInferenceProps = {}) => {
           return cancel;
         }
 
-        cancelBase = await generateBase(augmented);
+        cancelBaseRef.current = await generateBase(augmented);
         if (cancelled) {
-          cancelBase();
+          cancelBaseRef.current?.();
+          cancelBaseRef.current = undefined;
         }
         return cancel;
       } catch (err) {

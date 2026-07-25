@@ -258,4 +258,30 @@ describe('useContextInferenceAsync lifecycle', () => {
 
     expect(pipe.generateAsync).toHaveBeenCalledTimes(1);
   });
+
+  it('cancels base generation on unmount after augmentation resolves', async () => {
+    const contextEngine = createContextEngine({
+      search: jest.fn(async () => []),
+    });
+    const { pipe } = createPipe();
+    const { result, unmount } = renderHook(
+      () => useContextInferenceAsync({ contextEngine }),
+      { wrapper: createWrapper(pipe) }
+    );
+
+    let pendingGeneration: Promise<() => void> | undefined;
+    await act(async () => {
+      pendingGeneration = result.current({ prompt: 'first' });
+    });
+
+    expect(pipe.generateAsync).toHaveBeenCalledTimes(1);
+
+    unmount();
+
+    await act(async () => {
+      await pendingGeneration;
+    });
+
+    expect(pipe.cancelAsync).toHaveBeenCalled();
+  });
 });

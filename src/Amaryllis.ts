@@ -29,6 +29,7 @@ type NativeOperation = {
 
 const activeNativeOperations = new WeakMap<LlmNativeEngine, NativeOperation>();
 const closingNativeEngines = new WeakSet<LlmNativeEngine>();
+const nativeModuleOwners = new WeakMap<LlmNativeEngine, LlmPipe>();
 let nextOperationId = 1;
 
 export class LlmPipe implements LlmEngine {
@@ -65,7 +66,11 @@ export class LlmPipe implements LlmEngine {
     } finally {
       this.releaseNativeOperation(operationId);
       if (this.closeRequested) {
-        this.close();
+        try {
+          this.close();
+        } catch (closeError) {
+          console.warn('Deferred close failed:', closeError);
+        }
       }
     }
   }
@@ -92,6 +97,12 @@ export class LlmPipe implements LlmEngine {
     if (activeOperation && activeOperation.owner !== this) {
       return;
     }
+
+    const owner = nativeModuleOwners.get(this.llmNative);
+    if (owner && owner !== this) {
+      return;
+    }
+
     if (activeOperation?.kind === 'sync') {
       this.closeRequested = true;
       return;
@@ -111,6 +122,7 @@ export class LlmPipe implements LlmEngine {
     } finally {
       this.closeRequested = false;
       closingNativeEngines.delete(this.llmNative);
+      nativeModuleOwners.delete(this.llmNative);
     }
   }
 
@@ -210,6 +222,7 @@ export class LlmPipe implements LlmEngine {
     }
 
     const operationId = nextOperationId++;
+    nativeModuleOwners.set(this.llmNative, this);
     activeNativeOperations.set(this.llmNative, {
       id: operationId,
       kind,
@@ -229,13 +242,13 @@ export class LlmPipe implements LlmEngine {
       return;
     }
 
-    this.releaseNativeOperation(activeOperation.id);
     try {
       this.llmNative.cancelAsync();
     } finally {
       if (notifyLifecycle) {
         this.notifyAsyncLifecycle({ type: 'cancelled' });
       }
+      this.releaseNativeOperation(activeOperation.id);
     }
   }
 
@@ -273,6 +286,9 @@ export class LlmPipe implements LlmEngine {
         this.activeGenerationId = null;
       }
       this.removeSubscriptions();
+    }
+    if (!activeNativeOperations.has(this.llmNative)) {
+      nativeModuleOwners.delete(this.llmNative);
     }
     return true;
   }
