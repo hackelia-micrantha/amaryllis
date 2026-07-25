@@ -19,9 +19,7 @@ export type LlmCallbacks = {
   onError?: (err: Error) => void;
 };
 
-export type LlmAsyncLifecycleEvent =
-  | { type: 'cancelled' }
-  | { type: 'closed' };
+export type LlmAsyncLifecycleEvent = { type: 'cancelled' } | { type: 'closed' };
 
 // Core parameter object for configuration and request options
 export type LlmRequestParams = {
