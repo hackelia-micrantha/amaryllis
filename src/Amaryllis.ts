@@ -14,6 +14,7 @@ import {
   toNativeSessionParams,
   toNativeRequestParams,
 } from './TypeConverters';
+import { GenerationInProgressError } from './Errors';
 
 const EVENT_ON_PARTIAL_RESULT = 'onPartialResult';
 const EVENT_ON_FINAL_RESULT = 'onFinalResult';
@@ -21,17 +22,6 @@ const EVENT_ON_ERROR = 'onError';
 
 const activeNativeGenerations = new WeakMap<LlmNativeEngine, number>();
 let nextGenerationId = 1;
-
-export const GENERATION_IN_PROGRESS_CODE = 'GENERATION_IN_PROGRESS';
-
-export class GenerationInProgressError extends Error {
-  readonly code = GENERATION_IN_PROGRESS_CODE;
-
-  constructor(message = 'An asynchronous generation is already in progress') {
-    super(message);
-    this.name = 'GenerationInProgressError';
-  }
-}
 
 export class LlmPipe implements LlmEngine {
   subscriptions: LlmEventSubscription[] = [];
