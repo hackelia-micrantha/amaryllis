@@ -1,14 +1,32 @@
 import React from 'react';
 import { act, renderHook } from '@testing-library/react-native';
 import { LLMProvider } from '../AmaryllisContext';
-import { useInferenceAsync } from '../AmaryllisHooks';
+import {
+  useContextInferenceAsync,
+  useInferenceAsync,
+} from '../AmaryllisHooks';
 import { GenerationInProgressError } from '../Errors';
-import type { LlmCallbacks, LlmEngine, LlmEngineConfig } from '../Types';
+import type {
+  LlmAsyncLifecycleEvent,
+  LlmCallbacks,
+  LlmEngine,
+  LlmEngineConfig,
+} from '../Types';
+import type { ContextEngine } from '../ContextTypes';
 
 const config: LlmEngineConfig = { modelPath: 'model.task' };
 
 const createPipe = () => {
   const callbacks: LlmCallbacks[] = [];
+  const lifecycleListeners = new Set<
+    (event: LlmAsyncLifecycleEvent) => void
+  >();
+  const cancelAsync = jest.fn(() => {
+    lifecycleListeners.forEach((listener) => listener({ type: 'cancelled' }));
+  });
+  const close = jest.fn(() => {
+    lifecycleListeners.forEach((listener) => listener({ type: 'closed' }));
+  });
   const pipe: LlmEngine = {
     init: jest.fn(() => Promise.resolve()),
     newSession: jest.fn(() => Promise.resolve()),
@@ -16,8 +34,12 @@ const createPipe = () => {
     generateAsync: jest.fn(async (_params, nextCallbacks) => {
       callbacks.push(nextCallbacks ?? {});
     }),
-    close: jest.fn(),
-    cancelAsync: jest.fn(),
+    close,
+    cancelAsync,
+    subscribeAsyncLifecycle: (listener) => {
+      lifecycleListeners.add(listener);
+      return () => lifecycleListeners.delete(listener);
+    },
   };
 
   return { callbacks, pipe };
@@ -29,6 +51,26 @@ const createWrapper = (pipe: LlmEngine) => {
       {children}
     </LLMProvider>
   );
+};
+
+const createContextEngine = (
+  overrides: Partial<ContextEngine> = {}
+): ContextEngine => ({
+  add: jest.fn(),
+  search: jest.fn(async () => []),
+  setPolicy: jest.fn(),
+  compact: jest.fn(),
+  formatRequest: jest.fn(({ request }) => request),
+  deriveQuery: jest.fn((prompt: string) => ({ text: prompt, limit: 6 })),
+  ...overrides,
+});
+
+const createDeferred = <T,>() => {
+  let resolve: (value: T) => void = () => {};
+  const promise = new Promise<T>((nextResolve) => {
+    resolve = nextResolve;
+  });
+  return { promise, resolve };
 };
 
 describe('useInferenceAsync lifecycle', () => {
@@ -94,6 +136,29 @@ describe('useInferenceAsync lifecycle', () => {
     expect(pipe.cancelAsync).toHaveBeenCalledTimes(1);
   });
 
+  it('settles external controller cancellation and permits another request', async () => {
+    const { pipe } = createPipe();
+    const onComplete = jest.fn();
+    const { result } = renderHook(
+      () => useInferenceAsync({ onComplete }),
+      { wrapper: createWrapper(pipe) }
+    );
+
+    await act(async () => {
+      await result.current({ prompt: 'first' });
+    });
+
+    act(() => {
+      pipe.cancelAsync();
+    });
+
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await result.current({ prompt: 'second' });
+    });
+    expect(pipe.generateAsync).toHaveBeenCalledTimes(2);
+  });
+
   it('settles exactly once when generation startup fails', async () => {
     const error = new Error('startup failed');
     const { pipe } = createPipe();
@@ -136,5 +201,66 @@ describe('useInferenceAsync lifecycle', () => {
 
     expect(pipe.cancelAsync).toHaveBeenCalledTimes(1);
     expect(onComplete).not.toHaveBeenCalled();
+  });
+});
+
+describe('useContextInferenceAsync lifecycle', () => {
+  it('does not start inference when unmounted during context retrieval', async () => {
+    const deferredSearch = createDeferred<never[]>();
+    const contextEngine = createContextEngine({
+      search: jest.fn(() => deferredSearch.promise),
+    });
+    const { pipe } = createPipe();
+    const { result, unmount } = renderHook(
+      () => useContextInferenceAsync({ contextEngine }),
+      { wrapper: createWrapper(pipe) }
+    );
+
+    let pendingGeneration: Promise<() => void> | undefined;
+    act(() => {
+      pendingGeneration = result.current({ prompt: 'first' });
+    });
+    unmount();
+
+    await act(async () => {
+      deferredSearch.resolve([]);
+      await pendingGeneration;
+    });
+
+    expect(pipe.generateAsync).not.toHaveBeenCalled();
+  });
+
+  it('rejects concurrent context retrieval before results can reorder', async () => {
+    const deferredSearch = createDeferred<never[]>();
+    const contextEngine = createContextEngine({
+      search: jest.fn(() => deferredSearch.promise),
+    });
+    const { callbacks, pipe } = createPipe();
+    const onError = jest.fn();
+    const { result } = renderHook(
+      () => useContextInferenceAsync({ contextEngine, onError }),
+      { wrapper: createWrapper(pipe) }
+    );
+
+    let firstGeneration: Promise<() => void> | undefined;
+    act(() => {
+      firstGeneration = result.current({ prompt: 'first' });
+    });
+
+    await act(async () => {
+      await result.current({ prompt: 'second' });
+    });
+
+    expect(onError).toHaveBeenCalledWith(expect.any(GenerationInProgressError));
+    expect(contextEngine.search).toHaveBeenCalledTimes(1);
+    expect(pipe.generateAsync).not.toHaveBeenCalled();
+
+    await act(async () => {
+      deferredSearch.resolve([]);
+      await firstGeneration;
+      callbacks[0]?.onEvent?.({ type: 'final', text: 'done' });
+    });
+
+    expect(pipe.generateAsync).toHaveBeenCalledTimes(1);
   });
 });
