@@ -101,7 +101,7 @@ export class LlmPipe implements LlmEngine {
     try {
       if (activeOperation?.kind === 'async') {
         try {
-          this.cancelAsync();
+          this.cancelOwnedAsync(false);
         } catch (error) {
           console.warn('Failed to cancel generation while closing:', error);
         }
@@ -115,22 +115,7 @@ export class LlmPipe implements LlmEngine {
   }
 
   cancelAsync(): void {
-    const activeOperation = activeNativeOperations.get(this.llmNative);
-    if (
-      !activeOperation ||
-      activeOperation.owner !== this ||
-      activeOperation.kind !== 'async' ||
-      activeOperation.id !== this.activeGenerationId
-    ) {
-      return;
-    }
-
-    this.releaseNativeOperation(activeOperation.id);
-    try {
-      this.llmNative.cancelAsync();
-    } finally {
-      this.notifyAsyncLifecycle({ type: 'cancelled' });
-    }
+    this.cancelOwnedAsync(true);
   }
 
   subscribeAsyncLifecycle(
@@ -231,6 +216,27 @@ export class LlmPipe implements LlmEngine {
       owner: this,
     });
     return operationId;
+  }
+
+  private cancelOwnedAsync(notifyLifecycle: boolean): void {
+    const activeOperation = activeNativeOperations.get(this.llmNative);
+    if (
+      !activeOperation ||
+      activeOperation.owner !== this ||
+      activeOperation.kind !== 'async' ||
+      activeOperation.id !== this.activeGenerationId
+    ) {
+      return;
+    }
+
+    this.releaseNativeOperation(activeOperation.id);
+    try {
+      this.llmNative.cancelAsync();
+    } finally {
+      if (notifyLifecycle) {
+        this.notifyAsyncLifecycle({ type: 'cancelled' });
+      }
+    }
   }
 
   private isActiveGeneration(generationId: number): boolean {
