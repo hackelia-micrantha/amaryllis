@@ -1,0 +1,7 @@
+[
+  {
+    "op": "replace",
+    "path": "/ui/layout",
+    "value": "<View><Text>{summary}</Text>{children}</View>"
+  }
+]

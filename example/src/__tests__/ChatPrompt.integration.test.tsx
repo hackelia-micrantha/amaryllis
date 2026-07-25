@@ -1,7 +1,7 @@
 import React from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
-import { LLMProvider } from 'react-native-amaryllis';
-import { ContextEngineProvider } from 'react-native-amaryllis/context';
+import { LLMProvider } from '@micrantha/react-native-amaryllis';
+import { ContextEngineProvider } from '@micrantha/react-native-amaryllis/context';
 import type { LlmEngine } from '../../../src/Types';
 import type { ContextEngine } from '../../../src/ContextTypes';
 import { PromptProvider } from '../PromptContext';
@@ -12,25 +12,30 @@ const mockUseContextInferenceAsync = jest.fn();
 
 jest.mock('react-native/Libraries/Components/TextInput/TextInput', () => {
   const ReactModule = require('react');
-  return ReactModule.forwardRef(
-    (
-      props: Record<string, unknown>,
-      ref: React.ForwardedRef<{ setSelection: jest.Mock }>
-    ) => {
-      ReactModule.useImperativeHandle(ref, () => ({
-        setSelection: jest.fn(),
-      }));
-      return ReactModule.createElement('TextInput', props);
-    }
-  );
+  return {
+    __esModule: true,
+    default: ReactModule.forwardRef(
+      (
+        props: Record<string, unknown>,
+        ref: React.ForwardedRef<{ setSelection: jest.Mock }>
+      ) => {
+        ReactModule.useImperativeHandle(ref, () => ({
+          setSelection: jest.fn(),
+        }));
+        return ReactModule.createElement('TextInput', props);
+      }
+    ),
+  };
 });
 
 jest.mock('react-native-image-picker', () => ({
   launchImageLibrary: (...args: unknown[]) => mockLaunchImageLibrary(...args),
 }));
 
-jest.mock('react-native-amaryllis/context', () => {
-  const actual = jest.requireActual('react-native-amaryllis/context');
+jest.mock('@micrantha/react-native-amaryllis/context', () => {
+  const actual = jest.requireActual(
+    '@micrantha/react-native-amaryllis/context'
+  );
   return {
     ...actual,
     useContextInferenceAsync: (...args: unknown[]) =>
@@ -129,7 +134,7 @@ describe('ChatPrompt integration', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/draft.*done/)).toBeTruthy();
+      expect(screen.getByText('done')).toBeTruthy();
     });
 
     expect(mockUseContextInferenceAsync).toHaveBeenCalled();
@@ -189,5 +194,59 @@ describe('ChatPrompt integration', () => {
     await waitFor(() => {
       expect(screen.queryByText('2 images selected')).toBeNull();
     });
+  });
+
+  it('should cancel an in-flight response from the send button', async () => {
+    const pipe = createPipe();
+    mockUseContextInferenceAsync.mockImplementation(
+      (props: { onGenerate?: () => void }) => async () => {
+        props.onGenerate?.();
+      }
+    );
+
+    const screen = renderChatPrompt(pipe);
+    await waitFor(() => {
+      expect(pipe.init).toHaveBeenCalledWith({
+        modelPath: '/models/amaryllis.task',
+      });
+    });
+
+    fireEvent.changeText(
+      screen.getByPlaceholderText('Enter prompt...'),
+      'cancel me'
+    );
+
+    await act(async () => {
+      getPressables(screen)[0].props.onPress();
+    });
+
+    expect(screen.getByText('■')).toBeTruthy();
+
+    await act(async () => {
+      getPressables(screen)[0].props.onPress();
+    });
+
+    expect(pipe.cancelAsync).toHaveBeenCalled();
+    expect(screen.getByText('➤')).toBeTruthy();
+  });
+
+  it('should not generate when prompt is blank', async () => {
+    const engine = createContextEngineMock();
+    const pipe = createPipe();
+    const screen = renderChatPrompt(pipe, engine);
+    await waitFor(() => {
+      expect(pipe.init).toHaveBeenCalledWith({
+        modelPath: '/models/amaryllis.task',
+      });
+    });
+
+    fireEvent.changeText(screen.getByPlaceholderText('Enter prompt...'), '   ');
+
+    await act(async () => {
+      getPressables(screen)[0].props.onPress();
+    });
+
+    expect(mockUseContextInferenceAsync).toHaveBeenCalled();
+    expect(engine.add).not.toHaveBeenCalled();
   });
 });

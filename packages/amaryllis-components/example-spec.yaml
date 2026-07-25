@@ -1,0 +1,68 @@
+apiVersion: amaryllis/v1alpha1
+kind: ComponentSpec
+
+metadata:
+  name: summary-card
+  version: 1.0.0
+  owner: amaryllis-team
+  stability: experimental
+
+target:
+  framework: react
+  runtime: rn
+  ssr: false
+
+props:
+  type: object
+  properties:
+    title:
+      type: string
+    description:
+      type: string
+    showImage:
+      type: boolean
+  required:
+    - title
+
+ui:
+  layout: |
+    <View style={{ padding: 16, backgroundColor: 'white', borderRadius: 8 }}>
+      <Text style={{ fontSize: 18, fontWeight: 'bold' }}>{title}</Text>
+      <Text style={{ marginTop: 8 }}>{description}</Text>
+      {content}
+    </View>
+  slots:
+    - content
+  variants:
+    compact:
+      layout: |
+        <View style={{ padding: 8, backgroundColor: '#f0f0f0', borderRadius: 4 }}>
+          <Text style={{ fontSize: 14, fontWeight: 'bold' }}>{title}</Text>
+          {content}
+        </View>
+
+
+ai:
+  mode: scaffold
+  execution: build
+  allowedOperations:
+    - setSlotText
+  forbiddenOperations:
+    - addImport
+  generationContract:
+    output: tsx
+    styleSystem: tailwind
+
+policy:
+  imports:
+    allow:
+      - react
+      - react-native
+    deny:
+      - fs
+      - child_process
+  runtime:
+    networkAccess: none
+    domAccess: none
+  review:
+    requireHumanApproval: true

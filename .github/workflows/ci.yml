@@ -12,12 +12,17 @@ on:
     types:
       - checks_requested
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,14 +30,15 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
-      - name: Lint files
-        run: yarn lint
+      - name: Lint root package
+        run: yarn lint --ignore-pattern 'packages/amaryllis-components/**'
 
       - name: Typecheck files
         run: yarn typecheck
 
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -41,10 +47,11 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Run unit tests
-        run: yarn test --maxWorkers=2 --coverage
+        run: yarn test --maxWorkers=2
 
-  build-library:
+  components-package:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -52,11 +59,67 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
-      - name: Build package
+      - name: Test components package
+        run: |
+          set -o pipefail
+          yarn workspace @micrantha/amaryllis-components test --runInBand 2>&1 | tee components-test.log
+
+      - name: Upload components test log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: components-test-log
+          path: components-test.log
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Lint components package
+        run: |
+          set -o pipefail
+          yarn eslint "packages/amaryllis-components/src/**/*.{ts,tsx}" 2>&1 | tee components-lint.log
+
+      - name: Upload components lint log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: components-lint-log
+          path: components-lint.log
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Typecheck components package
+        run: yarn workspace @micrantha/amaryllis-components typecheck
+
+      - name: Build components package
+        run: yarn workspace @micrantha/amaryllis-components build
+
+      - name: Verify AI component examples
+        run: yarn workspace @micrantha/amaryllis-components verify:examples
+
+      - name: Build main package for package validation
         run: yarn prepare
+
+      - name: Validate package metadata and outputs
+        run: node scripts/validate-packages.mjs
+
+      - name: Dry-run components package archive
+        run: npm pack --dry-run
+        working-directory: packages/amaryllis-components
+
+      - name: Dry-run main package archive
+        run: npm pack --dry-run
+
+  build-library:
+    needs: components-package
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Confirm validated library build
+        run: echo "Main library build and package outputs were validated by components-package"
 
   build-android:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       TURBO_CACHE_DIR: .turbo/android
     steps:
@@ -76,7 +139,7 @@ jobs:
 
       - name: Check turborepo cache for Android
         run: |
-          TURBO_CACHE_STATUS=$(node -p "($(yarn turbo run build:android --cache-dir="${{ env.TURBO_CACHE_DIR }}" --dry=json)).tasks.find(t => t.task === 'build:android').cache.status")
+          TURBO_CACHE_STATUS=$(node -p "($(yarn turbo run build:android --cache-dir=\"${{ env.TURBO_CACHE_DIR }}\" --dry=json)).tasks.find(t => t.task === 'build:android').cache.status")
 
           if [[ $TURBO_CACHE_STATUS == "HIT" ]]; then
             echo "turbo_cache_hit=1" >> $GITHUB_ENV
@@ -116,6 +179,7 @@ jobs:
 
   build-ios:
     runs-on: macos-15
+    timeout-minutes: 35
     env:
       XCODE_VERSION: 16.4
       TURBO_CACHE_DIR: .turbo/ios
@@ -136,7 +200,7 @@ jobs:
 
       - name: Check turborepo cache for iOS
         run: |
-          TURBO_CACHE_STATUS=$(node -p "($(yarn turbo run build:ios --cache-dir="${{ env.TURBO_CACHE_DIR }}" --dry=json)).tasks.find(t => t.task === 'build:ios').cache.status")
+          TURBO_CACHE_STATUS=$(node -p "($(yarn turbo run build:ios --cache-dir=\"${{ env.TURBO_CACHE_DIR }}\" --dry=json)).tasks.find(t => t.task === 'build:ios').cache.status")
 
           if [[ $TURBO_CACHE_STATUS == "HIT" ]]; then
             echo "turbo_cache_hit=1" >> $GITHUB_ENV
@@ -148,12 +212,11 @@ jobs:
         with:
           xcode-version: ${{ env.XCODE_VERSION }}
 
-      - name: Install cocoapods
-        if: env.turbo_cache_hit != 1 && steps.cocoapods-cache.outputs.cache-hit != 'true'
+      - name: Install CocoaPods dependencies
+        if: env.turbo_cache_hit != 1
         run: |
           cd example
           bundle install
-          bundle exec pod repo update --verbose
           bundle exec pod install --project-directory=ios
 
       - name: Build example for iOS

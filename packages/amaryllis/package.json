@@ -1,0 +1,42 @@
+{
+  "name": "@micrantha/amaryllis",
+  "version": "0.1.0",
+  "description": "Shared Amaryllis core primitives",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./context": {
+      "source": "./src/context.ts",
+      "types": "./dist/context.d.ts",
+      "default": "./dist/context.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "dist",
+    "!src/__tests__"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepare": "yarn build"
+  },
+  "keywords": [
+    "amaryllis",
+    "context",
+    "ai"
+  ],
+  "author": "Ryan Jennings",
+  "license": "MIT",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

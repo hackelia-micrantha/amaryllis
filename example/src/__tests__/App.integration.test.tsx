@@ -7,25 +7,44 @@ const mockUseContextInferenceAsync = jest.fn();
 
 jest.mock('react-native/Libraries/Components/TextInput/TextInput', () => {
   const ReactModule = require('react');
-  return ReactModule.forwardRef(
-    (
-      props: Record<string, unknown>,
-      ref: React.ForwardedRef<{ setSelection: jest.Mock }>
-    ) => {
-      ReactModule.useImperativeHandle(ref, () => ({
-        setSelection: jest.fn(),
-      }));
-      return ReactModule.createElement('TextInput', props);
-    }
-  );
+  return {
+    __esModule: true,
+    default: ReactModule.forwardRef(
+      (
+        props: Record<string, unknown>,
+        ref: React.ForwardedRef<{ setSelection: jest.Mock }>
+      ) => {
+        ReactModule.useImperativeHandle(ref, () => ({
+          setSelection: jest.fn(),
+        }));
+        return ReactModule.createElement('TextInput', props);
+      }
+    ),
+  };
 });
 
 jest.mock('@kesha-antonov/react-native-background-downloader', () => ({
   __esModule: true,
   default: {
+    completeHandler: jest.fn(),
     directories: {
       documents: '/documents',
     },
+    download: jest.fn(() => {
+      const task = {
+        done(callback: () => void) {
+          callback();
+          return task;
+        },
+        error() {
+          return task;
+        },
+        progress() {
+          return task;
+        },
+      };
+      return task;
+    }),
   },
 }));
 
@@ -33,8 +52,30 @@ jest.mock('react-native-image-picker', () => ({
   launchImageLibrary: (...args: unknown[]) => mockLaunchImageLibrary(...args),
 }));
 
-jest.mock('react-native-amaryllis/context', () => {
-  const actual = jest.requireActual('react-native-amaryllis/context');
+jest.mock('react-native-progress', () => ({
+  Bar: () => null,
+}));
+
+jest.mock('../ImportModels', () => ({
+  __esModule: true,
+  default: () => null,
+}));
+
+jest.mock('../ModelContext', () => ({
+  ModelProvider: ({ children }: { children: React.ReactNode }) => children,
+  useModelContext: () => ({
+    paths: {
+      llmModelPath: '/documents/amaryllis.model',
+      imageEmbedderModelPath: '/documents/amaryllis.vision',
+    },
+    setPaths: jest.fn(),
+  }),
+}));
+
+jest.mock('@micrantha/react-native-amaryllis/context', () => {
+  const actual = jest.requireActual(
+    '@micrantha/react-native-amaryllis/context'
+  );
   return {
     ...actual,
     useContextInferenceAsync: (...args: unknown[]) =>
@@ -63,7 +104,7 @@ const pressNearestHandler = (node: {
   throw new Error('No press handler found for node');
 };
 
-describe('App e2e flow', () => {
+describe('App integration flow', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseContextInferenceAsync.mockImplementation(
@@ -98,9 +139,9 @@ describe('App e2e flow', () => {
 
     await waitFor(() => {
       expect(nativePipeModule.newLlmPipe).toHaveBeenCalledTimes(1);
-      expect(nativePipeModule.mockLlmPipe.newSession).toHaveBeenCalledWith({
-        enableVisionModality: true,
-      });
+      expect(nativePipeModule.mockLlmPipe.newSession).toHaveBeenCalledWith(
+        undefined
+      );
     });
 
     fireEvent.changeText(
@@ -116,7 +157,7 @@ describe('App e2e flow', () => {
 
     await waitFor(() => {
       expect(mockUseContextInferenceAsync).toHaveBeenCalled();
-      expect(screen.getByText(/mock-partial.*mock-output/)).toBeTruthy();
+      expect(screen.getByText('mock-output')).toBeTruthy();
     });
 
     await act(async () => {
@@ -129,5 +170,35 @@ describe('App e2e flow', () => {
       );
       expect(screen.queryByText('mock-output')).toBeNull();
     });
+  });
+
+  it('should show personalized demo content for the selected persona', async () => {
+    const screen = render(<App />);
+
+    fireEvent.press(screen.getByText('Personas'));
+
+    expect(screen.getByText('Personalized Amaryllis')).toBeTruthy();
+    expect(screen.getByText('Developer')).toBeTruthy();
+    expect(
+      screen.getByText('Build adaptive UI without losing structure')
+    ).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Security reviewer'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Personalization that still respects governance')
+      ).toBeTruthy();
+    });
+  });
+
+  it('should expose current model paths from settings', () => {
+    const screen = render(<App />);
+
+    fireEvent.press(screen.getByText('Settings'));
+
+    expect(screen.getByText('Model settings')).toBeTruthy();
+    expect(screen.getByText('/documents/amaryllis.model')).toBeTruthy();
+    expect(screen.getByText('/documents/amaryllis.vision')).toBeTruthy();
   });
 });

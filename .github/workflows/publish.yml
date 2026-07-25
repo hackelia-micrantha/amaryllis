@@ -1,4 +1,4 @@
-name: Publish Package
+name: Publish Packages
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 
 permissions:
   actions: read
-  contents: read
+  contents: write
   id-token: write
 
 jobs:
@@ -100,30 +100,50 @@ jobs:
           npm install -g npm@11.5.1
           npm --version
 
-      - name: Run tests
+      - name: Run main library tests
         run: npm test
 
-      - name: Lint files
+      - name: Lint main library
         run: npm run lint
 
-      - name: Typecheck files
+      - name: Typecheck main library
         run: npm run typecheck
 
-      - name: Build package
+      - name: Build main library
         run: yarn prepare
 
-      - name: Validate package
-        run: |
-          echo "📦 Package validation before publishing"
-          node -e "console.log('✓ Package name:', JSON.parse(require('fs').readFileSync('./package.json', 'utf8')).name)"
-          node -e "console.log('✓ Version:', JSON.parse(require('fs').readFileSync('./package.json', 'utf8')).version)"
-          echo "✓ Built files:"
-          ls -la lib/
-          echo "✓ Package validation complete"
+      - name: Run components library tests
+        run: npm test -- --runInBand
+        working-directory: packages/amaryllis-components
+
+      - name: Lint components library
+        run: npm run lint
+        working-directory: packages/amaryllis-components
+
+      - name: Typecheck components library
+        run: npm run typecheck
+        working-directory: packages/amaryllis-components
+
+      - name: Build components library
+        run: npm run build
+        working-directory: packages/amaryllis-components
+
+      - name: Validate package metadata and outputs
+        run: node scripts/validate-packages.mjs
+
+      - name: Prepare GitHub release assets directory
+        run: mkdir -p release-artifacts
+
+      - name: Pack main library GitHub release asset
+        run: npm pack --json --pack-destination "$GITHUB_WORKSPACE/release-artifacts"
+
+      - name: Pack components library GitHub release asset
+        run: npm pack --json --pack-destination "$GITHUB_WORKSPACE/release-artifacts"
+        working-directory: packages/amaryllis-components
 
       - name: Check authentication context
         run: |
-          echo "🔐 Checking authentication context"
+          echo "Checking authentication context"
           npm config get registry
           echo "OIDC does not expose an npm token to npm config"
           env | grep -E "(NPM_|GITHUB_|NODE_AUTH_TOKEN)" || echo "No relevant environment variables found"
@@ -143,7 +163,26 @@ jobs:
           NODE_AUTH_TOKEN: ""
           NPM_TOKEN: ""
         run: |
-          echo "🚀 Publishing with OIDC trusted publisher"
+          echo "Publishing main library with OIDC trusted publisher"
           echo "Node.js version: $(node --version)"
           echo "npm version: $(npm --version)"
           npm publish --provenance --access public
+
+      - name: Publish components library to npm (OIDC)
+        env:
+          NODE_AUTH_TOKEN: ""
+          NPM_TOKEN: ""
+        run: npm publish --provenance --access public
+        working-directory: packages/amaryllis-components
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            gh release upload "$TAG_NAME" release-artifacts/*.tgz --clobber
+            gh release edit "$TAG_NAME" --draft=false --title "$TAG_NAME"
+          else
+            gh release create "$TAG_NAME" release-artifacts/*.tgz --title "$TAG_NAME" --generate-notes --verify-tag
+          fi

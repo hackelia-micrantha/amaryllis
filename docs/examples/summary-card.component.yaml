@@ -1,0 +1,91 @@
+apiVersion: amaryllis/v1alpha1
+kind: ComponentSpec
+
+metadata:
+  name: summary-card
+  version: 0.1.0
+  owner: micrantha
+  stability: experimental
+
+target:
+  framework: react
+  runtime: rn
+  ssr: false
+
+props:
+  type: object
+  properties:
+    title:
+      type: string
+    summary:
+      type: string
+    variant:
+      type: string
+      enum:
+        - compact
+        - expanded
+  required:
+    - title
+
+ui:
+  layout: '<View>{summary}</View>'
+  slots:
+    - summary
+  variants:
+    compact:
+      layout: '<View><Text>{summary}</Text></View>'
+    expanded:
+      layout: '<View><Text>{summary}</Text>{children}</View>'
+  designTokens:
+    spacing:
+      - spacingSm
+      - spacingMd
+    typography:
+      - bodySm
+      - bodyMd
+    colorRoles:
+      - surfacePrimary
+      - textPrimary
+  accessibility:
+    rules:
+      - summary slot must expose accessibility label
+
+behavior:
+  events:
+    - onPress
+  constraints:
+    - summary length must remain below 240 chars
+
+ai:
+  mode: personalize
+  execution: device
+  allowedOperations:
+    - setSlotText
+    - chooseVariant
+  forbiddenOperations:
+    - executeCode
+    - addImport
+    - rawMarkup
+  generationContract:
+    output: props-json
+    schemaRef: ./summary-card.personalization.schema.json
+    constraints:
+      - variant must be compact or expanded
+      - summary must be plain text
+  validators:
+    - accessibility
+    - token-validation
+
+policy:
+  imports:
+    allow:
+      - react
+      - react-native
+    deny:
+      - fs
+      - child_process
+  runtime:
+    networkAccess: none
+    domAccess: none
+  review:
+    requireHumanApproval: true

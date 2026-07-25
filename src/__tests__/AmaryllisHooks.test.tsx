@@ -46,10 +46,12 @@ describe('useInferenceAsync', () => {
     });
 
     expect(mockPipe.generateAsync).toHaveBeenCalledWith(
-      params,
+      {
+        prompt: 'test',
+      },
       expect.any(Object)
     );
-    expect(results).toEqual(['partial', 'final']);
+    expect(results).toEqual(['partial', 'partialfinal']);
     expect(isBusy).toBe(false);
   });
 
@@ -113,7 +115,9 @@ describe('useInference', () => {
       await result.current?.(params);
     });
 
-    expect(mockPipe.generate).toHaveBeenCalledWith(params);
+    expect(mockPipe.generate).toHaveBeenCalledWith({
+      prompt: 'test',
+    });
     expect(results).toEqual(['test response']);
   });
 
@@ -283,8 +287,51 @@ describe('context-aware hooks', () => {
 
     expect(engine.search).toHaveBeenCalledWith(query);
     expect(mockPipe.generateAsync).toHaveBeenCalledWith(
-      { prompt: 'ctx:hello' },
+      {
+        prompt: 'ctx:hello',
+      },
       expect.any(Object)
     );
+  });
+
+  it('should use configured protocol for request and response shaping', async () => {
+    let results: string[] = [];
+    const protocol = {
+      formatRequest: jest.fn((params: LlmRequestParams) => ({
+        ...params,
+        prompt: `wrapped:${params.prompt}`,
+      })),
+      sanitizeOutput: jest.fn((text: string) => text.replace('raw:', '')),
+    };
+
+    const { result } = renderHook(
+      () =>
+        useInference({
+          onResult: (res) => {
+            results.push(res);
+          },
+        }),
+      {
+        wrapper: ({ children }: { children: React.ReactNode }) => (
+          <LLMProvider
+            config={{ ...config, protocol }}
+            llmPipe={{
+              ...mockPipe,
+              generate: jest.fn(() => Promise.resolve('raw:done')),
+            }}
+          >
+            {children}
+          </LLMProvider>
+        ),
+      }
+    );
+
+    await act(async () => {
+      await result.current?.({ prompt: 'hello' });
+    });
+
+    expect(protocol.formatRequest).toHaveBeenCalledWith({ prompt: 'hello' });
+    expect(protocol.sanitizeOutput).toHaveBeenCalledWith('raw:done');
+    expect(results).toEqual(['done']);
   });
 });

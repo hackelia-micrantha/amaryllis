@@ -9,15 +9,15 @@ describe('Security Tests', () => {
   });
 
   describe('Input validation security', () => {
-    it('should handle extremely long prompts', async () => {
+    it('should reject extremely long prompts before native dispatch', async () => {
       const { result, unmount } = renderHook(() => useInference());
-      const longPrompt = 'x'.repeat(100000); // 100KB prompt
+      const longPrompt = 'x'.repeat(100001);
 
       await act(async () => {
         await result.current?.({ prompt: longPrompt });
       });
 
-      expect(mockPipe.generate).toHaveBeenCalledWith({ prompt: longPrompt });
+      expect(mockPipe.generate).not.toHaveBeenCalled();
       unmount();
     });
 
@@ -47,18 +47,15 @@ describe('Security Tests', () => {
       unmount();
     });
 
-    it('should handle large image arrays', async () => {
+    it('should reject large image arrays before native dispatch', async () => {
       const { result, unmount } = renderHook(() => useInference());
-      const images = Array(100).fill('data:image/png;base64,test'); // Smaller array
+      const images = Array(3).fill('file:///tmp/test.png');
 
       await act(async () => {
         await result.current?.({ prompt: 'test', images });
       });
 
-      expect(mockPipe.generate).toHaveBeenCalledWith({
-        prompt: 'test',
-        images,
-      });
+      expect(mockPipe.generate).not.toHaveBeenCalled();
       unmount();
     });
   });

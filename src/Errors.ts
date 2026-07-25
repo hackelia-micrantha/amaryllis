@@ -1,12 +1,6 @@
-export class AmaryllisError extends Error {
-  constructor(
-    message: string,
-    public readonly code: string
-  ) {
-    super(message);
-    this.name = 'AmaryllisError';
-  }
-}
+import { AmaryllisError, ValidationError } from '@micrantha/amaryllis';
+
+export { AmaryllisError, ValidationError };
 
 export class InitializationError extends AmaryllisError {
   constructor(message: string) {
@@ -26,13 +20,6 @@ export class SessionError extends AmaryllisError {
   constructor(message: string) {
     super(message, 'SESSION_ERROR');
     this.name = 'SessionError';
-  }
-}
-
-export class ValidationError extends AmaryllisError {
-  constructor(message: string) {
-    super(message, 'VALIDATION_ERROR');
-    this.name = 'ValidationError';
   }
 }
 

@@ -2,8 +2,10 @@
   "compilerOptions": {
     "rootDir": ".",
     "paths": {
-      "react-native-amaryllis": ["./src/index"],
-      "react-native-amaryllis/context": ["./src/context"]
+      "@micrantha/react-native-amaryllis": ["./src/index"],
+      "@micrantha/react-native-amaryllis/context": ["./src/context"],
+      "@micrantha/amaryllis": ["./packages/amaryllis/src/index"],
+      "@micrantha/amaryllis/context": ["./packages/amaryllis/src/context"]
     },
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,

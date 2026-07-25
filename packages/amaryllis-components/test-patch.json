@@ -1,0 +1,4 @@
+[
+  { "op": "replace", "path": "/metadata/stability", "value": "stable" },
+  { "op": "add", "path": "/props/properties/footerText", "value": { "type": "string" } }
+]

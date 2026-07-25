@@ -1,16 +1,22 @@
-import { useMemo } from 'react';
-import { LLMProvider } from 'react-native-amaryllis';
+import { useMemo, useState } from 'react';
+import { LLMProvider, gemmaProtocol } from '@micrantha/react-native-amaryllis';
 import {
-  ContextEngineProvider,
   createContextEngine,
   type ContextItem,
   type ContextQuery,
   type ContextStore,
-} from 'react-native-amaryllis/context';
+} from '@micrantha/amaryllis/context';
+import { ContextEngineProvider } from '@micrantha/react-native-amaryllis/context';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { RegistryProvider } from '@micrantha/amaryllis-components';
 import { Chat } from './components';
 import { PromptProvider } from './PromptContext';
-import DL from '@kesha-antonov/react-native-background-downloader';
+import { ModelProvider, useModelContext } from './ModelContext';
+import { default as WelcomeScreen } from './ImportModels';
+import { registerExampleAiComponents } from './ai/registerComponents';
+import { PersonaDemoScreen } from './personaDemo/PersonaDemoScreen';
+import { ModelSettingsScreen } from './modelSettings/ModelSettingsScreen';
 
 const createMemoryStore = (): ContextStore => {
   let items: ContextItem[] = [];
@@ -59,7 +65,9 @@ const createMemoryStore = (): ContextStore => {
   };
 };
 
-export default function App() {
+function AppGate() {
+  const { paths: models, setPaths: setModelsReady } = useModelContext();
+
   const contextEngine = useMemo(() => {
     return createContextEngine({
       store: createMemoryStore(),
@@ -68,21 +76,144 @@ export default function App() {
     });
   }, []);
 
+  if (!models) {
+    return <WelcomeScreen onComplete={(paths) => setModelsReady(paths)} />;
+  }
+
   return (
     <LLMProvider
       config={{
-        modelPath: `${DL.directories.documents}/amaryllis.model`,
-        visionEncoderPath: `${DL.directories.documents}/amaryllis.vision`,
-        maxNumImages: 2,
+        modelPath: models.llmModelPath,
+        protocol: gemmaProtocol,
       }}
     >
       <ContextEngineProvider engine={contextEngine}>
         <PromptProvider>
-          <SafeAreaProvider>
-            <Chat />
-          </SafeAreaProvider>
+          <DemoExperience />
         </PromptProvider>
       </ContextEngineProvider>
     </LLMProvider>
   );
 }
+
+type DemoScreen = 'chat' | 'persona-demo' | 'settings';
+
+type DemoTabProps = {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+};
+
+function DemoTab({ label, selected, onPress }: DemoTabProps) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.demoButton,
+        selected && styles.selectedDemoButton,
+        pressed && styles.pressedDemoButton,
+      ]}
+    >
+      <Text
+        style={[
+          styles.demoButtonLabel,
+          selected && styles.selectedDemoButtonLabel,
+        ]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function DemoExperience() {
+  const [screen, setScreen] = useState<DemoScreen>('chat');
+
+  return (
+    <SafeAreaProvider>
+      <View style={styles.demoContainer}>
+        <View style={styles.demoSwitcher}>
+          <Text style={styles.demoLabel}>Demo</Text>
+          <DemoTab
+            label="Chat"
+            selected={screen === 'chat'}
+            onPress={() => setScreen('chat')}
+          />
+          <DemoTab
+            label="Personas"
+            selected={screen === 'persona-demo'}
+            onPress={() => setScreen('persona-demo')}
+          />
+          <DemoTab
+            label="Settings"
+            selected={screen === 'settings'}
+            onPress={() => setScreen('settings')}
+          />
+        </View>
+
+        {screen === 'chat' ? (
+          <Chat />
+        ) : screen === 'persona-demo' ? (
+          <PersonaDemoScreen />
+        ) : (
+          <ModelSettingsScreen />
+        )}
+      </View>
+    </SafeAreaProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <ModelProvider>
+      <RegistryProvider initialize={registerExampleAiComponents}>
+        <AppGate />
+      </RegistryProvider>
+    </ModelProvider>
+  );
+}
+
+const styles = StyleSheet.create({
+  demoContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  demoSwitcher: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+  },
+  demoLabel: {
+    marginRight: 4,
+    color: '#6b7280',
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  demoButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+  pressedDemoButton: {
+    opacity: 0.6,
+  },
+  selectedDemoButton: {
+    backgroundColor: '#dbeafe',
+  },
+  demoButtonLabel: {
+    color: '#374151',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  selectedDemoButtonLabel: {
+    color: '#1d4ed8',
+  },
+});

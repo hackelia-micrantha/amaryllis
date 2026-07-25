@@ -6,13 +6,22 @@ import {
   useState,
 } from 'react';
 
+export interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  isGenerating?: boolean;
+}
+
 interface PromptContext {
-  results: string[];
-  setResults: Dispatch<SetStateAction<string[]>>;
+  messages: Message[];
+  setMessages: Dispatch<SetStateAction<Message[]>>;
   error: Error | undefined;
   setError: Dispatch<SetStateAction<Error | undefined>>;
   isBusy: boolean;
   setIsBusy: Dispatch<SetStateAction<boolean>>;
+  isSessionReady: boolean;
+  setIsSessionReady: Dispatch<SetStateAction<boolean>>;
   images: string[];
   setImages: Dispatch<SetStateAction<string[]>>;
   prompt: string;
@@ -24,26 +33,18 @@ interface PromptProviderProps {
 }
 
 const PromptContext = createContext<PromptContext>({
-  results: [],
-  setResults: function (_value: SetStateAction<string[]>): void {
-    throw new Error('Function not implemented');
-  },
+  messages: [],
+  setMessages: () => {},
   error: undefined,
-  setError: function (_value: SetStateAction<Error | undefined>): void {
-    throw new Error('Function not implemented.');
-  },
+  setError: () => {},
   isBusy: false,
-  setIsBusy: function (_value: SetStateAction<boolean>): void {
-    throw new Error('Function not implemented.');
-  },
+  setIsBusy: () => {},
+  isSessionReady: false,
+  setIsSessionReady: () => {},
   images: [],
-  setImages: function (_value: SetStateAction<string[]>): void {
-    throw new Error('Function not implemented.');
-  },
+  setImages: () => {},
   prompt: '',
-  setPrompt: function (_value: SetStateAction<string>): void {
-    throw new Error('Function not implemented.');
-  },
+  setPrompt: () => {},
 });
 
 export const usePromptContext = () => useContext(PromptContext);
@@ -53,21 +54,24 @@ export const usePromptContext = () => useContext(PromptContext);
  * Configures LLM once on mount.
  */
 export const PromptProvider = ({ children }: PromptProviderProps) => {
-  const [results, setResults] = useState<string[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [images, setImages] = useState<string[]>([]);
   const [error, setError] = useState<Error | undefined>(undefined);
   const [isBusy, setIsBusy] = useState<boolean>(false);
+  const [isSessionReady, setIsSessionReady] = useState<boolean>(false);
   const [prompt, setPrompt] = useState<string>('');
 
   return (
     <PromptContext.Provider
       value={{
-        results,
-        setResults,
+        messages,
+        setMessages,
         images,
         setImages,
         isBusy,
         setIsBusy,
+        isSessionReady,
+        setIsSessionReady,
         error,
         setError,
         prompt,

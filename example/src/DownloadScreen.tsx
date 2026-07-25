@@ -7,7 +7,11 @@ import {
   type BackgroundDownloaderParams,
 } from './hooks';
 
-export const WelcomeScreen = () => {
+type WelcomeScreenProps = {
+  onComplete: () => void;
+};
+
+export const WelcomeScreen = ({ onComplete }: WelcomeScreenProps) => {
   const [progress, setProgress] = useState<number>(0);
   const [error, setError] = useState<string | undefined>(undefined);
 
@@ -27,19 +31,25 @@ export const WelcomeScreen = () => {
     []
   );
 
-  const tasks = useBackgroundDownloader(models);
+  const { completedDownloads, tasks } = useBackgroundDownloader(models);
 
   useEffect(() => {
     tasks.forEach((task: DownloadTask) => {
       task
         .progress(({ bytesDownloaded, bytesTotal }) => {
-          setProgress((bytesDownloaded / bytesTotal) * 100);
+          setProgress(bytesDownloaded / bytesTotal);
         })
         .error(({ error: err }) => {
           setError(err);
         });
     });
   }, [tasks]);
+
+  useEffect(() => {
+    if (completedDownloads === models.length) {
+      onComplete();
+    }
+  }, [completedDownloads, models.length, onComplete]);
 
   return (
     <View style={styles.container}>

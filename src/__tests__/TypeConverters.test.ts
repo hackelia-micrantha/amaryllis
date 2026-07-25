@@ -11,6 +11,7 @@ import type {
   LlmRequestParams,
   LlmSessionParams,
 } from '../Types';
+import { ValidationError } from '../Errors';
 
 describe('TypeConverters', () => {
   it('should round-trip engine config values', () => {
@@ -57,5 +58,26 @@ describe('TypeConverters', () => {
     expect(fromNativeRequestParams(toNativeRequestParams(params))).toEqual(
       params
     );
+  });
+
+  it('should reject prompts that exceed the public request limit', () => {
+    expect(() =>
+      toNativeRequestParams({
+        prompt: 'x'.repeat(100_001),
+      })
+    ).toThrow(ValidationError);
+  });
+
+  it('should reject requests that exceed the public image limit', () => {
+    expect(() =>
+      toNativeRequestParams({
+        prompt: 'describe these images',
+        images: [
+          'file:///tmp/one.png',
+          'file:///tmp/two.png',
+          'file:///tmp/three.png',
+        ],
+      })
+    ).toThrow(ValidationError);
   });
 });

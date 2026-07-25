@@ -14,6 +14,8 @@ For a shorter external overview, see the [Amaryllis Components one-pager](./amar
 
 Runtime/on-device AI is allowed only to produce structured customization data, such as validated props, variant selections, slot text, or JSON patches against a component spec. It must not generate or execute arbitrary TSX, JSX, JavaScript, imports, or raw markup on device.
 
+Runtime JSON patches must be interpreted as personalization overlays, not arbitrary mutations of the authoritative `ComponentSpec`.
+
 ---
 
 ## Goals
@@ -232,9 +234,102 @@ This allows mobile apps to personalize UI locally while preserving the RFC's cor
 
 ---
 
+## CopilotKit And AG-UI Integration Boundary
+
+CopilotKit and AG-UI are optional orchestration layers for agent actions, frontend-rendered tool output, and generative UI surfaces.
+
+The companion module must not require either package as a runtime dependency. Instead, it should expose adapter contracts that let those systems call Amaryllis local inference and receive validated personalization results.
+
+The integration boundary is:
+
+```text
+CopilotKit/AG-UI action
+  -> Amaryllis inference function
+  -> structured output
+  -> personalization contract validation
+  -> registry-approved overlay props
+```
+
+Adapters must preserve these constraints:
+
+- Model output is untrusted until validated.
+- Runtime output must not contain JSX, TSX, JavaScript, imports, or raw markup.
+- Registry entries remain authoritative for renderable implementations.
+- Failed validation returns base props plus errors rather than disabling validation.
+
+---
+
+## Normative Validation Order
+
+Implementations must validate artifacts in this order:
+
+1. Parse the `ComponentSpec` through the versioned schema.
+2. Enforce cross-field AI execution rules.
+3. Enforce governance policy.
+4. Generate source code or a runtime personalization contract.
+5. Validate the generated source code or generated contract.
+6. For customization patches, apply only allowed patch paths, then repeat schema and policy validation before generation.
+7. For runtime AI output, validate against the generated personalization contract before rendering.
+
+Device execution must reject any generation contract that can produce TSX, JSX, JavaScript, imports, raw markup, or executable code. Build and CI execution may produce source code only when policy requires human approval and source validation passes.
+
+---
+
+## Runtime Patch Boundary
+
+Runtime JSON Patch output must be limited to declared personalization paths. Allowed paths are:
+
+- `/props/<declared-prop-name>`
+- `/variant`
+- `/slots/<declared-slot-name>`
+- `/designTokens/<declared-token-role>`
+
+Runtime patches must not modify:
+
+- `apiVersion`, `kind`, or `metadata`
+- `target`
+- `policy`
+- `ai`
+- `behavior.sideEffects`
+- `ui.layout`
+- imports, dependencies, native modules, or generated source code
+
+Patch operations must be applied to a derived personalization overlay or render-props object. They must not mutate the canonical `ComponentSpec` stored in the registry.
+
+---
+
+## Source Validation Requirements
+
+Build-time or CI generation that produces TSX, JSX, JavaScript, or TypeScript must validate the generated source before publication. At minimum, validation must enforce:
+
+- Import allowlists and denylists from policy
+- No dynamic imports, `eval`, `Function` constructors, or equivalent executable string sinks
+- No raw HTML sinks such as `dangerouslySetInnerHTML` unless explicitly allowed by policy
+- No undeclared identifiers outside generated props, local declarations, and allowed imports
+- JSX element allowlists appropriate to the target runtime (`web`, `nextjs`, or `rn`)
+- No access to native modules, network APIs, storage APIs, or process APIs unless policy allows them
+
+String-based layout templates are considered untrusted source inputs and must pass the same generated-source validation before publication.
+
+---
+
+## Design And Accessibility Policy
+
+Design token enforcement must define how tokens are referenced for each target runtime. Policies may allow framework-specific representations such as Tailwind class names, CSS module symbols, or React Native style tokens, but generated output must not introduce raw color, spacing, or typography values outside approved token sets unless policy explicitly allows an escape hatch.
+
+Accessibility policy must define minimum checks for the target runtime. At minimum:
+
+- Interactive controls require accessible labels.
+- User-visible images or media require text alternatives unless marked decorative.
+- Web output must satisfy semantic role and landmark rules configured by policy.
+- React Native output must use appropriate accessibility props for controls and dynamic content.
+- Generated copy and slot text must pass configured content-policy validators before rendering or publication.
+
+---
+
 ## Artifact Model
 
-Each generated component must include:
+Each generated component must include provenance. Provenance may be embedded in generated source comments, emitted as a sidecar JSON manifest, or both. A publishable artifact must record:
 
 - Spec hash
 - Model identifier + version
@@ -242,6 +337,24 @@ Each generated component must include:
 - Validation results
 - Generation timestamp
 - Diff against previous version
+
+When strict deterministic builds are required, timestamps must live outside the deterministic source artifact or be normalized by the build system.
+
+Human approval must be recorded as review metadata. Acceptable approval records include a signed manifest entry, PR approval, registry promotion event, or CLI approval record. Source generation that produces executable code must not be published without approval metadata.
+
+---
+
+## Registry Identity
+
+The component registry is authoritative for runtime rendering. Registry entries must bind:
+
+- Component name
+- Component version
+- Spec hash
+- Runtime contract hash
+- Component implementation identity
+
+Registry keys should use `name@version` or an equivalent versioned identity. Registration must fail when a component implementation, spec hash, or runtime contract hash does not match the expected registry entry. Replacement semantics must be explicit: a registry may reject replacement, require a newer version, or require approval metadata.
 
 ---
 
@@ -337,17 +450,24 @@ Each generated component must include:
 - React generator
 - Basic policy engine
 - CLI integration
+- Schema revalidation after customization patches
+- Provenance emitted by generated artifacts
 
 ### Phase 2
 
 - Customization workflows
 - Preview + diff tooling
 - Structured-output schemas for props, variants, and JSON patches
+- JSON Patch path allowlists
+- Generated-source validation for build and CI outputs
+- Design token and accessibility validators
 
 ### Phase 3
 
-- On-device runtime personalization using structured outputs only
-- Telemetry + governance extensions
+- Runtime personalization for props, variants, and declared slots
+- Runtime JSON Patch overlays limited to declared personalization paths
+- Component registry identity and contract binding
+- Telemetry, cancellation, error recovery, and governance extensions
 
 ---
 

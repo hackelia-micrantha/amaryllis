@@ -34,7 +34,7 @@ export class LlmPipe implements LlmEngine {
     await this.llmNative.init(nativeConfig);
   }
 
-  newSession(params: LlmSessionParams): Promise<void> {
+  newSession(params?: LlmSessionParams): Promise<void> {
     const nativeParams = toNativeSessionParams(params);
     return this.llmNative.newSession(nativeParams);
   }

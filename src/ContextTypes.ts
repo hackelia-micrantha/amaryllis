@@ -3,7 +3,6 @@ import type { LlmRequestParams } from './Types';
 export type EvictionStrategy = 'lru' | 'recency' | 'size';
 
 export interface MediaReference {
-  // Absolute path or URI depending on app policy.
   uri: string;
   mimeType?: string;
   sizeBytes?: number;
@@ -12,11 +11,8 @@ export interface MediaReference {
 }
 
 export interface MediaValidationPolicy {
-  // Require absolute URIs (recommended for security).
   requireAbsoluteUri?: boolean;
-  // Whitelist of allowed URI schemes (e.g., ['file', 'content']).
   allowedUriSchemes?: string[];
-  // Size and dimension limits for referenced media.
   maxMediaBytes?: number;
   maxMediaWidth?: number;
   maxMediaHeight?: number;
@@ -38,7 +34,6 @@ export interface ContextQuery {
   limit?: number;
   filters?: Record<string, string>;
   tags?: string[];
-  // 0..1 weighting for recency in scoring.
   recencyBias?: number;
   useSemantic?: boolean;
 }
@@ -112,7 +107,6 @@ export type ContextDefaultQueryFactory = (
 export interface ToolDefinition {
   name: string;
   description?: string;
-  // JSON schema or similar contract for tool input.
   inputSchema?: Record<string, unknown>;
 }
 
