@@ -37,6 +37,7 @@ export class LlmPipe implements LlmEngine {
   llmNative: LlmNativeEngine;
 
   private activeGenerationId: number | null = null;
+  private closeRequested = false;
   private asyncLifecycleListeners = new Set<
     (event: LlmAsyncLifecycleEvent) => void
   >();
@@ -63,6 +64,9 @@ export class LlmPipe implements LlmEngine {
       return await this.llmNative.generate(nativeParams);
     } finally {
       this.releaseNativeOperation(operationId);
+      if (this.closeRequested) {
+        this.close();
+      }
     }
   }
 
@@ -89,6 +93,7 @@ export class LlmPipe implements LlmEngine {
       return;
     }
     if (activeOperation?.kind === 'sync') {
+      this.closeRequested = true;
       return;
     }
 
@@ -104,6 +109,7 @@ export class LlmPipe implements LlmEngine {
       this.llmNative.close();
       this.notifyAsyncLifecycle({ type: 'closed' });
     } finally {
+      this.closeRequested = false;
       closingNativeEngines.delete(this.llmNative);
     }
   }
