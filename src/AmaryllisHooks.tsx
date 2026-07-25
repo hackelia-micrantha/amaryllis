@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { InferenceProps, LlmRequestParams } from './Types';
 import { useLLMContext } from './AmaryllisContext';
-import { GenerationInProgressError } from './Amaryllis';
+import { GenerationInProgressError } from './Errors';
 import { createLLMObservable } from './AmaryllisRx';
 import { useContextEngine } from './ContextEngineContext';
 import type { ContextEngine, ContextQuery } from './ContextTypes';
