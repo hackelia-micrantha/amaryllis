@@ -83,6 +83,7 @@ export const JsonSchemaValueSchema: z.ZodType = z.lazy(() =>
       description: z.string().optional(),
       enum: z.array(z.unknown()).optional(),
       default: z.unknown().optional(),
+      maxLength: z.number().int().nonnegative().optional(),
       items: JsonSchemaValueSchema.optional(),
       properties: z.record(JsonSchemaValueSchema).optional(),
       required: z.array(z.string()).optional(),
