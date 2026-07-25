@@ -30,7 +30,7 @@ The model never becomes the direct source of executable runtime UI.
 - [`summary-card.customization.patch.json`](./summary-card.customization.patch.json): reviewed build-time JSON Patch
 - [`summary-card.personalization.valid.json`](./summary-card.personalization.valid.json): valid structured runtime output
 - [`summary-card.personalization.invalid.json`](./summary-card.personalization.invalid.json): invalid runtime output that must fall back
-- [`summary-card.personalization.schema.json`](./summary-card.personalization.schema.json): readable example of the personalization contract
+- [`summary-card.personalization.schema.json`](./summary-card.personalization.schema.json): generated personalization contract for this spec
 
 ## Build-time CLI flow
 
@@ -59,6 +59,8 @@ node packages/amaryllis-components/dist/cli/index.js contract \
   > /tmp/SummaryCard.contract.json
 ```
 
+The checked-in [`summary-card.personalization.schema.json`](./summary-card.personalization.schema.json) is the readable generated form of this contract and must remain aligned with the CLI output.
+
 Apply a reviewed customization patch and regenerate:
 
 ```sh
@@ -72,21 +74,35 @@ Generated TSX is a build or CI artifact, not runtime model output. Treat it like
 
 ## Runtime personalization flow
 
-Register an approved implementation with its validated spec and generated contract. The registry identity must exactly match `spec.metadata.name`:
+For provider-free Node or CI verification, import only the built modules exercised by the example. Importing the package barrel also loads React Native runtime primitives and is intended for React Native application code, not plain Node execution.
 
-```ts
+```js
 import fs from 'node:fs';
-import {
-  ComponentRegistry,
-  JSONSchemaGenerator,
-  PersonalizationEngine,
-  parseComponentSpec,
-} from '@micrantha/amaryllis-components';
+import path from 'node:path';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const distRoot = path.resolve('packages/amaryllis-components/dist');
+
+const { ComponentRegistry } = require(
+  path.join(distRoot, 'runtime/registry.js')
+);
+const { PersonalizationEngine } = require(
+  path.join(distRoot, 'runtime/engine.js')
+);
+const { JSONSchemaGenerator } = require(
+  path.join(distRoot, 'generator/schema.js')
+);
+const { parseComponentSpec } = require(
+  path.join(distRoot, 'parser/yaml.js')
+);
 
 const spec = parseComponentSpec(
   fs.readFileSync('docs/examples/summary-card.component.yaml', 'utf8')
 );
-const contract = JSON.parse(new JSONSchemaGenerator().generate(spec));
+const generatedContract = JSON.parse(
+  new JSONSchemaGenerator().generate(spec)
+);
 
 const registry = new ComponentRegistry();
 const SummaryCard = () => null;
@@ -94,9 +110,14 @@ const SummaryCard = () => null;
 registry.register('summary-card', {
   component: SummaryCard,
   spec,
-  contract,
+  contract: generatedContract,
   implementationIdentity: 'app/components/SummaryCard',
 });
+
+const registered = registry.get('summary-card');
+if (!registered) {
+  throw new Error('summary-card was not registered');
+}
 
 const baseProps = {
   title: 'Base title',
@@ -112,27 +133,30 @@ const structuredOutput = JSON.parse(
 );
 
 const engine = new PersonalizationEngine();
-const result = engine.validate(contract, structuredOutput);
+const result = engine.validate(registered.contract, structuredOutput);
 const personalizedProps = result.valid
   ? engine.apply(baseProps, result.data ?? {})
   : baseProps;
+
+const ApprovedSummaryCard = registered.component;
 ```
+
+The demonstrated authority path is now explicit:
 
 ```text
 untrusted structured output
-  -> JSON Schema validation
-  -> unsafe-value and patch validation
+  -> registered contract validation
   -> bounded props overlay
-  -> approved registered component
+  -> registry-approved component implementation
 ```
 
-Valid output is merged over base props only after validation. Runtime JSX, TSX, JavaScript, imports, event handlers, and native operations are outside this contract.
+`ApprovedSummaryCard`, `registered.spec`, and `registered.contract` all come from the same registry entry. Valid output is merged over base props only after validation against the bound contract. Runtime JSX, TSX, JavaScript, imports, event handlers, and native operations are outside this contract.
 
 ## Invalid-output fallback
 
-Use the invalid fixture to prove the fail-closed behavior:
+Use the invalid fixture to prove the fail-closed behavior through the same registered contract:
 
-```ts
+```js
 const invalidOutput = JSON.parse(
   fs.readFileSync(
     'docs/examples/summary-card.personalization.invalid.json',
@@ -140,13 +164,15 @@ const invalidOutput = JSON.parse(
   )
 );
 
-const invalidResult = engine.validate(contract, invalidOutput);
+const invalidResult = engine.validate(registered.contract, invalidOutput);
 const fallbackProps = invalidResult.valid
   ? engine.apply(baseProps, invalidResult.data ?? {})
   : baseProps;
 ```
 
 `fallbackProps` remains exactly equal to `baseProps`. Invalid output is rejected as a whole and does not partially mutate component state.
+
+In React Native application code, consumers may use the package barrel and registry-backed rendering primitives because the React Native runtime is present. The provider-free Node example above intentionally mirrors the CI verifier and avoids loading platform primitives.
 
 ## Automated verification
 
@@ -163,7 +189,7 @@ yarn workspace @micrantha/amaryllis-components build
 yarn workspace @micrantha/amaryllis-components verify:examples
 ```
 
-The verifier uses the package's actual parser, policy path, generators, registry, and personalization engine. It executes all three CLI commands, validates the valid fixture, rejects the invalid fixture, and asserts fallback to base props. CI performs the same operations after component tests, lint, type checking, and build.
+The verifier uses the package's actual parser, policy path, generators, registry, and personalization engine. It executes all three CLI commands, compares the generated contract to the runtime contract, validates the valid fixture through the registered entry, rejects the invalid fixture, and asserts fallback to base props. CI performs the same operations after component tests, lint, type checking, and build.
 
 ## Security notes
 
