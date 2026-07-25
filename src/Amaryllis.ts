@@ -87,10 +87,7 @@ export class LlmPipe implements LlmEngine {
     this.llmNative.cancelAsync();
   }
 
-  setupAsyncCallbacks(
-    callbacks: LlmCallbacks,
-    generationId?: number
-  ): void {
+  setupAsyncCallbacks(callbacks: LlmCallbacks, generationId?: number): void {
     const scopedGenerationId = generationId ?? this.activeGenerationId;
     if (scopedGenerationId === null) {
       return;
