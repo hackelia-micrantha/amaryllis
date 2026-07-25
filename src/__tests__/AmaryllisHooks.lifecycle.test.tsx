@@ -1,10 +1,7 @@
 import React from 'react';
 import { act, renderHook } from '@testing-library/react-native';
 import { LLMProvider } from '../AmaryllisContext';
-import {
-  useContextInferenceAsync,
-  useInferenceAsync,
-} from '../AmaryllisHooks';
+import { useContextInferenceAsync, useInferenceAsync } from '../AmaryllisHooks';
 import { GenerationInProgressError } from '../Errors';
 import type {
   LlmAsyncLifecycleEvent,
@@ -18,13 +15,12 @@ const config: LlmEngineConfig = { modelPath: 'model.task' };
 
 const createPipe = () => {
   const callbacks: LlmCallbacks[] = [];
-  const lifecycleListeners = new Set<
-    (event: LlmAsyncLifecycleEvent) => void
-  >();
+  const lifecycleListeners = new Set<(event: LlmAsyncLifecycleEvent) => void>();
   const cancelAsync = jest.fn(() => {
     lifecycleListeners.forEach((listener) => listener({ type: 'cancelled' }));
   });
   const close = jest.fn(() => {
+    cancelAsync();
     lifecycleListeners.forEach((listener) => listener({ type: 'closed' }));
   });
   const pipe: LlmEngine = {
@@ -139,10 +135,9 @@ describe('useInferenceAsync lifecycle', () => {
   it('settles external controller cancellation and permits another request', async () => {
     const { pipe } = createPipe();
     const onComplete = jest.fn();
-    const { result } = renderHook(
-      () => useInferenceAsync({ onComplete }),
-      { wrapper: createWrapper(pipe) }
-    );
+    const { result } = renderHook(() => useInferenceAsync({ onComplete }), {
+      wrapper: createWrapper(pipe),
+    });
 
     await act(async () => {
       await result.current({ prompt: 'first' });
