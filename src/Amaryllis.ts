@@ -19,10 +19,24 @@ const EVENT_ON_PARTIAL_RESULT = 'onPartialResult';
 const EVENT_ON_FINAL_RESULT = 'onFinalResult';
 const EVENT_ON_ERROR = 'onError';
 
+export const GENERATION_IN_PROGRESS_CODE = 'GENERATION_IN_PROGRESS';
+
+export class GenerationInProgressError extends Error {
+  readonly code = GENERATION_IN_PROGRESS_CODE;
+
+  constructor(message = 'An asynchronous generation is already in progress') {
+    super(message);
+    this.name = 'GenerationInProgressError';
+  }
+}
+
 export class LlmPipe implements LlmEngine {
   subscriptions: LlmEventSubscription[] = [];
   llmEmitter: LlmEventEmitter;
   llmNative: LlmNativeEngine;
+
+  private activeGenerationId: number | null = null;
+  private nextGenerationId = 1;
 
   constructor(params: LlmPipeParams) {
     this.llmNative = params.nativeModule;
@@ -48,12 +62,21 @@ export class LlmPipe implements LlmEngine {
     params: LlmRequestParams,
     callbacks?: LlmCallbacks
   ): Promise<void> {
-    if (callbacks) {
-      this.setupAsyncCallbacks(callbacks);
+    if (this.activeGenerationId !== null) {
+      throw new GenerationInProgressError();
     }
 
-    const nativeParams = toNativeRequestParams(params);
-    return await this.llmNative.generateAsync(nativeParams);
+    const generationId = this.nextGenerationId++;
+    this.activeGenerationId = generationId;
+
+    try {
+      this.setupAsyncCallbacks(callbacks ?? {}, generationId);
+      const nativeParams = toNativeRequestParams(params);
+      await this.llmNative.generateAsync(nativeParams);
+    } catch (error) {
+      this.finishAsyncGeneration(generationId);
+      throw error;
+    }
   }
 
   close(): void {
@@ -62,23 +85,31 @@ export class LlmPipe implements LlmEngine {
   }
 
   cancelAsync(): void {
+    if (this.activeGenerationId === null) {
+      return;
+    }
+
+    this.activeGenerationId = null;
+    this.removeSubscriptions();
     this.llmNative.cancelAsync();
-    const subsToRemove = [...this.subscriptions];
-    this.subscriptions = [];
-    subsToRemove.forEach((sub) => {
-      try {
-        sub.remove();
-      } catch (error) {
-        console.warn('Failed to remove subscription:', error);
-      }
-    });
   }
 
-  setupAsyncCallbacks(callbacks: LlmCallbacks): void {
+  setupAsyncCallbacks(
+    callbacks: LlmCallbacks,
+    generationId?: number
+  ): void {
+    const scopedGenerationId = generationId ?? this.activeGenerationId;
+    if (scopedGenerationId === null) {
+      return;
+    }
+
     if (callbacks.onPartialResult || callbacks.onEvent) {
       const subscription = this.llmEmitter.addListener(
         EVENT_ON_PARTIAL_RESULT,
         (result: string) => {
+          if (!this.isActiveGeneration(scopedGenerationId)) {
+            return;
+          }
           try {
             callbacks.onEvent?.({ type: 'partial', text: result });
           } catch (error) {
@@ -94,48 +125,75 @@ export class LlmPipe implements LlmEngine {
       this.subscriptions.push(subscription);
     }
 
-    if (callbacks.onFinalResult || callbacks.onEvent) {
-      const subscription = this.llmEmitter.addListener(
-        EVENT_ON_FINAL_RESULT,
-        (result: string) => {
-          try {
-            callbacks.onEvent?.({ type: 'final', text: result });
-          } catch (error) {
-            console.error('Error in onEvent callback:', error);
-          }
-          try {
-            callbacks.onFinalResult?.(result);
-          } catch (error) {
-            console.error('Error in onFinalResult callback:', error);
-          } finally {
-            this.cancelAsync();
-          }
+    const finalSubscription = this.llmEmitter.addListener(
+      EVENT_ON_FINAL_RESULT,
+      (result: string) => {
+        if (!this.isActiveGeneration(scopedGenerationId)) {
+          return;
         }
-      );
-      this.subscriptions.push(subscription);
+        try {
+          callbacks.onEvent?.({ type: 'final', text: result });
+        } catch (error) {
+          console.error('Error in onEvent callback:', error);
+        }
+        try {
+          callbacks.onFinalResult?.(result);
+        } catch (error) {
+          console.error('Error in onFinalResult callback:', error);
+        } finally {
+          this.finishAsyncGeneration(scopedGenerationId);
+        }
+      }
+    );
+    this.subscriptions.push(finalSubscription);
+
+    const errorSubscription = this.llmEmitter.addListener(
+      EVENT_ON_ERROR,
+      (error: string) => {
+        if (!this.isActiveGeneration(scopedGenerationId)) {
+          return;
+        }
+        const errorObj = new Error(error);
+        try {
+          callbacks.onEvent?.({ type: 'error', error: errorObj });
+        } catch (callbackError) {
+          console.error('Error in onEvent callback:', callbackError);
+        }
+        try {
+          callbacks.onError?.(errorObj);
+        } catch (callbackError) {
+          console.error('Error in onError callback:', callbackError);
+        } finally {
+          this.finishAsyncGeneration(scopedGenerationId);
+        }
+      }
+    );
+    this.subscriptions.push(errorSubscription);
+  }
+
+  private isActiveGeneration(generationId: number): boolean {
+    return this.activeGenerationId === generationId;
+  }
+
+  private finishAsyncGeneration(generationId: number): void {
+    if (!this.isActiveGeneration(generationId)) {
+      return;
     }
 
-    if (callbacks.onError || callbacks.onEvent) {
-      const subscription = this.llmEmitter.addListener(
-        EVENT_ON_ERROR,
-        (error: string) => {
-          const errorObj = new Error(error);
-          try {
-            callbacks.onEvent?.({ type: 'error', error: errorObj });
-          } catch (callbackError) {
-            console.error('Error in onEvent callback:', callbackError);
-          }
-          try {
-            callbacks.onError?.(errorObj);
-          } catch (callbackError) {
-            console.error('Error in onError callback:', callbackError);
-          } finally {
-            this.cancelAsync();
-          }
-        }
-      );
-      this.subscriptions.push(subscription);
-    }
+    this.activeGenerationId = null;
+    this.removeSubscriptions();
+  }
+
+  private removeSubscriptions(): void {
+    const subsToRemove = [...this.subscriptions];
+    this.subscriptions = [];
+    subsToRemove.forEach((sub) => {
+      try {
+        sub.remove();
+      } catch (error) {
+        console.warn('Failed to remove subscription:', error);
+      }
+    });
   }
 }
 
