@@ -19,6 +19,9 @@ const EVENT_ON_PARTIAL_RESULT = 'onPartialResult';
 const EVENT_ON_FINAL_RESULT = 'onFinalResult';
 const EVENT_ON_ERROR = 'onError';
 
+const activeNativeGenerations = new WeakMap<LlmNativeEngine, number>();
+let nextGenerationId = 1;
+
 export const GENERATION_IN_PROGRESS_CODE = 'GENERATION_IN_PROGRESS';
 
 export class GenerationInProgressError extends Error {
@@ -36,7 +39,6 @@ export class LlmPipe implements LlmEngine {
   llmNative: LlmNativeEngine;
 
   private activeGenerationId: number | null = null;
-  private nextGenerationId = 1;
 
   constructor(params: LlmPipeParams) {
     this.llmNative = params.nativeModule;
@@ -62,12 +64,13 @@ export class LlmPipe implements LlmEngine {
     params: LlmRequestParams,
     callbacks?: LlmCallbacks
   ): Promise<void> {
-    if (this.activeGenerationId !== null) {
+    if (activeNativeGenerations.has(this.llmNative)) {
       throw new GenerationInProgressError();
     }
 
-    const generationId = this.nextGenerationId++;
+    const generationId = nextGenerationId++;
     this.activeGenerationId = generationId;
+    activeNativeGenerations.set(this.llmNative, generationId);
 
     try {
       this.setupAsyncCallbacks(callbacks ?? {}, generationId);
@@ -85,12 +88,12 @@ export class LlmPipe implements LlmEngine {
   }
 
   cancelAsync(): void {
-    if (this.activeGenerationId === null) {
+    const generationId = this.activeGenerationId;
+    if (generationId === null) {
       return;
     }
 
-    this.activeGenerationId = null;
-    this.removeSubscriptions();
+    this.releaseGeneration(generationId);
     this.llmNative.cancelAsync();
   }
 
@@ -172,7 +175,10 @@ export class LlmPipe implements LlmEngine {
   }
 
   private isActiveGeneration(generationId: number): boolean {
-    return this.activeGenerationId === generationId;
+    return (
+      this.activeGenerationId === generationId &&
+      activeNativeGenerations.get(this.llmNative) === generationId
+    );
   }
 
   private finishAsyncGeneration(generationId: number): void {
@@ -180,7 +186,16 @@ export class LlmPipe implements LlmEngine {
       return;
     }
 
-    this.activeGenerationId = null;
+    this.releaseGeneration(generationId);
+  }
+
+  private releaseGeneration(generationId: number): void {
+    if (this.activeGenerationId === generationId) {
+      this.activeGenerationId = null;
+    }
+    if (activeNativeGenerations.get(this.llmNative) === generationId) {
+      activeNativeGenerations.delete(this.llmNative);
+    }
     this.removeSubscriptions();
   }
 
