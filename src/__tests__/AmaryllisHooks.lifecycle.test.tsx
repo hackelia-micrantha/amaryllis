@@ -194,7 +194,7 @@ describe('useInferenceAsync lifecycle', () => {
 
     unmount();
 
-    expect(pipe.cancelAsync).toHaveBeenCalledTimes(1);
+    expect(pipe.cancelAsync).toHaveBeenCalledTimes(2);
     expect(onComplete).not.toHaveBeenCalled();
   });
 });

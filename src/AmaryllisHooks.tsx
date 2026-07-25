@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import type { InferenceProps, LlmRequestParams } from './Types';
 import { useLLMContext } from './AmaryllisContext';
 import { GenerationInProgressError } from './Errors';
@@ -178,14 +178,13 @@ export const useInferenceAsync = (props: InferenceProps = {}) => {
       if (generation) {
         finishGeneration(
           generation,
-          event.type === 'cancelled' &&
-            generation.notifyCompleteOnCancellation
+          event.type === 'cancelled' && generation.notifyCompleteOnCancellation
         );
       }
     });
   }, [controller, finishGeneration]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     return () => {
       activeGenerationRef.current?.cancel(false);
     };
