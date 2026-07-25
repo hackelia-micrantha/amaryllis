@@ -31,7 +31,7 @@ describe('Personalization', () => {
       mode: 'personalize',
       execution: 'device',
       generationContract: {
-        output: 'props-json',
+        output: 'json-patch',
       },
     },
     policy: {
@@ -66,7 +66,7 @@ describe('Personalization', () => {
 
   test('should fail validation for incorrect data types', () => {
     const aiOutput = {
-      props: { title: 123 }, // Should be string
+      props: { title: 123 },
     };
 
     const result = engine.validate(contract, aiOutput);
@@ -77,7 +77,7 @@ describe('Personalization', () => {
 
   test('should fail validation for missing required props', () => {
     const aiOutput = {
-      props: { count: 1 }, // Missing title
+      props: { count: 1 },
     };
 
     const result = engine.validate(contract, aiOutput);
