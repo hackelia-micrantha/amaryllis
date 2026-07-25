@@ -133,6 +133,32 @@ describe('LlmPipe', () => {
     });
   });
 
+  it('releases the lock before terminal callbacks run', async () => {
+    const secondOnEvent = jest.fn();
+    let secondGeneration: Promise<void> | undefined;
+
+    await pipe.generateAsync(requestParams, {
+      onFinalResult: () => {
+        secondGeneration = pipe.generateAsync(
+          { prompt: 'second' },
+          { onEvent: secondOnEvent }
+        );
+      },
+    });
+
+    listeners[nativeMock.EVENT_ON_FINAL_RESULT]?.('first');
+
+    expect(secondGeneration).toBeDefined();
+    await secondGeneration;
+    expect(nativeMock.generateAsync).toHaveBeenCalledTimes(2);
+
+    listeners[nativeMock.EVENT_ON_FINAL_RESULT]?.('second');
+    expect(secondOnEvent).toHaveBeenCalledWith({
+      type: 'final',
+      text: 'second',
+    });
+  });
+
   it('rejects overlapping async generations', async () => {
     await pipe.generateAsync(requestParams, { onEvent: jest.fn() });
 
