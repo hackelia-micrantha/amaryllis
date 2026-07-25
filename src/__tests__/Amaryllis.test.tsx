@@ -57,6 +57,10 @@ describe('LlmPipe', () => {
     });
   });
 
+  afterEach(() => {
+    pipe.cancelAsync();
+  });
+
   it('calls native init', async () => {
     await pipe.init(config);
     expect(nativeMock.init).toHaveBeenCalledWith(config);
@@ -140,6 +144,20 @@ describe('LlmPipe', () => {
     ).rejects.toEqual(expect.any(GenerationInProgressError));
     await expect(
       pipe.generateAsync({ prompt: 'overlap' }, { onEvent: jest.fn() })
+    ).rejects.toMatchObject({ code: GENERATION_IN_PROGRESS_CODE });
+
+    expect(nativeMock.generateAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects overlap across pipes that share one native module', async () => {
+    const secondPipe = new LlmPipe({
+      nativeModule: nativeMock,
+      eventEmitter: emitterMock,
+    });
+    await pipe.generateAsync(requestParams, { onEvent: jest.fn() });
+
+    await expect(
+      secondPipe.generateAsync({ prompt: 'overlap' }, { onEvent: jest.fn() })
     ).rejects.toMatchObject({ code: GENERATION_IN_PROGRESS_CODE });
 
     expect(nativeMock.generateAsync).toHaveBeenCalledTimes(1);
