@@ -19,6 +19,7 @@ props:
       type: string
     summary:
       type: string
+      maxLength: 240
     variant:
       type: string
       enum:
