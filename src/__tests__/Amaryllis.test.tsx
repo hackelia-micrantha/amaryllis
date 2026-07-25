@@ -119,10 +119,7 @@ describe('LlmPipe', () => {
     await pipe.generateAsync(requestParams, { onEvent: firstOnEvent });
     listeners[nativeMock.EVENT_ON_FINAL_RESULT]?.('first');
 
-    await pipe.generateAsync(
-      { prompt: 'second' },
-      { onEvent: secondOnEvent }
-    );
+    await pipe.generateAsync({ prompt: 'second' }, { onEvent: secondOnEvent });
     listeners[nativeMock.EVENT_ON_FINAL_RESULT]?.('second');
 
     expect(nativeMock.generateAsync).toHaveBeenCalledTimes(2);
@@ -175,10 +172,7 @@ describe('LlmPipe', () => {
     expect(nativeMock.cancelAsync).toHaveBeenCalledTimes(1);
     expect(listeners).toEqual({});
 
-    await pipe.generateAsync(
-      { prompt: 'second' },
-      { onEvent: secondOnEvent }
-    );
+    await pipe.generateAsync({ prompt: 'second' }, { onEvent: secondOnEvent });
     staleFinalListener?.('late-first');
 
     expect(firstOnEvent).not.toHaveBeenCalled();
