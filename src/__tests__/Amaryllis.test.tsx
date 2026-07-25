@@ -16,8 +16,8 @@ let listeners: Record<string, (result: string) => void> = {};
 const nativeMock = {
   init: jest.fn(),
   newSession: jest.fn(),
-  generate: jest.fn().mockResolvedValue('result'),
-  generateAsync: jest.fn().mockResolvedValue(null),
+  generate: jest.fn<Promise<string>, [LlmRequestParams]>(),
+  generateAsync: jest.fn<Promise<null>, [LlmRequestParams]>(),
   close: jest.fn(),
   cancelAsync: jest.fn(),
   EVENT_ON_PARTIAL_RESULT: 'onPartialResult',
@@ -50,6 +50,8 @@ const requestParams: LlmRequestParams = { prompt: 'baz' } as LlmRequestParams;
 describe('LlmPipe', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    nativeMock.generate.mockResolvedValue('result');
+    nativeMock.generateAsync.mockResolvedValue(null);
     listeners = {};
     pipe = new LlmPipe({
       nativeModule: nativeMock,
@@ -172,6 +174,36 @@ describe('LlmPipe', () => {
     expect(nativeMock.generateAsync).toHaveBeenCalledTimes(1);
   });
 
+  it('rejects synchronous generation while async work is active', async () => {
+    await pipe.generateAsync(requestParams, { onEvent: jest.fn() });
+
+    await expect(pipe.generate({ prompt: 'sync overlap' })).rejects.toMatchObject(
+      { code: GENERATION_IN_PROGRESS_CODE }
+    );
+    expect(nativeMock.generate).not.toHaveBeenCalled();
+  });
+
+  it('rejects async generation while synchronous work is active', async () => {
+    let resolveSync: ((result: string) => void) | undefined;
+    nativeMock.generate.mockImplementationOnce(
+      () =>
+        new Promise<string>((resolve) => {
+          resolveSync = resolve;
+        })
+    );
+
+    const syncGeneration = pipe.generate(requestParams);
+    await Promise.resolve();
+
+    await expect(
+      pipe.generateAsync({ prompt: 'async overlap' }, { onEvent: jest.fn() })
+    ).rejects.toMatchObject({ code: GENERATION_IN_PROGRESS_CODE });
+    expect(nativeMock.generateAsync).not.toHaveBeenCalled();
+
+    resolveSync?.('sync result');
+    await expect(syncGeneration).resolves.toBe('sync result');
+  });
+
   it('rejects overlap across pipes that share one native module', async () => {
     const secondPipe = new LlmPipe({
       nativeModule: nativeMock,
@@ -184,6 +216,36 @@ describe('LlmPipe', () => {
     ).rejects.toMatchObject({ code: GENERATION_IN_PROGRESS_CODE });
 
     expect(nativeMock.generateAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not let a non-owner close shared active work', async () => {
+    const ownerOnEvent = jest.fn();
+    const secondPipe = new LlmPipe({
+      nativeModule: nativeMock,
+      eventEmitter: emitterMock,
+    });
+    await pipe.generateAsync(requestParams, { onEvent: ownerOnEvent });
+
+    secondPipe.close();
+
+    expect(nativeMock.close).not.toHaveBeenCalled();
+    expect(nativeMock.cancelAsync).not.toHaveBeenCalled();
+    listeners[nativeMock.EVENT_ON_FINAL_RESULT]?.('owner final');
+    expect(ownerOnEvent).toHaveBeenCalledWith({
+      type: 'final',
+      text: 'owner final',
+    });
+  });
+
+  it('notifies lifecycle observers when active work is cancelled externally', async () => {
+    const lifecycleListener = jest.fn();
+    pipe.subscribeAsyncLifecycle(lifecycleListener);
+    await pipe.generateAsync(requestParams, { onEvent: jest.fn() });
+
+    pipe.cancelAsync();
+
+    expect(nativeMock.cancelAsync).toHaveBeenCalledTimes(1);
+    expect(lifecycleListener).toHaveBeenCalledWith({ type: 'cancelled' });
   });
 
   it('cancels only the active generation and ignores its late events', async () => {
