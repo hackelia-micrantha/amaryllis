@@ -176,10 +176,7 @@ export const useInferenceAsync = (props: InferenceProps = {}) => {
     return controller.subscribeAsyncLifecycle(() => {
       const generation = activeGenerationRef.current;
       if (generation) {
-        finishGeneration(
-          generation,
-          generation.notifyCompleteOnCancellation
-        );
+        finishGeneration(generation, generation.notifyCompleteOnCancellation);
       }
     });
   }, [controller, finishGeneration]);
