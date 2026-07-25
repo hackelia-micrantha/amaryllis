@@ -70,10 +70,9 @@ describe('useInferenceAsync lifecycle', () => {
   it('rejects an overlapping generation without replacing the active stream', async () => {
     const { callbacks, pipe } = createPipe();
     const onError = jest.fn();
-    const { result } = renderHook(
-      () => useInferenceAsync({ onError }),
-      { wrapper: createWrapper(pipe) }
-    );
+    const { result } = renderHook(() => useInferenceAsync({ onError }), {
+      wrapper: createWrapper(pipe),
+    });
 
     let cancelFirst: (() => void) | undefined;
     await act(async () => {
@@ -82,9 +81,7 @@ describe('useInferenceAsync lifecycle', () => {
     });
 
     expect(pipe.generateAsync).toHaveBeenCalledTimes(1);
-    expect(onError).toHaveBeenCalledWith(
-      expect.any(GenerationInProgressError)
-    );
+    expect(onError).toHaveBeenCalledWith(expect.any(GenerationInProgressError));
 
     act(() => {
       callbacks[0]?.onEvent?.({ type: 'partial', text: 'still-first' });
