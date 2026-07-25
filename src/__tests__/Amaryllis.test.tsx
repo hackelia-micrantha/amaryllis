@@ -5,11 +5,11 @@ import type {
   LlmCallbacks,
   LlmEventSubscription,
 } from '../Types';
+import { LlmPipe } from '../Amaryllis';
 import {
   GENERATION_IN_PROGRESS_CODE,
   GenerationInProgressError,
-  LlmPipe,
-} from '../Amaryllis';
+} from '../Errors';
 
 let listeners: Record<string, (result: string) => void> = {};
 
