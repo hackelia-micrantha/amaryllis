@@ -1,6 +1,9 @@
 name: Diagnose lint
 
 on:
+  push:
+    branches:
+      - issues/62-request-scoped-async
   pull_request:
     branches:
       - main
