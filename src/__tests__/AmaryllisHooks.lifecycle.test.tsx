@@ -2,7 +2,7 @@ import React from 'react';
 import { act, renderHook } from '@testing-library/react-native';
 import { LLMProvider } from '../AmaryllisContext';
 import { useInferenceAsync } from '../AmaryllisHooks';
-import { GenerationInProgressError } from '../Amaryllis';
+import { GenerationInProgressError } from '../Errors';
 import type { LlmCallbacks, LlmEngine, LlmEngineConfig } from '../Types';
 
 const config: LlmEngineConfig = { modelPath: 'model.task' };
