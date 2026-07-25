@@ -9,6 +9,7 @@ import { ChatPrompt } from '../components/ChatPrompt';
 
 const mockLaunchImageLibrary = jest.fn();
 const mockUseContextInferenceAsync = jest.fn();
+const mockCancelInference = jest.fn();
 
 jest.mock('react-native/Libraries/Components/TextInput/TextInput', () => {
   const ReactModule = require('react');
@@ -111,6 +112,7 @@ describe('ChatPrompt integration', () => {
           props.onResult?.('draft', false);
           props.onResult?.('done', true);
           props.onComplete?.();
+          return () => {};
         }
     );
   });
@@ -201,6 +203,7 @@ describe('ChatPrompt integration', () => {
     mockUseContextInferenceAsync.mockImplementation(
       (props: { onGenerate?: () => void }) => async () => {
         props.onGenerate?.();
+        return mockCancelInference;
       }
     );
 
@@ -226,7 +229,8 @@ describe('ChatPrompt integration', () => {
       getPressables(screen)[0].props.onPress();
     });
 
-    expect(pipe.cancelAsync).toHaveBeenCalled();
+    expect(mockCancelInference).toHaveBeenCalledTimes(1);
+    expect(pipe.cancelAsync).not.toHaveBeenCalled();
     expect(screen.getByText('➤')).toBeTruthy();
   });
 

@@ -19,6 +19,8 @@ export type LlmCallbacks = {
   onError?: (err: Error) => void;
 };
 
+export type LlmAsyncLifecycleEvent = { type: 'cancelled' } | { type: 'closed' };
+
 // Core parameter object for configuration and request options
 export type LlmRequestParams = {
   // Required
@@ -84,6 +86,15 @@ export type LlmEngine = {
   close(): void;
 
   cancelAsync(): void;
+
+  /**
+   * Observe controller-level cancellation and close operations.
+   *
+   * Optional for custom engines so existing implementations remain compatible.
+   */
+  subscribeAsyncLifecycle?(
+    listener: (event: LlmAsyncLifecycleEvent) => void
+  ): () => void;
 };
 
 export interface LlmEventSubscription {

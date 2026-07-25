@@ -23,6 +23,8 @@ import { usePromptContext } from '../PromptContext';
 
 export const ChatPrompt = () => {
   const inputTextRef = useRef<TextInput>(null);
+  const cancelInferenceRef = useRef<(() => void) | null>(null);
+  const inferenceRequestIdRef = useRef(0);
 
   const {
     prompt,
@@ -40,6 +42,11 @@ export const ChatPrompt = () => {
 
   const contextEngine = useContextEngine();
   const { controller } = useLLMContext();
+
+  const clearActiveInference = useCallback(() => {
+    inferenceRequestIdRef.current += 1;
+    cancelInferenceRef.current = null;
+  }, []);
 
   const addContextItem = useCallback(
     async (text: string, tag: string) => {
@@ -97,19 +104,30 @@ export const ChatPrompt = () => {
         });
 
         if (isFinal) {
+          clearActiveInference();
           addContextItem(result, 'assistant');
           setIsBusy(false);
         }
       },
       onError: (err) => {
+        clearActiveInference();
         setError(err);
         setIsBusy(false);
       },
       onComplete: () => {
+        clearActiveInference();
         setIsBusy(false);
       },
     }),
-    [addContextItem, prompt, setError, setIsBusy, setMessages, setPrompt]
+    [
+      addContextItem,
+      clearActiveInference,
+      prompt,
+      setError,
+      setIsBusy,
+      setMessages,
+      setPrompt,
+    ]
   );
 
   const generate = useContextInferenceAsync(props);
@@ -119,13 +137,25 @@ export const ChatPrompt = () => {
     if (!hasPrompt) {
       return;
     }
-    await generate({ prompt, images });
+
+    const requestId = inferenceRequestIdRef.current + 1;
+    inferenceRequestIdRef.current = requestId;
+    const cancel = await generate({ prompt, images });
+    if (inferenceRequestIdRef.current === requestId) {
+      cancelInferenceRef.current = cancel;
+    }
   }, [generate, hasPrompt, images, prompt]);
 
   const onCancelInference = useCallback(() => {
-    controller?.cancelAsync();
+    const cancel = cancelInferenceRef.current;
+    clearActiveInference();
+    if (cancel) {
+      cancel();
+    } else {
+      controller?.cancelAsync();
+    }
     setIsBusy(false);
-  }, [controller, setIsBusy]);
+  }, [clearActiveInference, controller, setIsBusy]);
 
   const onSelectImage = useCallback(() => {
     const options: ImageLibraryOptions = {
