@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { InferenceProps, LlmRequestParams } from './Types';
 import { useLLMContext } from './AmaryllisContext';
+import { GenerationInProgressError } from './Amaryllis';
 import { createLLMObservable } from './AmaryllisRx';
 import { useContextEngine } from './ContextEngineContext';
 import type { ContextEngine, ContextQuery } from './ContextTypes';
@@ -14,6 +15,12 @@ const defaultProtocol = {
 export type ContextInferenceProps = InferenceProps & {
   contextEngine?: ContextEngine;
   query?: ContextQuery;
+};
+
+type ActiveAsyncGeneration = {
+  settled: boolean;
+  unsubscribe: () => void;
+  cancel: (notifyComplete?: boolean) => void;
 };
 
 const useContextAugmentation = (
@@ -52,6 +59,7 @@ export const useInferenceAsync = (props: InferenceProps = {}) => {
   const onResultRef = useRef(onResult);
   const onCompleteRef = useRef(onComplete);
   const onErrorRef = useRef(onError);
+  const activeGenerationRef = useRef<ActiveAsyncGeneration | null>(null);
 
   useEffect(() => {
     onResultRef.current = onResult;
@@ -59,54 +67,107 @@ export const useInferenceAsync = (props: InferenceProps = {}) => {
     onErrorRef.current = onError;
   }, [onResult, onComplete, onError]);
 
-  const llm$ = useMemo(() => createLLMObservable(), []);
+  const finishGeneration = useCallback(
+    (generation: ActiveAsyncGeneration, notifyComplete = true) => {
+      if (generation.settled) {
+        return;
+      }
+
+      generation.settled = true;
+      generation.unsubscribe();
+      if (activeGenerationRef.current === generation) {
+        activeGenerationRef.current = null;
+      }
+      if (notifyComplete) {
+        onCompleteRef.current?.();
+      }
+    },
+    []
+  );
 
   const generate = useCallback(
     async (params: LlmRequestParams) => {
       if (!controller) {
         onErrorRef.current?.(new Error('Controller not initialized'));
-        return () => {
-          onCompleteRef.current?.();
-        };
+        onCompleteRef.current?.();
+        return () => {};
       }
 
+      if (activeGenerationRef.current) {
+        onErrorRef.current?.(new GenerationInProgressError());
+        return () => {};
+      }
+
+      let formattedParams: LlmRequestParams;
       try {
         validateLlmRequestParams(params);
-        onGenerate?.();
-        await controller.generateAsync(
-          protocol.formatRequest(params),
-          llm$.callbacks
-        );
+        formattedParams = protocol.formatRequest(params);
       } catch (err) {
         onErrorRef.current?.(
           err instanceof Error ? err : new Error('An unknown error occurred')
         );
-      }
-      return () => {
-        controller.cancelAsync();
         onCompleteRef.current?.();
+        return () => {};
+      }
+
+      const llm$ = createLLMObservable();
+      const generation: ActiveAsyncGeneration = {
+        settled: false,
+        unsubscribe: () => {},
+        cancel: () => {},
       };
+
+      const subscription = llm$.observable.subscribe({
+        next: ({ text, isFinal }) => {
+          onResultRef.current?.(protocol.sanitizeOutput(text), isFinal);
+        },
+        complete: () => finishGeneration(generation),
+        error: (err) => {
+          onErrorRef.current?.(
+            err instanceof Error ? err : new Error('An unknown error occurred')
+          );
+          finishGeneration(generation);
+        },
+      });
+
+      generation.unsubscribe = () => subscription.unsubscribe();
+      generation.cancel = (notifyComplete = true) => {
+        if (generation.settled) {
+          return;
+        }
+
+        try {
+          controller.cancelAsync();
+        } catch (err) {
+          onErrorRef.current?.(
+            err instanceof Error ? err : new Error('An unknown error occurred')
+          );
+        } finally {
+          finishGeneration(generation, notifyComplete);
+        }
+      };
+      activeGenerationRef.current = generation;
+
+      try {
+        onGenerate?.();
+        await controller.generateAsync(formattedParams, llm$.callbacks);
+      } catch (err) {
+        if (!generation.settled) {
+          onErrorRef.current?.(
+            err instanceof Error ? err : new Error('An unknown error occurred')
+          );
+          finishGeneration(generation);
+        }
+      }
+
+      return () => generation.cancel();
     },
-    [controller, llm$.callbacks, onGenerate, protocol]
+    [controller, finishGeneration, onGenerate, protocol]
   );
 
   useEffect(() => {
-    const sub = llm$.observable.subscribe({
-      next: ({ text, isFinal }) => {
-        onResultRef.current?.(protocol.sanitizeOutput(text), isFinal);
-      },
-      complete: () => onCompleteRef.current?.(),
-      error: (err) => onErrorRef.current?.(err),
-    });
-
     return () => {
-      sub.unsubscribe();
-    };
-  }, [llm$.observable, protocol]);
-
-  useEffect(() => {
-    return () => {
-      controller?.cancelAsync();
+      activeGenerationRef.current?.cancel(false);
     };
   }, [controller]);
 
