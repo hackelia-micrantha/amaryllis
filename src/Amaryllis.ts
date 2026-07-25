@@ -59,13 +59,24 @@ export class LlmPipe implements LlmEngine {
 
   async generate(params: LlmRequestParams): Promise<string> {
     const operationId = this.claimNativeOperation('sync');
+    let generationFailed = false;
     try {
       const nativeParams = toNativeRequestParams(params);
       return await this.llmNative.generate(nativeParams);
+    } catch (error) {
+      generationFailed = true;
+      throw error;
     } finally {
       this.releaseNativeOperation(operationId);
       if (this.closeRequested) {
-        this.close();
+        try {
+          this.close();
+        } catch (error) {
+          if (!generationFailed) {
+            throw error;
+          }
+          console.warn('Failed to close after generation failure:', error);
+        }
       }
     }
   }
