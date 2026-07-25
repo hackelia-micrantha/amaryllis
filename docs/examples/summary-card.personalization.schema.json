@@ -1,17 +1,102 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://micrantha.com/amaryllis/examples/summary-card.personalization.schema.json",
-  "title": "SummaryCardPersonalization",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "summary-card Personalization Contract",
+  "description": "Schema for on-device personalization of summary-card v0.1.0",
   "type": "object",
-  "additionalProperties": false,
   "properties": {
-    "summary": {
-      "type": "string",
-      "maxLength": 240
+    "props": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "variant": {
+          "type": "string",
+          "enum": [
+            "compact",
+            "expanded"
+          ]
+        }
+      },
+      "required": [
+        "title"
+      ],
+      "additionalProperties": false
     },
     "variant": {
       "type": "string",
-      "enum": ["compact", "expanded"]
+      "enum": [
+        "compact",
+        "expanded"
+      ]
+    },
+    "slots": {
+      "type": "object",
+      "properties": {
+        "summary": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "designTokens": {
+      "type": "object",
+      "properties": {
+        "spacingSm": {
+          "type": "string"
+        },
+        "spacingMd": {
+          "type": "string"
+        },
+        "bodySm": {
+          "type": "string"
+        },
+        "bodyMd": {
+          "type": "string"
+        },
+        "surfacePrimary": {
+          "type": "string"
+        },
+        "textPrimary": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "patches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "op": {
+            "type": "string",
+            "enum": [
+              "add",
+              "remove",
+              "replace",
+              "move",
+              "copy",
+              "test"
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "value": {}
+        },
+        "required": [
+          "op",
+          "path"
+        ],
+        "additionalProperties": false
+      }
     }
-  }
+  },
+  "additionalProperties": false
 }
