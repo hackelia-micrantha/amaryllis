@@ -23,6 +23,7 @@ import { usePromptContext } from '../PromptContext';
 
 export const ChatPrompt = () => {
   const inputTextRef = useRef<TextInput>(null);
+  const cancelInferenceRef = useRef<(() => void) | null>(null);
 
   const {
     prompt,
@@ -97,15 +98,18 @@ export const ChatPrompt = () => {
         });
 
         if (isFinal) {
+          cancelInferenceRef.current = null;
           addContextItem(result, 'assistant');
           setIsBusy(false);
         }
       },
       onError: (err) => {
+        cancelInferenceRef.current = null;
         setError(err);
         setIsBusy(false);
       },
       onComplete: () => {
+        cancelInferenceRef.current = null;
         setIsBusy(false);
       },
     }),
@@ -119,11 +123,17 @@ export const ChatPrompt = () => {
     if (!hasPrompt) {
       return;
     }
-    await generate({ prompt, images });
+    cancelInferenceRef.current = await generate({ prompt, images });
   }, [generate, hasPrompt, images, prompt]);
 
   const onCancelInference = useCallback(() => {
-    controller?.cancelAsync();
+    const cancel = cancelInferenceRef.current;
+    cancelInferenceRef.current = null;
+    if (cancel) {
+      cancel();
+    } else {
+      controller?.cancelAsync();
+    }
     setIsBusy(false);
   }, [controller, setIsBusy]);
 
