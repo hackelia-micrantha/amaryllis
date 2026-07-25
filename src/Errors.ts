@@ -19,7 +19,7 @@ export class GenerationError extends AmaryllisError {
 }
 
 export class GenerationInProgressError extends AmaryllisError {
-  constructor(message = 'An asynchronous generation is already in progress') {
+  constructor(message = 'An inference operation is already in progress') {
     super(message, GENERATION_IN_PROGRESS_CODE);
     this.name = 'GenerationInProgressError';
   }
