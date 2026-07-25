@@ -97,6 +97,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
 
     steps:
       - name: Checkout
@@ -120,6 +123,11 @@ jobs:
 
       - name: Validate release SBOM contract
         run: bash scripts/validate-sbom.sh "artifacts/amaryllis-${GITHUB_REF_NAME}.cdx.json"
+
+      - name: Attest release SBOM provenance
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4
+        with:
+          subject-path: artifacts/amaryllis-${{ github.ref_name }}.cdx.json
 
       - name: Ensure GitHub Release exists
         env:
