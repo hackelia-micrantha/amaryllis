@@ -21,7 +21,12 @@ on:
       - '**/gradle.properties'
       - '**/libs.versions.toml'
       - scripts/derive-package-sboms.mjs
+      - scripts/package-sbom-lib.mjs
+      - scripts/package-sbom-lib.test.mjs
+      - scripts/__fixtures__/package-sbom/**
+      - scripts/validate-cyclonedx-schema.sh
       - scripts/validate-sbom.sh
+      - docs/sbom.md
       - .github/actions/setup/**
       - .github/workflows/sbom.yml
   push:
@@ -45,6 +50,9 @@ jobs:
       - name: Setup dependencies
         uses: ./.github/actions/setup
 
+      - name: Test package SBOM derivation
+        run: node --test scripts/package-sbom-lib.test.mjs
+
       - name: Prepare artifact directory
         run: mkdir -p artifacts
 
@@ -60,6 +68,14 @@ jobs:
 
       - name: Derive package-scoped SBOMs
         run: node scripts/derive-package-sboms.mjs
+
+      - name: Validate CycloneDX schemas
+        run: |
+          bash scripts/validate-cyclonedx-schema.sh \
+            artifacts/sbom.cdx.json \
+            artifacts/packages/react-native-amaryllis.cdx.json \
+            artifacts/packages/amaryllis-core.cdx.json \
+            artifacts/packages/amaryllis-components.cdx.json
 
       - name: Validate SBOM contracts
         run: |
@@ -119,6 +135,9 @@ jobs:
       - name: Setup dependencies
         uses: ./.github/actions/setup
 
+      - name: Test package SBOM derivation
+        run: node --test scripts/package-sbom-lib.test.mjs
+
       - name: Prepare artifact directory
         run: mkdir -p artifacts
 
@@ -145,6 +164,9 @@ jobs:
           mv artifacts/packages/amaryllis-components.cdx.json \
             "artifacts/amaryllis-components-${GITHUB_REF_NAME}.cdx.json"
           rmdir artifacts/packages
+
+      - name: Validate release CycloneDX schemas
+        run: bash scripts/validate-cyclonedx-schema.sh artifacts/*.cdx.json
 
       - name: Validate release SBOM contracts
         run: |

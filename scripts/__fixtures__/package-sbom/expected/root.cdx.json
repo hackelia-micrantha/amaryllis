@@ -1,0 +1,93 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-01-01T00:00:00Z",
+    "component": {
+      "type": "library",
+      "name": "@fixture/root",
+      "version": "1.2.3",
+      "purl": "pkg:npm/%40fixture/root@1.2.3",
+      "bom-ref": "pkg:npm/%40fixture/root@1.2.3"
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "name": "@fixture/workspace",
+      "version": "4.5.6",
+      "purl": "pkg:npm/%40fixture/workspace@4.5.6",
+      "bom-ref": "pkg:npm/%40fixture/workspace@4.5.6"
+    },
+    {
+      "type": "library",
+      "name": "direct",
+      "version": "1.0.0",
+      "purl": "pkg:npm/direct@1.0.0",
+      "bom-ref": "pkg:npm/direct@1.0.0"
+    },
+    {
+      "type": "library",
+      "name": "peer",
+      "version": "^3.0.0",
+      "scope": "optional",
+      "purl": "pkg:npm/peer@%5E3.0.0",
+      "bom-ref": "pkg:npm/peer@%5E3.0.0",
+      "properties": [
+        {
+          "name": "cdx:npm:dependencyType",
+          "value": "peer"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "transitive",
+      "version": "2.0.0",
+      "purl": "pkg:npm/transitive@2.0.0",
+      "bom-ref": "pkg:npm/transitive@2.0.0"
+    },
+    {
+      "type": "library",
+      "name": "workspace-direct",
+      "version": "5.0.0",
+      "purl": "pkg:npm/workspace-direct@5.0.0",
+      "bom-ref": "pkg:npm/workspace-direct@5.0.0"
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "pkg:npm/%40fixture/root@1.2.3",
+      "dependsOn": [
+        "pkg:npm/%40fixture/workspace@4.5.6",
+        "pkg:npm/direct@1.0.0",
+        "pkg:npm/peer@%5E3.0.0"
+      ]
+    },
+    {
+      "ref": "pkg:npm/%40fixture/workspace@4.5.6",
+      "dependsOn": [
+        "pkg:npm/workspace-direct@5.0.0"
+      ]
+    },
+    {
+      "ref": "pkg:npm/direct@1.0.0",
+      "dependsOn": [
+        "pkg:npm/transitive@2.0.0"
+      ]
+    },
+    {
+      "ref": "pkg:npm/peer@%5E3.0.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:npm/transitive@2.0.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:npm/workspace-direct@5.0.0",
+      "dependsOn": []
+    }
+  ]
+}
