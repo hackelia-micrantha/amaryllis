@@ -20,8 +20,8 @@ test('derives exact published identity, production closure, peers, and workspace
     type: 'library',
     name: '@fixture/root',
     version: '1.2.3',
-    purl: 'pkg:npm/@fixture/root@1.2.3',
-    'bom-ref': 'pkg:npm/@fixture/root@1.2.3',
+    purl: 'pkg:npm/%40fixture/root@1.2.3',
+    'bom-ref': 'pkg:npm/%40fixture/root@1.2.3',
   });
 
   const byName = new Map(output.components.map((component) => [component.name, component]));
@@ -37,7 +37,7 @@ test('derives exact published identity, production closure, peers, and workspace
 
   const graph = new Map(output.dependencies.map((dependency) => [dependency.ref, dependency.dependsOn]));
   assert.deepEqual(graph.get('pkg:npm/direct@1.0.0'), ['pkg:npm/transitive@2.0.0']);
-  assert.deepEqual(graph.get('pkg:npm/@fixture/workspace@4.5.6'), [
+  assert.deepEqual(graph.get('pkg:npm/%40fixture/workspace@4.5.6'), [
     'pkg:npm/workspace-direct@5.0.0',
   ]);
 });
