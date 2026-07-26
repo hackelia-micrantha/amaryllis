@@ -3,72 +3,89 @@ import test from 'node:test';
 
 import { classifyCiChanges } from './classify-ci-changes.mjs';
 
-test('skips native builds for documentation-only changes', () => {
-  assert.deepEqual(classifyCiChanges(['docs/examples/README.md']), {
+function dimensions(paths) {
+  const { runRoot, runComponents, runNative } = classifyCiChanges(paths);
+  return { runRoot, runComponents, runNative };
+}
+
+test('docs-only changes skip all expensive validation', () => {
+  assert.deepEqual(dimensions(['docs/guide.md', 'README.md']), {
+    runRoot: false,
+    runComponents: false,
     runNative: false,
-    reason: 'all changed paths are explicitly classified as non-native',
   });
 });
 
-test('skips native builds for components-only changes', () => {
-  assert.equal(
-    classifyCiChanges([
-      'packages/amaryllis-components/src/generator/schema.ts',
-      'packages/amaryllis-components/src/__tests__/SchemaGenerator.test.ts',
-    ]).runNative,
-    false
-  );
-});
-
-test('skips native builds for root markdown changes', () => {
-  assert.equal(classifyCiChanges(['README.md', 'RELEASE.md']).runNative, false);
-});
-
-test('runs native builds for shared runtime changes', () => {
-  assert.equal(classifyCiChanges(['src/index.ts']).runNative, true);
-});
-
-test('runs native builds for lockfile and workflow changes', () => {
-  assert.equal(
-    classifyCiChanges(['yarn.lock', '.github/workflows/ci.yml']).runNative,
-    true
-  );
-});
-
-test('runs native builds when a native file is renamed into docs', () => {
-  assert.equal(
-    classifyCiChanges([
-      'example/android/app/src/main/java/com/amaryllis/Module.kt',
-      'docs/Module.kt',
-    ]).runNative,
-    true
-  );
-});
-
-test('runs native builds when a native file is renamed into components', () => {
-  assert.equal(
-    classifyCiChanges([
-      'example/ios/Amaryllis/Module.swift',
-      'packages/amaryllis-components/src/Module.ts',
-    ]).runNative,
-    true
-  );
-});
-
-test('skips native builds for renames entirely within allowlisted paths', () => {
-  assert.equal(
-    classifyCiChanges(['docs/old.md', 'docs/new.md']).runNative,
-    false
-  );
-});
-
-test('fails closed when no changed paths are available', () => {
-  assert.deepEqual(classifyCiChanges([]), {
+test('root-only changes run root and native validation', () => {
+  assert.deepEqual(dimensions(['src/index.ts']), {
+    runRoot: true,
+    runComponents: false,
     runNative: true,
-    reason: 'no changed paths were available; running the full native matrix',
   });
 });
 
-test('fails closed for unknown paths', () => {
-  assert.equal(classifyCiChanges(['tools/new-helper.ts']).runNative, true);
+test('components-only changes run components validation', () => {
+  assert.deepEqual(dimensions(['packages/amaryllis-components/src/index.ts']), {
+    runRoot: false,
+    runComponents: true,
+    runNative: false,
+  });
+});
+
+test('native-only changes run root and native validation', () => {
+  assert.deepEqual(dimensions(['example/android/app/src/main/Module.kt']), {
+    runRoot: true,
+    runComponents: false,
+    runNative: true,
+  });
+});
+
+test('mixed root and components changes combine dimensions', () => {
+  assert.deepEqual(
+    dimensions(['src/index.ts', 'packages/amaryllis-components/src/index.ts']),
+    { runRoot: true, runComponents: true, runNative: true }
+  );
+});
+
+test('mixed components and native changes combine dimensions', () => {
+  assert.deepEqual(
+    dimensions(['packages/amaryllis-components/src/index.ts', 'example/ios/Module.swift']),
+    { runRoot: true, runComponents: true, runNative: true }
+  );
+});
+
+test('lockfile and workflow changes run all validation', () => {
+  for (const path of ['yarn.lock', '.github/workflows/ci.yml']) {
+    assert.deepEqual(dimensions([path]), {
+      runRoot: true,
+      runComponents: true,
+      runNative: true,
+    });
+  }
+});
+
+test('rename from a relevant path into documentation remains relevant', () => {
+  assert.deepEqual(dimensions(['src/old.ts', 'docs/old.ts']), {
+    runRoot: true,
+    runComponents: false,
+    runNative: true,
+  });
+});
+
+test('unknown paths fail closed', () => {
+  assert.deepEqual(dimensions(['tools/new-helper.ts']), {
+    runRoot: true,
+    runComponents: true,
+    runNative: true,
+  });
+});
+
+test('missing and invalid path data fail closed', () => {
+  for (const paths of [[], [null]]) {
+    assert.deepEqual(dimensions(paths), {
+      runRoot: true,
+      runComponents: true,
+      runNative: true,
+    });
+  }
 });

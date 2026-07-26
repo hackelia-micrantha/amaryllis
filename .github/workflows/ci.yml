@@ -24,6 +24,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
+      run_root: ${{ steps.classify.outputs.run_root }}
+      run_components: ${{ steps.classify.outputs.run_components }}
       run_native: ${{ steps.classify.outputs.run_native }}
       reason: ${{ steps.classify.outputs.reason }}
       changed_count: ${{ steps.classify.outputs.changed_count }}
@@ -50,15 +52,19 @@ jobs:
 
           if [[ "$EVENT_NAME" != "pull_request" ]]; then
             {
+              echo "run_root=true"
+              echo "run_components=true"
               echo "run_native=true"
-              echo "reason=non-pull-request event; running the full native matrix"
+              echo "reason=non-pull-request event; running all CI validation"
               echo "changed_count=0"
             } >> "$GITHUB_OUTPUT"
             {
               echo "## CI change classification"
               echo
+              echo "- Root validation: **run**"
+              echo "- Components validation: **run**"
               echo "- Native matrix: **run**"
-              echo "- Reason: non-pull-request event; running the full native matrix"
+              echo "- Reason: non-pull-request event; running all CI validation"
               echo "- Changed paths: not evaluated"
             } >> "$GITHUB_STEP_SUMMARY"
             exit 0
@@ -67,45 +73,70 @@ jobs:
           node scripts/detect-ci-changes.mjs "$BASE_SHA" "$HEAD_SHA" >> "$GITHUB_OUTPUT"
 
   lint:
+    needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - name: Root validation not required for this change
+        if: needs.changes.outputs.run_root != 'true'
+        run: echo "Root validation skipped: ${{ needs.changes.outputs.reason }}"
+
       - name: Checkout
+        if: needs.changes.outputs.run_root == 'true'
         uses: actions/checkout@v4
 
       - name: Setup
+        if: needs.changes.outputs.run_root == 'true'
         uses: ./.github/actions/setup
 
       - name: Lint root package
+        if: needs.changes.outputs.run_root == 'true'
         run: yarn lint --ignore-pattern 'packages/amaryllis-components/**'
 
       - name: Typecheck files
+        if: needs.changes.outputs.run_root == 'true'
         run: yarn typecheck
 
   test:
+    needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - name: Root tests not required for this change
+        if: needs.changes.outputs.run_root != 'true'
+        run: echo "Root tests skipped: ${{ needs.changes.outputs.reason }}"
+
       - name: Checkout
+        if: needs.changes.outputs.run_root == 'true'
         uses: actions/checkout@v4
 
       - name: Setup
+        if: needs.changes.outputs.run_root == 'true'
         uses: ./.github/actions/setup
 
       - name: Run unit tests
+        if: needs.changes.outputs.run_root == 'true'
         run: yarn test --maxWorkers=2
 
   components-package:
+    needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      - name: Components validation not required for this change
+        if: needs.changes.outputs.run_components != 'true'
+        run: echo "Components validation skipped: ${{ needs.changes.outputs.reason }}"
+
       - name: Checkout
+        if: needs.changes.outputs.run_components == 'true'
         uses: actions/checkout@v4
 
       - name: Setup
+        if: needs.changes.outputs.run_components == 'true'
         uses: ./.github/actions/setup
 
       - name: Test components package
+        if: needs.changes.outputs.run_components == 'true'
         run: |
           set -o pipefail
           yarn workspace @micrantha/amaryllis-components test --runInBand 2>&1 | tee components-test.log
@@ -120,6 +151,7 @@ jobs:
           retention-days: 7
 
       - name: Lint components package
+        if: needs.changes.outputs.run_components == 'true'
         run: |
           set -o pipefail
           yarn eslint "packages/amaryllis-components/src/**/*.{ts,tsx}" 2>&1 | tee components-lint.log
@@ -134,34 +166,62 @@ jobs:
           retention-days: 7
 
       - name: Typecheck components package
+        if: needs.changes.outputs.run_components == 'true'
         run: yarn workspace @micrantha/amaryllis-components typecheck
 
       - name: Build components package
+        if: needs.changes.outputs.run_components == 'true'
         run: yarn workspace @micrantha/amaryllis-components build
 
       - name: Verify AI component examples
+        if: needs.changes.outputs.run_components == 'true'
         run: yarn workspace @micrantha/amaryllis-components verify:examples
 
       - name: Build main package for package validation
+        if: needs.changes.outputs.run_components == 'true'
         run: yarn prepare
 
       - name: Validate package metadata and outputs
+        if: needs.changes.outputs.run_components == 'true'
         run: node scripts/validate-packages.mjs
 
       - name: Dry-run components package archive
+        if: needs.changes.outputs.run_components == 'true'
         run: npm pack --dry-run
         working-directory: packages/amaryllis-components
 
       - name: Dry-run main package archive
+        if: needs.changes.outputs.run_components == 'true'
         run: npm pack --dry-run
 
   build-library:
-    needs: components-package
+    needs: [changes, components-package]
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
-      - name: Confirm validated library build
-        run: echo "Main library build and package outputs were validated by components-package"
+      - name: Root library build not required for this change
+        if: needs.changes.outputs.run_root != 'true'
+        run: echo "Root library build skipped: ${{ needs.changes.outputs.reason }}"
+
+      - name: Checkout
+        if: needs.changes.outputs.run_root == 'true'
+        uses: actions/checkout@v4
+
+      - name: Setup
+        if: needs.changes.outputs.run_root == 'true'
+        uses: ./.github/actions/setup
+
+      - name: Build main package
+        if: needs.changes.outputs.run_root == 'true'
+        run: yarn prepare
+
+      - name: Validate package metadata and outputs
+        if: needs.changes.outputs.run_root == 'true'
+        run: node scripts/validate-packages.mjs
+
+      - name: Dry-run main package archive
+        if: needs.changes.outputs.run_root == 'true'
+        run: npm pack --dry-run
 
   build-android:
     needs: changes

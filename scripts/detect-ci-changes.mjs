@@ -15,13 +15,19 @@ function renderPath(path) {
   return JSON.stringify(path).replaceAll('`', '\\u0060');
 }
 
+function failClosed(reason) {
+  return {
+    runRoot: true,
+    runComponents: true,
+    runNative: true,
+    reason,
+    paths: [],
+  };
+}
+
 export function detectCiChanges({ cwd = process.cwd(), baseSha, headSha }) {
   if (!baseSha || !headSha) {
-    return {
-      runNative: true,
-      reason: 'base or head revision was unavailable; running the full native matrix',
-      paths: [],
-    };
+    return failClosed('base or head revision was unavailable; running all CI validation');
   }
 
   try {
@@ -39,16 +45,14 @@ export function detectCiChanges({ cwd = process.cwd(), baseSha, headSha }) {
 
     return { ...classification, paths };
   } catch {
-    return {
-      runNative: true,
-      reason: 'git change detection failed; running the full native matrix',
-      paths: [],
-    };
+    return failClosed('git change detection failed; running all CI validation');
   }
 }
 
 export function formatGithubOutputs(result) {
   return [
+    `run_root=${result.runRoot}`,
+    `run_components=${result.runComponents}`,
     `run_native=${result.runNative}`,
     `reason=${result.reason}`,
     `changed_count=${result.paths.length}`,
@@ -61,6 +65,8 @@ export function formatJobSummary(result) {
   const lines = [
     '## CI change classification',
     '',
+    `- Root validation: **${result.runRoot ? 'run' : 'skipped'}**`,
+    `- Components validation: **${result.runComponents ? 'run' : 'skipped'}**`,
     `- Native matrix: **${result.runNative ? 'run' : 'skipped'}**`,
     `- Reason: ${result.reason}`,
     `- Changed paths: ${result.paths.length}`,
