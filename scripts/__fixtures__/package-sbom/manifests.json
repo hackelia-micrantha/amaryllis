@@ -1,0 +1,29 @@
+[
+  {
+    "slug": "root",
+    "manifest": {
+      "name": "@fixture/root",
+      "version": "1.2.3",
+      "dependencies": {
+        "@fixture/workspace": "workspace:*",
+        "direct": "^1.0.0"
+      },
+      "peerDependencies": {
+        "peer": "^3.0.0"
+      },
+      "devDependencies": {
+        "dev-only": "^9.0.0"
+      }
+    }
+  },
+  {
+    "slug": "workspace",
+    "manifest": {
+      "name": "@fixture/workspace",
+      "version": "4.5.6",
+      "dependencies": {
+        "workspace-direct": "^5.0.0"
+      }
+    }
+  }
+]
