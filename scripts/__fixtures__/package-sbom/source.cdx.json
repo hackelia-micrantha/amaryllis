@@ -1,0 +1,11 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "version": 1,
+  "metadata": { "timestamp": "2026-01-01T00:00:00Z" },
+  "components": [
+    { "type": "library", "name": "direct", "version": "1.0.0", "purl": "pkg:npm/direct@1.0.0", "bom-ref": "syft:direct" },
+    { "type": "library", "name": "transitive", "version": "2.0.0", "purl": "pkg:npm/transitive@2.0.0", "bom-ref": "syft:transitive" }
+  ],
+  "dependencies": [{ "ref": "source", "dependsOn": [] }]
+}
