@@ -26,18 +26,21 @@ jobs:
     outputs:
       run_native: ${{ steps.classify.outputs.run_native }}
       reason: ${{ steps.classify.outputs.reason }}
+      changed_count: ${{ steps.classify.outputs.changed_count }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Test change classifier
-        run: node --test scripts/classify-ci-changes.test.mjs
+      - name: Test change classification
+        run: |
+          node --test \
+            scripts/classify-ci-changes.test.mjs \
+            scripts/detect-ci-changes.test.mjs
 
       - name: Classify changed paths
         id: classify
-        shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -49,15 +52,19 @@ jobs:
             {
               echo "run_native=true"
               echo "reason=non-pull-request event; running the full native matrix"
+              echo "changed_count=0"
             } >> "$GITHUB_OUTPUT"
+            {
+              echo "## CI change classification"
+              echo
+              echo "- Native matrix: **run**"
+              echo "- Reason: non-pull-request event; running the full native matrix"
+              echo "- Changed paths: not evaluated"
+            } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
-          mapfile -t changed_paths < <(
-            git diff --no-renames --name-only "$BASE_SHA...$HEAD_SHA"
-          )
-
-          node scripts/classify-ci-changes.mjs "${changed_paths[@]}" >> "$GITHUB_OUTPUT"
+          node scripts/detect-ci-changes.mjs "$BASE_SHA" "$HEAD_SHA" >> "$GITHUB_OUTPUT"
 
   lint:
     runs-on: ubuntu-latest
