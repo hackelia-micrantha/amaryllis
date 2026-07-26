@@ -3,14 +3,22 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const workflow = readFileSync('.github/workflows/ci.yml', 'utf8');
+const lines = workflow.split('\n');
+const jobsStart = lines.findIndex(line => line === 'jobs:');
+
+assert.notEqual(jobsStart, -1, 'missing jobs section');
 
 function jobBlock(name) {
-  const marker = `  ${name}:\n`;
-  const start = workflow.indexOf(marker);
+  const marker = `  ${name}:`;
+  const start = lines.findIndex((line, index) => index > jobsStart && line === marker);
   assert.notEqual(start, -1, `missing ${name} job`);
 
-  const nextJob = workflow.indexOf('\n  ', start + marker.length);
-  return nextJob === -1 ? workflow.slice(start) : workflow.slice(start, nextJob);
+  const relativeEnd = lines
+    .slice(start + 1)
+    .findIndex(line => /^  [A-Za-z0-9_-]+:$/.test(line));
+  const end = relativeEnd === -1 ? lines.length : start + 1 + relativeEnd;
+
+  return lines.slice(start, end).join('\n');
 }
 
 function assertContainsAll(block, snippets) {
