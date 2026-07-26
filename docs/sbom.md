@@ -17,7 +17,9 @@ Pushes to `main` also submit the complete repository inventory to GitHub's depen
 
 ## Package scope
 
-Package SBOMs are derived from the resolved repository dependency graph. Each one uses the published npm package as its CycloneDX root component and retains only components reachable from that package's dependency node.
+Package SBOMs use each published `package.json` as the source of truth. Each file has the package's exact name, version, npm PURL, and `bom-ref` as its CycloneDX root component.
+
+Required dependencies are resolved against the repository inventory and retain their transitive dependency closure. Peer dependencies are recorded as optional direct dependencies because the consuming application supplies them. Development-only dependencies and unrelated workspace or example-application branches are excluded.
 
 Choose the SBOM matching what you consume:
 
@@ -26,7 +28,7 @@ Choose the SBOM matching what you consume:
 - `amaryllis-components-*` for `@micrantha/amaryllis-components`
 - `amaryllis-*` for maintainers who need the complete monorepo, example application, tooling, and native dependency inventory
 
-The React Native package SBOM includes dependencies represented in the repository graph, including its shared Amaryllis core dependency. Native Android and iOS dependencies remain visible when they are connected to the package in the generated graph. The components and core package SBOMs do not include unrelated example-application or workspace tooling branches.
+The React Native package SBOM includes its published JavaScript dependency on the shared Amaryllis core package and its declared peers. Use the repository-wide SBOM when auditing Android, iOS, build-tooling, or other repository dependencies that are not expressed in the npm package manifest.
 
 ## Releases
 
