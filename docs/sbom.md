@@ -19,7 +19,7 @@ Pushes to `main` also submit the complete repository inventory to GitHub's depen
 
 Package SBOMs use each published `package.json` as the source of truth. Each file has the package's exact name, version, npm PURL, and `bom-ref` as its CycloneDX root component.
 
-Required dependencies are resolved against the repository inventory and retain their transitive dependency closure. Peer dependencies are recorded as optional direct dependencies because the consuming application supplies them. Development-only dependencies and unrelated workspace or example-application branches are excluded.
+Required dependencies are resolved to exact versions through `yarn.lock`, and their transitive production dependency closure is retained. Matching Syft components enrich those lockfile-derived identities when available. Peer dependencies are recorded with their declared ranges as optional direct dependencies because the consuming application supplies them. Development-only dependencies and unrelated workspace or example-application branches are excluded.
 
 Choose the SBOM matching what you consume:
 
