@@ -40,6 +40,8 @@ if (!Array.isArray(sbom.dependencies) || sbom.dependencies.length === 0) {
 
 const allComponents = root ? [root, ...sbom.components] : sbom.components;
 const purls = allComponents.map((component) => component.purl).filter(Boolean);
+const componentByName = new Map(allComponents.map((component) => [component.name, component]));
+const dependencyByRef = new Map(sbom.dependencies.map((dependency) => [dependency.ref, dependency]));
 
 const packageManifests = {
   '@micrantha/react-native-amaryllis': 'package.json',
@@ -48,11 +50,11 @@ const packageManifests = {
 };
 
 function npmPurl(name, version) {
-  return `pkg:npm/${encodeURIComponent(name).replace('%2F', '/')}@${version}`;
+  return `pkg:npm/${encodeURIComponent(name).replace(/%2F/g, '/')}@${encodeURIComponent(version)}`;
 }
 
 function hasPackage(packageName) {
-  const prefix = `pkg:npm/${encodeURIComponent(packageName).replace('%2F', '/')}@`;
+  const prefix = `pkg:npm/${encodeURIComponent(packageName).replace(/%2F/g, '/')}@`;
   return purls.some((purl) => purl.startsWith(prefix));
 }
 
@@ -80,9 +82,7 @@ if (expectedPackage) {
     );
   }
 
-  const rootDependency = sbom.dependencies.find(
-    (dependency) => dependency.ref === root['bom-ref']
-  );
+  const rootDependency = dependencyByRef.get(root['bom-ref']);
   if (!rootDependency) {
     throw new Error('package SBOM dependency graph does not contain its root component');
   }
@@ -100,6 +100,19 @@ if (expectedPackage) {
   for (const devDependencyName of Object.keys(manifest.devDependencies ?? {})) {
     if (!productionNames.has(devDependencyName) && hasPackage(devDependencyName)) {
       throw new Error(`package SBOM contains development-only dependency ${devDependencyName}`);
+    }
+  }
+
+  if (expectedPackage === '@micrantha/amaryllis-components') {
+    const ajv = componentByName.get('ajv');
+    const ajvNode = ajv && dependencyByRef.get(ajv['bom-ref']);
+    if (!ajvNode || !Array.isArray(ajvNode.dependsOn) || ajvNode.dependsOn.length === 0) {
+      throw new Error('components SBOM is missing ajv transitive production dependencies');
+    }
+    for (const ref of ajvNode.dependsOn) {
+      if (!allComponents.some((component) => component['bom-ref'] === ref)) {
+        throw new Error(`components SBOM dependency graph references missing component ${ref}`);
+      }
     }
   }
 } else {
