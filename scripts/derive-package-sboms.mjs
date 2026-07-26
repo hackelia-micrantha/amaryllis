@@ -32,7 +32,7 @@ const packageSpecs = [
 }));
 
 function npmPurl(name, version) {
-  return `pkg:npm/${encodeURIComponent(name).replace('%2F', '/')}@${version}`;
+  return `pkg:npm/${encodeURIComponent(name).replace(/%2F/g, '/')}@${version}`;
 }
 
 function componentNameFromPurl(component) {
