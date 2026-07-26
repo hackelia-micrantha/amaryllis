@@ -8,20 +8,13 @@ const [inputPath = 'artifacts/sbom.cdx.json', outputDir = 'artifacts/packages'] 
 
 const source = JSON.parse(fs.readFileSync(inputPath, 'utf8'));
 const sourceComponents = Array.isArray(source.components) ? source.components : [];
-const sourceDependencies = Array.isArray(source.dependencies) ? source.dependencies : [];
-const sourceDependencyByRef = new Map(
-  sourceDependencies.map((dependency) => [dependency.ref, dependency.dependsOn ?? []])
+const sourceComponentsByPurl = new Map(
+  sourceComponents.filter((component) => component.purl).map((component) => [component.purl, component])
 );
 
 const packageSpecs = [
-  {
-    manifestPath: 'package.json',
-    slug: 'react-native-amaryllis',
-  },
-  {
-    manifestPath: 'packages/amaryllis/package.json',
-    slug: 'amaryllis-core',
-  },
+  { manifestPath: 'package.json', slug: 'react-native-amaryllis' },
+  { manifestPath: 'packages/amaryllis/package.json', slug: 'amaryllis-core' },
   {
     manifestPath: 'packages/amaryllis-components/package.json',
     slug: 'amaryllis-components',
@@ -31,17 +24,80 @@ const packageSpecs = [
   manifest: JSON.parse(fs.readFileSync(spec.manifestPath, 'utf8')),
 }));
 
-function npmPurl(name, version) {
-  return `pkg:npm/${encodeURIComponent(name).replace(/%2F/g, '/')}@${version}`;
+function unquote(value) {
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
 }
 
-function componentNameFromPurl(component) {
-  const purl = component.purl;
-  if (typeof purl !== 'string' || !purl.startsWith('pkg:npm/')) return null;
-  const withoutPrefix = purl.slice('pkg:npm/'.length);
-  const versionSeparator = withoutPrefix.lastIndexOf('@');
-  if (versionSeparator <= 0) return null;
-  return decodeURIComponent(withoutPrefix.slice(0, versionSeparator));
+function parseYarnLock(lockText) {
+  const descriptorMap = new Map();
+  let current = null;
+  let section = null;
+
+  function commit() {
+    if (!current) return;
+    for (const descriptor of current.descriptors) {
+      descriptorMap.set(descriptor, current);
+    }
+  }
+
+  for (const rawLine of lockText.split(/\r?\n/)) {
+    if (!rawLine || rawLine.startsWith('#') || rawLine.startsWith('__metadata:')) continue;
+
+    if (!rawLine.startsWith(' ') && rawLine.endsWith(':')) {
+      commit();
+      const key = unquote(rawLine.slice(0, -1));
+      current = {
+        descriptors: key.split(', ').map(unquote),
+        version: null,
+        resolution: null,
+        dependencies: {},
+      };
+      section = null;
+      continue;
+    }
+
+    if (!current) continue;
+
+    const fieldMatch = rawLine.match(/^  ([^:]+):(?:\s+(.*))?$/);
+    if (fieldMatch) {
+      const [, field, rawValue] = fieldMatch;
+      if (rawValue === undefined) {
+        section = field;
+      } else {
+        section = null;
+        const value = unquote(rawValue);
+        if (field === 'version') current.version = value;
+        if (field === 'resolution') current.resolution = value;
+      }
+      continue;
+    }
+
+    const nestedMatch = rawLine.match(/^    (.+?):\s+(.+)$/);
+    if (nestedMatch && section === 'dependencies') {
+      const [, name, range] = nestedMatch;
+      current.dependencies[unquote(name)] = unquote(range);
+    }
+  }
+
+  commit();
+  return descriptorMap;
+}
+
+const lockDescriptors = parseYarnLock(fs.readFileSync('yarn.lock', 'utf8'));
+
+function npmPath(name) {
+  return encodeURIComponent(name).replace(/%2F/g, '/');
+}
+
+function npmPurl(name, version) {
+  return `pkg:npm/${npmPath(name)}@${encodeURIComponent(version)}`;
 }
 
 function createPublishedRoot(manifest) {
@@ -55,57 +111,70 @@ function createPublishedRoot(manifest) {
   };
 }
 
+function createPeerComponent(name, range) {
+  const purl = npmPurl(name, range);
+  return {
+    type: 'library',
+    name,
+    version: range,
+    scope: 'optional',
+    purl,
+    'bom-ref': purl,
+    properties: [
+      {
+        name: 'cdx:npm:dependencyType',
+        value: 'peer',
+      },
+    ],
+  };
+}
+
 const publishedByName = new Map(
-  packageSpecs.map((spec) => [spec.manifest.name, { ...spec, root: createPublishedRoot(spec.manifest) }])
+  packageSpecs.map((spec) => [
+    spec.manifest.name,
+    { ...spec, root: createPublishedRoot(spec.manifest) },
+  ])
 );
 
-const sourceComponentsByName = new Map();
-for (const component of sourceComponents) {
-  const name = componentNameFromPurl(component);
-  if (!name) continue;
-  const matches = sourceComponentsByName.get(name) ?? [];
-  matches.push(component);
-  sourceComponentsByName.set(name, matches);
+function descriptorFor(name, range) {
+  if (range.startsWith('npm:')) return `${name}@${range}`;
+  return `${name}@npm:${range}`;
 }
 
-function resolveExternalComponent(packageName) {
-  const matches = sourceComponentsByName.get(packageName) ?? [];
-  if (matches.length !== 1) {
-    throw new Error(
-      `expected exactly one resolved component for production dependency ${packageName}, found ${matches.length}`
-    );
+function resolveLockedPackage(name, range) {
+  const descriptor = descriptorFor(name, range);
+  const locked = lockDescriptors.get(descriptor);
+  if (!locked?.version) {
+    throw new Error(`Yarn lockfile has no exact resolution for ${descriptor}`);
   }
-  return matches[0];
+  return locked;
 }
 
-function resolveComponent(packageName, scope) {
-  const published = publishedByName.get(packageName);
-  const component = published?.root ?? resolveExternalComponent(packageName);
-  return scope === 'optional' ? { ...component, scope: 'optional' } : component;
+function createLockedComponent(name, locked) {
+  const purl = npmPurl(name, locked.version);
+  const enriched = sourceComponentsByPurl.get(purl);
+  return {
+    ...(enriched ?? {}),
+    type: enriched?.type ?? 'library',
+    name,
+    version: locked.version,
+    purl,
+    'bom-ref': purl,
+  };
 }
 
-function collectExternalClosure(startRefs) {
-  const visited = new Set();
-  const pending = [...startRefs];
-
-  while (pending.length > 0) {
-    const ref = pending.pop();
-    if (!ref || visited.has(ref)) continue;
-    visited.add(ref);
-
-    for (const dependencyRef of sourceDependencyByRef.get(ref) ?? []) {
-      pending.push(dependencyRef);
-    }
-  }
-
-  return visited;
+function requiredEntries(manifest) {
+  return Object.entries(manifest.dependencies ?? {}).map(([name, range]) => ({
+    name,
+    range,
+  }));
 }
 
-function directDependencyEntries(manifest) {
-  return [
-    ...Object.keys(manifest.dependencies ?? {}).map((name) => ({ name, scope: 'required' })),
-    ...Object.keys(manifest.peerDependencies ?? {}).map((name) => ({ name, scope: 'optional' })),
-  ];
+function peerEntries(manifest) {
+  return Object.entries(manifest.peerDependencies ?? {}).map(([name, range]) => ({
+    name,
+    range,
+  }));
 }
 
 fs.mkdirSync(outputDir, { recursive: true });
@@ -117,6 +186,8 @@ for (const packageSpec of packageSpecs) {
   const dependencyByRef = new Map();
   const pendingPublished = [manifest.name];
   const processedPublished = new Set();
+  const pendingLocked = [];
+  const processedLocked = new Set();
 
   while (pendingPublished.length > 0) {
     const publishedName = pendingPublished.pop();
@@ -129,44 +200,51 @@ for (const packageSpec of packageSpecs) {
       componentByRef.set(publishedRoot['bom-ref'], publishedRoot);
     }
 
-    const directEntries = directDependencyEntries(publishedSpec.manifest);
     const directRefs = [];
-    const requiredExternalRefs = [];
 
-    for (const entry of directEntries) {
-      const component = resolveComponent(entry.name, entry.scope);
-      const ref = component['bom-ref'];
-      if (!ref) {
-        throw new Error(`resolved component for ${entry.name} has no bom-ref`);
-      }
-
-      directRefs.push(ref);
-      if (entry.name !== manifest.name) {
-        componentByRef.set(ref, component);
-      }
-
-      if (publishedByName.has(entry.name)) {
-        pendingPublished.push(entry.name);
-      } else if (entry.scope === 'required') {
-        requiredExternalRefs.push(ref);
+    for (const { name, range } of requiredEntries(publishedSpec.manifest)) {
+      const publishedDependency = publishedByName.get(name);
+      if (publishedDependency) {
+        directRefs.push(publishedDependency.root['bom-ref']);
+        componentByRef.set(publishedDependency.root['bom-ref'], publishedDependency.root);
+        pendingPublished.push(name);
       } else {
-        dependencyByRef.set(ref, []);
+        const locked = resolveLockedPackage(name, range);
+        const component = createLockedComponent(name, locked);
+        directRefs.push(component['bom-ref']);
+        componentByRef.set(component['bom-ref'], component);
+        pendingLocked.push({ name, locked });
       }
     }
 
-    dependencyByRef.set(publishedRoot['bom-ref'], directRefs);
-
-    const externalClosure = collectExternalClosure(requiredExternalRefs);
-    for (const ref of externalClosure) {
-      const component = sourceComponents.find((candidate) => candidate['bom-ref'] === ref);
-      if (component) componentByRef.set(ref, component);
-      dependencyByRef.set(
-        ref,
-        (sourceDependencyByRef.get(ref) ?? []).filter((dependencyRef) =>
-          externalClosure.has(dependencyRef)
-        )
-      );
+    for (const { name, range } of peerEntries(publishedSpec.manifest)) {
+      const peer = createPeerComponent(name, range);
+      directRefs.push(peer['bom-ref']);
+      componentByRef.set(peer['bom-ref'], peer);
+      dependencyByRef.set(peer['bom-ref'], []);
     }
+
+    dependencyByRef.set(publishedRoot['bom-ref'], [...new Set(directRefs)].sort());
+  }
+
+  while (pendingLocked.length > 0) {
+    const { name, locked } = pendingLocked.pop();
+    const key = `${name}@${locked.version}`;
+    if (processedLocked.has(key)) continue;
+    processedLocked.add(key);
+
+    const component = createLockedComponent(name, locked);
+    const dependencyRefs = [];
+
+    for (const [dependencyName, dependencyRange] of Object.entries(locked.dependencies)) {
+      const dependencyLocked = resolveLockedPackage(dependencyName, dependencyRange);
+      const dependencyComponent = createLockedComponent(dependencyName, dependencyLocked);
+      dependencyRefs.push(dependencyComponent['bom-ref']);
+      componentByRef.set(dependencyComponent['bom-ref'], dependencyComponent);
+      pendingLocked.push({ name: dependencyName, locked: dependencyLocked });
+    }
+
+    dependencyByRef.set(component['bom-ref'], [...new Set(dependencyRefs)].sort());
   }
 
   componentByRef.delete(root['bom-ref']);
@@ -182,7 +260,7 @@ for (const packageSpec of packageSpecs) {
       String(a['bom-ref']).localeCompare(String(b['bom-ref']))
     ),
     dependencies: [...dependencyByRef.entries()]
-      .map(([ref, dependsOn]) => ({ ref, dependsOn: [...new Set(dependsOn)].sort() }))
+      .map(([ref, dependsOn]) => ({ ref, dependsOn }))
       .sort((a, b) => a.ref.localeCompare(b.ref)),
   };
 
