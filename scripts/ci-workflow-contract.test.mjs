@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-const workflow = readFileSync('.github/workflows/ci.yml', 'utf8');
+const workflow = readFileSync('.github/workflows/primary-ci.yml', 'utf8');
 const lines = workflow.split('\n');
 const jobsStart = lines.findIndex(line => line === 'jobs:');
 

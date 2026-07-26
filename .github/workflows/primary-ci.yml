@@ -80,7 +80,8 @@ jobs:
     steps:
       - name: Root validation not required for this change
         if: needs.changes.outputs.run_root != 'true'
-        run: echo "Root validation skipped: ${{ needs.changes.outputs.reason }}"
+        run: |
+          echo "Root validation skipped: ${{ needs.changes.outputs.reason }}"
 
       - name: Checkout
         if: needs.changes.outputs.run_root == 'true'
@@ -105,7 +106,8 @@ jobs:
     steps:
       - name: Root tests not required for this change
         if: needs.changes.outputs.run_root != 'true'
-        run: echo "Root tests skipped: ${{ needs.changes.outputs.reason }}"
+        run: |
+          echo "Root tests skipped: ${{ needs.changes.outputs.reason }}"
 
       - name: Checkout
         if: needs.changes.outputs.run_root == 'true'
@@ -126,7 +128,8 @@ jobs:
     steps:
       - name: Components validation not required for this change
         if: needs.changes.outputs.run_components != 'true'
-        run: echo "Components validation skipped: ${{ needs.changes.outputs.reason }}"
+        run: |
+          echo "Components validation skipped: ${{ needs.changes.outputs.reason }}"
 
       - name: Checkout
         if: needs.changes.outputs.run_components == 'true'
@@ -202,7 +205,8 @@ jobs:
     steps:
       - name: Root library build not required for this change
         if: needs.changes.outputs.run_root != 'true'
-        run: echo "Root library build skipped: ${{ needs.changes.outputs.reason }}"
+        run: |
+          echo "Root library build skipped: ${{ needs.changes.outputs.reason }}"
 
       - name: Checkout
         if: needs.changes.outputs.run_root == 'true'
