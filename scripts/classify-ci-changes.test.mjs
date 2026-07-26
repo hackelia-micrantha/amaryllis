@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import './ci-workflow-contract.test.mjs';
 import { classifyCiChanges } from './classify-ci-changes.mjs';
 
 function dimensions(paths) {
