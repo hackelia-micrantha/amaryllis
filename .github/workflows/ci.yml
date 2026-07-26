@@ -195,12 +195,33 @@ jobs:
         run: npm pack --dry-run
 
   build-library:
-    needs: components-package
+    needs: [changes, components-package]
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
-      - name: Confirm library validation status
-        run: echo "The stable components-package check completed successfully"
+      - name: Root library build not required for this change
+        if: needs.changes.outputs.run_root != 'true'
+        run: echo "Root library build skipped: ${{ needs.changes.outputs.reason }}"
+
+      - name: Checkout
+        if: needs.changes.outputs.run_root == 'true'
+        uses: actions/checkout@v4
+
+      - name: Setup
+        if: needs.changes.outputs.run_root == 'true'
+        uses: ./.github/actions/setup
+
+      - name: Build main package
+        if: needs.changes.outputs.run_root == 'true'
+        run: yarn prepare
+
+      - name: Validate package metadata and outputs
+        if: needs.changes.outputs.run_root == 'true'
+        run: node scripts/validate-packages.mjs
+
+      - name: Dry-run main package archive
+        if: needs.changes.outputs.run_root == 'true'
+        run: npm pack --dry-run
 
   build-android:
     needs: changes
