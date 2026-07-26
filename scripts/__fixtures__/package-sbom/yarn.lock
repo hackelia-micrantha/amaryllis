@@ -1,0 +1,15 @@
+# This file is synthetic and intentionally minimal.
+
+"direct@npm:^1.0.0":
+  version: 1.0.0
+  resolution: "direct@npm:1.0.0"
+  dependencies:
+    transitive: ^2.0.0
+
+"transitive@npm:^2.0.0":
+  version: 2.0.0
+  resolution: "transitive@npm:2.0.0"
+
+"workspace-direct@npm:^5.0.0":
+  version: 5.0.0
+  resolution: "workspace-direct@npm:5.0.0"
