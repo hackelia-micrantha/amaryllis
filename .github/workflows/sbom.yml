@@ -20,6 +20,7 @@ on:
       - '**/*.gradle.kts'
       - '**/gradle.properties'
       - '**/libs.versions.toml'
+      - scripts/derive-package-sboms.mjs
       - scripts/validate-sbom.sh
       - .github/actions/setup/**
       - .github/workflows/sbom.yml
@@ -57,15 +58,25 @@ jobs:
           upload-artifact: false
           upload-release-assets: false
 
-      - name: Validate SBOM contract
-        run: bash scripts/validate-sbom.sh artifacts/sbom.cdx.json
+      - name: Derive package-scoped SBOMs
+        run: node scripts/derive-package-sboms.mjs
 
-      - name: Upload SBOM artifact
+      - name: Validate SBOM contracts
+        run: |
+          set -euo pipefail
+          bash scripts/validate-sbom.sh artifacts/sbom.cdx.json
+          bash scripts/validate-sbom.sh artifacts/packages/react-native-amaryllis.cdx.json '@micrantha/react-native-amaryllis'
+          bash scripts/validate-sbom.sh artifacts/packages/amaryllis-core.cdx.json '@micrantha/amaryllis'
+          bash scripts/validate-sbom.sh artifacts/packages/amaryllis-components.cdx.json '@micrantha/amaryllis-components'
+
+      - name: Upload SBOM artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: amaryllis-sbom-cyclonedx
-          path: artifacts/sbom.cdx.json
+          path: |
+            artifacts/sbom.cdx.json
+            artifacts/packages/*.cdx.json
           if-no-files-found: error
           retention-days: 90
 
@@ -121,13 +132,32 @@ jobs:
           upload-artifact: false
           upload-release-assets: false
 
-      - name: Validate release SBOM contract
-        run: bash scripts/validate-sbom.sh "artifacts/amaryllis-${GITHUB_REF_NAME}.cdx.json"
+      - name: Derive versioned package SBOMs
+        run: |
+          set -euo pipefail
+          node scripts/derive-package-sboms.mjs \
+            "artifacts/amaryllis-${GITHUB_REF_NAME}.cdx.json" \
+            artifacts/packages
+          mv artifacts/packages/react-native-amaryllis.cdx.json \
+            "artifacts/react-native-amaryllis-${GITHUB_REF_NAME}.cdx.json"
+          mv artifacts/packages/amaryllis-core.cdx.json \
+            "artifacts/amaryllis-core-${GITHUB_REF_NAME}.cdx.json"
+          mv artifacts/packages/amaryllis-components.cdx.json \
+            "artifacts/amaryllis-components-${GITHUB_REF_NAME}.cdx.json"
+          rmdir artifacts/packages
+
+      - name: Validate release SBOM contracts
+        run: |
+          set -euo pipefail
+          bash scripts/validate-sbom.sh "artifacts/amaryllis-${GITHUB_REF_NAME}.cdx.json"
+          bash scripts/validate-sbom.sh "artifacts/react-native-amaryllis-${GITHUB_REF_NAME}.cdx.json" '@micrantha/react-native-amaryllis'
+          bash scripts/validate-sbom.sh "artifacts/amaryllis-core-${GITHUB_REF_NAME}.cdx.json" '@micrantha/amaryllis'
+          bash scripts/validate-sbom.sh "artifacts/amaryllis-components-${GITHUB_REF_NAME}.cdx.json" '@micrantha/amaryllis-components'
 
       - name: Attest release SBOM provenance
         uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4
         with:
-          subject-path: artifacts/amaryllis-${{ github.ref_name }}.cdx.json
+          subject-path: artifacts/*.cdx.json
 
       - name: Ensure GitHub Release exists
         env:
@@ -141,11 +171,9 @@ jobs:
               --generate-notes
           fi
 
-      - name: Publish SBOM release asset
+      - name: Publish SBOM release assets
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh release upload "${GITHUB_REF_NAME}" \
-            "artifacts/amaryllis-${GITHUB_REF_NAME}.cdx.json" \
-            --clobber
+          gh release upload "${GITHUB_REF_NAME}" artifacts/*.cdx.json --clobber
