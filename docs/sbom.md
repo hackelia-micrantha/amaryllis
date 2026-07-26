@@ -17,14 +17,14 @@ Pushes to `main` also submit the complete repository inventory to GitHub's depen
 
 ## Validation layers
 
-Every generated repository or package SBOM is validated against the official CycloneDX 1.6 JSON schema before repository-specific contract checks run. The validator is pinned to `check-jsonschema` 0.37.2, and the schema URL is pinned to CycloneDX specification commit `8a27bfd1be5be0dcb2c208a34d2f4fa0b6d75bd7`; CI does not resolve a moving schema branch or tool version.
+Every generated repository or package SBOM is validated as CycloneDX 1.6 before repository-specific contract checks run. Standards validation uses the official CycloneDX CLI 0.32.0 container pinned to immutable image digest `sha256:9a858a15e7b0843606efc0ff19d5f7575011a5428d7f3d343b4f6cf09d8f0d4e`. The pinned image contains the official CycloneDX schemas and validator implementation; validation runs with container networking disabled.
 
 Standards validation and repository contracts remain separate:
 
-- `scripts/validate-cyclonedx-schema.sh` verifies standards-level CycloneDX JSON conformance for any repository or package SBOM.
+- `scripts/validate-cyclonedx-schema.sh` verifies standards-level CycloneDX 1.6 conformance for any repository or package SBOM.
 - `scripts/validate-sbom.sh` verifies Amaryllis-specific repository or package identity, dependency-scope, and graph guarantees.
 
-The package derivation logic also has deterministic synthetic-fixture tests covering exact published roots, direct and transitive production dependencies, optional peers, workspace traversal, development-only exclusion, duplicate descriptors, missing resolutions, stable ordering, and byte-for-byte output stability. The fixtures do not contain or regenerate the production repository SBOM.
+The package derivation logic has deterministic synthetic-fixture tests covering exact published roots, direct and transitive production dependencies, optional peers, workspace traversal, development-only exclusion, duplicate descriptors, missing resolutions, stable ordering, and byte-for-byte output stability. Committed synthetic golden SBOMs make output-format and semantic changes explicit during review. The fixtures do not contain or regenerate the production repository SBOM.
 
 Run the package derivation regression tests locally:
 
@@ -32,7 +32,7 @@ Run the package derivation regression tests locally:
 node --test scripts/package-sbom-lib.test.mjs
 ```
 
-Validate generated files against the pinned official schema:
+Validate generated files using the pinned CycloneDX validator image:
 
 ```sh
 bash scripts/validate-cyclonedx-schema.sh \
@@ -40,7 +40,7 @@ bash scripts/validate-cyclonedx-schema.sh \
   artifacts/packages/*.cdx.json
 ```
 
-The schema command installs the exact pinned validator version and downloads the schema from an immutable CycloneDX specification commit. It does not use an unversioned package or moving `main`/`master` schema URL.
+The script pulls only the immutable image digest before validation and then executes the validator with `--network none`. It does not install packages dynamically, resolve a moving container tag, or download schemas during validation.
 
 ## Package scope
 
@@ -119,4 +119,4 @@ Pull-request jobs retain read-only repository permissions and cannot request Git
 - `attestations: write`, to publish the signed attestations
 - `artifact-metadata: write`, as required by the pinned attestation action
 
-Third-party actions in the workflow are pinned to full commit SHAs. Schema validation additionally pins both the validator package version and immutable CycloneDX specification revision.
+Third-party actions in the workflow are pinned to full commit SHAs. Standards validation additionally pins the CycloneDX CLI version and immutable container digest.
