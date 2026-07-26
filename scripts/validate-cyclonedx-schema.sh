@@ -6,10 +6,35 @@ if (($# == 0)); then
   exit 2
 fi
 
-readonly check_jsonschema_version='0.37.2'
-readonly cyclonedx_schema_revision='8a27bfd1be5be0dcb2c208a34d2f4fa0b6d75bd7'
-readonly schema_url="https://raw.githubusercontent.com/CycloneDX/specification/${cyclonedx_schema_revision}/schema/bom-1.6.schema.json"
+readonly cyclonedx_cli_version='0.32.0'
+readonly cyclonedx_cli_digest='sha256:9a858a15e7b0843606efc0ff19d5f7575011a5428d7f3d343b4f6cf09d8f0d4e'
+readonly cyclonedx_cli_image="cyclonedx/cyclonedx-cli:${cyclonedx_cli_version}@${cyclonedx_cli_digest}"
+readonly workspace="$(pwd -P)"
 
-python3 -m pip install --disable-pip-version-check --quiet \
-  "check-jsonschema==${check_jsonschema_version}"
-python3 -m check_jsonschema --schemafile "$schema_url" "$@"
+docker pull "$cyclonedx_cli_image" >/dev/null
+
+for sbom_file in "$@"; do
+  if [[ ! -f "$sbom_file" ]]; then
+    echo "SBOM file does not exist: $sbom_file" >&2
+    exit 2
+  fi
+
+  absolute_file="$(cd "$(dirname "$sbom_file")" && pwd -P)/$(basename "$sbom_file")"
+  case "$absolute_file" in
+    "$workspace"/*) relative_file="${absolute_file#"$workspace"/}" ;;
+    *)
+      echo "SBOM file must be inside the current workspace: $sbom_file" >&2
+      exit 2
+      ;;
+  esac
+
+  docker run --rm --network none \
+    --volume "$workspace:/workspace:ro" \
+    --workdir /workspace \
+    "$cyclonedx_cli_image" \
+    validate \
+    --input-file "$relative_file" \
+    --input-format json \
+    --input-version v1_6 \
+    --fail-on-errors
+done
