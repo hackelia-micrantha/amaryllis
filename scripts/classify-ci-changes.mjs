@@ -12,14 +12,14 @@ export function classifyCiChanges(paths) {
     };
   }
 
-  const unsafePaths = paths.filter(
+  const hasUnsafePath = paths.some(
     path => !SAFE_NON_NATIVE_PATTERNS.some(pattern => pattern.test(path))
   );
 
-  if (unsafePaths.length > 0) {
+  if (hasUnsafePath) {
     return {
       runNative: true,
-      reason: `native-relevant or unknown paths changed: ${unsafePaths.join(', ')}`,
+      reason: 'native-relevant or unknown paths changed; running the full native matrix',
     };
   }
 
