@@ -41,22 +41,66 @@ if (!Array.isArray(sbom.dependencies) || sbom.dependencies.length === 0) {
 const allComponents = root ? [root, ...sbom.components] : sbom.components;
 const purls = allComponents.map((component) => component.purl).filter(Boolean);
 
+const packageManifests = {
+  '@micrantha/react-native-amaryllis': 'package.json',
+  '@micrantha/amaryllis': 'packages/amaryllis/package.json',
+  '@micrantha/amaryllis-components': 'packages/amaryllis-components/package.json',
+};
+
+function npmPurl(name, version) {
+  return `pkg:npm/${encodeURIComponent(name).replace('%2F', '/')}@${version}`;
+}
+
+function hasPackage(packageName) {
+  const prefix = `pkg:npm/${encodeURIComponent(packageName).replace('%2F', '/')}@`;
+  return purls.some((purl) => purl.startsWith(prefix));
+}
+
 if (expectedPackage) {
-  if (root?.name !== expectedPackage) {
+  const manifestPath = packageManifests[expectedPackage];
+  if (!manifestPath) {
+    throw new Error(`no manifest configured for expected package ${expectedPackage}`);
+  }
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  const expectedPurl = npmPurl(manifest.name, manifest.version);
+
+  if (root?.name !== manifest.name) {
     throw new Error(
-      `SBOM root package mismatch: expected ${expectedPackage}, found ${root?.name ?? '<missing>'}`
+      `SBOM root package mismatch: expected ${manifest.name}, found ${root?.name ?? '<missing>'}`
+    );
+  }
+  if (root?.version !== manifest.version) {
+    throw new Error(
+      `SBOM root version mismatch: expected ${manifest.version}, found ${root?.version ?? '<missing>'}`
+    );
+  }
+  if (root?.purl !== expectedPurl || root?.['bom-ref'] !== expectedPurl) {
+    throw new Error(
+      `SBOM root identity mismatch: expected ${expectedPurl}, found purl=${root?.purl ?? '<missing>'} bom-ref=${root?.['bom-ref'] ?? '<missing>'}`
     );
   }
 
-  const expectedPurl = `pkg:npm/${encodeURIComponent(expectedPackage).replace('%2F', '/')}@`;
-  if (!root.purl?.startsWith(expectedPurl)) {
-    throw new Error(`SBOM root purl mismatch: expected ${expectedPurl}, found ${root.purl ?? '<missing>'}`);
+  const rootDependency = sbom.dependencies.find(
+    (dependency) => dependency.ref === root['bom-ref']
+  );
+  if (!rootDependency) {
+    throw new Error('package SBOM dependency graph does not contain its root component');
   }
 
-  const rootRef = root['bom-ref'];
-  const rootDependency = sbom.dependencies.find((dependency) => dependency.ref === rootRef);
-  if (!rootRef || !rootDependency) {
-    throw new Error('package SBOM dependency graph does not contain its root component');
+  const productionNames = new Set([
+    ...Object.keys(manifest.dependencies ?? {}),
+    ...Object.keys(manifest.peerDependencies ?? {}),
+  ]);
+  for (const dependencyName of productionNames) {
+    if (!hasPackage(dependencyName)) {
+      throw new Error(`package SBOM is missing declared production dependency ${dependencyName}`);
+    }
+  }
+
+  for (const devDependencyName of Object.keys(manifest.devDependencies ?? {})) {
+    if (!productionNames.has(devDependencyName) && hasPackage(devDependencyName)) {
+      throw new Error(`package SBOM contains development-only dependency ${devDependencyName}`);
+    }
   }
 } else {
   if (sbom.components.length === 0) {
