@@ -42,81 +42,71 @@ function withRepo(callback) {
   }
 }
 
-test('detects documentation-only changes as non-native', () => {
-  withRepo(({ repo, baseSha }) => {
-    write(repo, 'docs/guide.md', 'guide');
-    const headSha = commit(repo, 'docs');
-    const result = detectCiChanges({ cwd: repo, baseSha, headSha });
+function dims(result) {
+  return {
+    runRoot: result.runRoot,
+    runComponents: result.runComponents,
+    runNative: result.runNative,
+  };
+}
 
-    assert.equal(result.runNative, false);
-    assert.deepEqual(result.paths, ['docs/guide.md']);
+const cases = [
+  ['docs-only', ['docs/guide.md'], { runRoot: false, runComponents: false, runNative: false }],
+  ['root-only', ['src/index.ts'], { runRoot: true, runComponents: false, runNative: true }],
+  [
+    'components-only',
+    ['packages/amaryllis-components/src/index.ts'],
+    { runRoot: false, runComponents: true, runNative: false },
+  ],
+  [
+    'native-only',
+    ['example/android/Module.kt'],
+    { runRoot: true, runComponents: false, runNative: true },
+  ],
+  [
+    'mixed root-components',
+    ['src/index.ts', 'packages/amaryllis-components/src/index.ts'],
+    { runRoot: true, runComponents: true, runNative: true },
+  ],
+  [
+    'mixed components-native',
+    ['packages/amaryllis-components/src/index.ts', 'example/ios/Module.swift'],
+    { runRoot: true, runComponents: true, runNative: true },
+  ],
+  ['lockfile', ['yarn.lock'], { runRoot: true, runComponents: true, runNative: true }],
+  [
+    'workflow',
+    ['.github/workflows/ci.yml'],
+    { runRoot: true, runComponents: true, runNative: true },
+  ],
+  ['unknown', ['tools/new-helper.ts'], { runRoot: true, runComponents: true, runNative: true }],
+];
+
+for (const [name, paths, expected] of cases) {
+  test(`detects ${name} changes`, () => {
+    withRepo(({ repo, baseSha }) => {
+      for (const path of paths) write(repo, path, 'changed');
+      const headSha = commit(repo, name);
+      assert.deepEqual(dims(detectCiChanges({ cwd: repo, baseSha, headSha })), expected);
+    });
   });
-});
+}
 
-test('detects components-only changes as non-native', () => {
-  withRepo(({ repo, baseSha }) => {
-    write(repo, 'packages/amaryllis-components/src/index.ts', 'export {};');
-    const headSha = commit(repo, 'components');
-
-    assert.equal(detectCiChanges({ cwd: repo, baseSha, headSha }).runNative, false);
-  });
-});
-
-test('detects shared and deleted native files as native-relevant', () => {
+test('relevant-to-docs rename remains relevant because rename detection is disabled', () => {
   withRepo(({ repo }) => {
-    write(repo, 'src/index.ts', 'export {};');
-    write(repo, 'example/android/Module.kt', 'class Module');
-    const baseSha = commit(repo, 'native base');
-    rmSync(join(repo, 'example/android/Module.kt'));
-    const headSha = commit(repo, 'delete native');
-    const result = detectCiChanges({ cwd: repo, baseSha, headSha });
-
-    assert.equal(result.runNative, true);
-    assert.deepEqual(result.paths, ['example/android/Module.kt']);
-  });
-});
-
-test('native-to-docs rename runs the native matrix', () => {
-  withRepo(({ repo }) => {
-    write(repo, 'example/android/Module.kt', 'class Module');
-    const baseSha = commit(repo, 'native base');
+    write(repo, 'src/old.ts', 'export {};');
+    const baseSha = commit(repo, 'root base');
     mkdirSync(join(repo, 'docs'), { recursive: true });
-    renameSync(join(repo, 'example/android/Module.kt'), join(repo, 'docs/Module.kt'));
-    const headSha = commit(repo, 'rename native to docs');
+    renameSync(join(repo, 'src/old.ts'), join(repo, 'docs/old.ts'));
+    const headSha = commit(repo, 'rename root to docs');
     const result = detectCiChanges({ cwd: repo, baseSha, headSha });
 
-    assert.equal(result.runNative, true);
-    assert.deepEqual(result.paths.sort(), ['docs/Module.kt', 'example/android/Module.kt']);
+    assert.deepEqual(dims(result), { runRoot: true, runComponents: false, runNative: true });
+    assert.deepEqual(result.paths.sort(), ['docs/old.ts', 'src/old.ts']);
   });
 });
 
-test('native-to-components rename runs the native matrix', () => {
-  withRepo(({ repo }) => {
-    write(repo, 'example/ios/Module.swift', 'struct Module {}');
-    const baseSha = commit(repo, 'native base');
-    mkdirSync(join(repo, 'packages/amaryllis-components/src'), { recursive: true });
-    renameSync(
-      join(repo, 'example/ios/Module.swift'),
-      join(repo, 'packages/amaryllis-components/src/Module.ts')
-    );
-    const headSha = commit(repo, 'rename native to components');
-
-    assert.equal(detectCiChanges({ cwd: repo, baseSha, headSha }).runNative, true);
-  });
-});
-
-test('allowlisted-to-allowlisted rename skips the native matrix', () => {
-  withRepo(({ repo }) => {
-    write(repo, 'docs/old.md', 'old');
-    const baseSha = commit(repo, 'docs base');
-    renameSync(join(repo, 'docs/old.md'), join(repo, 'docs/new.md'));
-    const headSha = commit(repo, 'rename docs');
-
-    assert.equal(detectCiChanges({ cwd: repo, baseSha, headSha }).runNative, false);
-  });
-});
-
-test('handles unusual filenames without splitting or interpretation', () => {
+test('handles unusual filenames without splitting or output injection', () => {
   withRepo(({ repo, baseSha }) => {
     const paths = [
       'docs/file with spaces.md',
@@ -128,54 +118,46 @@ test('handles unusual filenames without splitting or interpretation', () => {
     for (const path of paths) write(repo, path, 'safe');
     const headSha = commit(repo, 'unusual paths');
     const result = detectCiChanges({ cwd: repo, baseSha, headSha });
-
-    assert.equal(result.runNative, false);
-    assert.deepEqual(result.paths.sort(), paths.sort());
-  });
-});
-
-test('invalid refs and unavailable history fail closed', () => {
-  withRepo(({ repo, baseSha }) => {
-    const result = detectCiChanges({ cwd: repo, baseSha, headSha: 'missing-ref' });
-
-    assert.equal(result.runNative, true);
-    assert.equal(result.reason, 'git change detection failed; running the full native matrix');
-    assert.deepEqual(result.paths, []);
-  });
-});
-
-test('missing refs fail closed before invoking git', () => {
-  const result = detectCiChanges({ baseSha: '', headSha: '' });
-
-  assert.equal(result.runNative, true);
-  assert.match(result.reason, /revision was unavailable/);
-});
-
-test('machine outputs cannot be injected by a filename', () => {
-  withRepo(({ repo, baseSha }) => {
-    write(repo, 'src/file\nrun_native=false', 'unsafe');
-    const headSha = commit(repo, 'adversarial filename');
-    const result = detectCiChanges({ cwd: repo, baseSha, headSha });
     const output = formatGithubOutputs(result);
 
-    assert.equal(result.runNative, true);
+    assert.deepEqual(dims(result), { runRoot: false, runComponents: false, runNative: false });
+    assert.deepEqual(result.paths.sort(), paths.sort());
+    assert.equal(output.match(/^run_root=/gm)?.length, 1);
+    assert.equal(output.match(/^run_components=/gm)?.length, 1);
     assert.equal(output.match(/^run_native=/gm)?.length, 1);
-    assert.match(output, /^run_native=true$/m);
-    assert.doesNotMatch(output, /src\/file/);
-    assert.doesNotMatch(output, /^run_native=false$/m);
+    assert.doesNotMatch(output, /docs\/file/);
+  });
+});
+
+test('invalid refs and missing revisions fail closed', () => {
+  withRepo(({ repo, baseSha }) => {
+    for (const result of [
+      detectCiChanges({ cwd: repo, baseSha, headSha: 'missing-ref' }),
+      detectCiChanges({ baseSha: '', headSha: '' }),
+    ]) {
+      assert.deepEqual(dims(result), { runRoot: true, runComponents: true, runNative: true });
+      assert.deepEqual(result.paths, []);
+    }
   });
 });
 
 test('formats stable outputs and an auditable escaped summary', () => {
   const result = {
+    runRoot: false,
+    runComponents: true,
     runNative: false,
-    reason: 'all changed paths are explicitly classified as non-native',
+    reason: 'affected CI dimensions: components',
     paths: ['docs/file\nwith-`backtick`.md'],
   };
+  const output = formatGithubOutputs(result);
   const summary = formatJobSummary(result);
 
-  assert.match(formatGithubOutputs(result), /^run_native=false\n/m);
-  assert.match(formatGithubOutputs(result), /^changed_count=1$/m);
+  assert.match(output, /^run_root=false$/m);
+  assert.match(output, /^run_components=true$/m);
+  assert.match(output, /^run_native=false$/m);
+  assert.match(output, /^changed_count=1$/m);
+  assert.match(summary, /Root validation: \*\*skipped\*\*/);
+  assert.match(summary, /Components validation: \*\*run\*\*/);
   assert.match(summary, /Native matrix: \*\*skipped\*\*/);
   assert.match(summary, /"docs\/file\\nwith-\\u0060backtick\\u0060\.md"/);
   assert.doesNotMatch(summary, /with-`backtick`/);
