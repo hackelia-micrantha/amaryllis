@@ -12,7 +12,7 @@ function parseNulDelimitedPaths(output) {
 }
 
 function renderPath(path) {
-  return JSON.stringify(path);
+  return JSON.stringify(path).replaceAll('`', '\\u0060');
 }
 
 export function detectCiChanges({ cwd = process.cwd(), baseSha, headSha }) {
