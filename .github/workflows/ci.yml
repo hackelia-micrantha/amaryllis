@@ -38,6 +38,7 @@ jobs:
       - name: Test change classification
         run: |
           node --test \
+            scripts/ci-workflow-contract.test.mjs \
             scripts/classify-ci-changes.test.mjs \
             scripts/detect-ci-changes.test.mjs
 
