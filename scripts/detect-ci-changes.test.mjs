@@ -151,15 +151,32 @@ test('missing refs fail closed before invoking git', () => {
   assert.match(result.reason, /revision was unavailable/);
 });
 
-test('formats stable outputs and an auditable summary', () => {
+test('machine outputs cannot be injected by a filename', () => {
+  withRepo(({ repo, baseSha }) => {
+    write(repo, 'src/file\nrun_native=false', 'unsafe');
+    const headSha = commit(repo, 'adversarial filename');
+    const result = detectCiChanges({ cwd: repo, baseSha, headSha });
+    const output = formatGithubOutputs(result);
+
+    assert.equal(result.runNative, true);
+    assert.equal(output.match(/^run_native=/gm)?.length, 1);
+    assert.match(output, /^run_native=true$/m);
+    assert.doesNotMatch(output, /src\/file/);
+    assert.doesNotMatch(output, /^run_native=false$/m);
+  });
+});
+
+test('formats stable outputs and an auditable escaped summary', () => {
   const result = {
     runNative: false,
     reason: 'all changed paths are explicitly classified as non-native',
-    paths: ['docs/file\nwith-newline.md'],
+    paths: ['docs/file\nwith-`backtick`.md'],
   };
+  const summary = formatJobSummary(result);
 
   assert.match(formatGithubOutputs(result), /^run_native=false\n/m);
   assert.match(formatGithubOutputs(result), /^changed_count=1$/m);
-  assert.match(formatJobSummary(result), /Native matrix: \*\*skipped\*\*/);
-  assert.match(formatJobSummary(result), /"docs\/file\\nwith-newline\.md"/);
+  assert.match(summary, /Native matrix: \*\*skipped\*\*/);
+  assert.match(summary, /"docs\/file\\nwith-\\u0060backtick\\u0060\.md"/);
+  assert.doesNotMatch(summary, /with-`backtick`/);
 });
