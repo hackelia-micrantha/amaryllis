@@ -8,6 +8,12 @@ const fixtureDir = new URL('./__fixtures__/package-sbom/', import.meta.url);
 const source = JSON.parse(fs.readFileSync(new URL('source.cdx.json', fixtureDir), 'utf8'));
 const packageSpecs = JSON.parse(fs.readFileSync(new URL('manifests.json', fixtureDir), 'utf8'));
 const lockText = fs.readFileSync(new URL('yarn.lock', fixtureDir), 'utf8');
+const expectedBytesBySlug = new Map(
+  packageSpecs.map(({ slug }) => [
+    slug,
+    fs.readFileSync(new URL(`expected/${slug}.cdx.json`, fixtureDir), 'utf8'),
+  ])
+);
 
 function derive(overrides = {}) {
   return derivePackageSboms({ source, packageSpecs, lockText, ...overrides });
@@ -55,19 +61,20 @@ test('fails closed for duplicate or missing lockfile resolutions', () => {
   );
 });
 
-test('produces stable ordering and byte-for-byte deterministic output', () => {
-  const first = derive();
-  const second = derive({
+test('matches committed byte-for-byte golden outputs', () => {
+  for (const { slug, bytes } of derive()) {
+    assert.equal(bytes, expectedBytesBySlug.get(slug), `${slug} SBOM changed unexpectedly`);
+  }
+});
+
+test('produces stable output regardless of synthetic input ordering', () => {
+  const reordered = derive({
     source: { ...source, components: [...source.components].reverse() },
     packageSpecs: [...packageSpecs].reverse(),
   });
 
-  const firstBySlug = new Map(first.map((result) => [result.slug, result.bytes]));
-  const secondBySlug = new Map(second.map((result) => [result.slug, result.bytes]));
-  assert.deepEqual(secondBySlug, firstBySlug);
-
-  for (const { output, bytes } of first) {
-    assert.equal(bytes, `${JSON.stringify(output, null, 2)}\n`);
+  for (const { slug, output, bytes } of reordered) {
+    assert.equal(bytes, expectedBytesBySlug.get(slug));
     assert.deepEqual(
       output.components.map((component) => component['bom-ref']),
       output.components.map((component) => component['bom-ref']).toSorted()
