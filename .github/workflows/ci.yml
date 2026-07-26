@@ -20,6 +20,45 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run_native: ${{ steps.classify.outputs.run_native }}
+      reason: ${{ steps.classify.outputs.reason }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Test change classifier
+        run: node --test scripts/classify-ci-changes.test.mjs
+
+      - name: Classify changed paths
+        id: classify
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" != "pull_request" ]]; then
+            {
+              echo "run_native=true"
+              echo "reason=non-pull-request event; running the full native matrix"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          mapfile -t changed_paths < <(
+            git diff --no-renames --name-only "$BASE_SHA...$HEAD_SHA"
+          )
+
+          node scripts/classify-ci-changes.mjs "${changed_paths[@]}" >> "$GITHUB_OUTPUT"
+
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -118,6 +157,8 @@ jobs:
         run: echo "Main library build and package outputs were validated by components-package"
 
   build-android:
+    needs: changes
+    if: needs.changes.outputs.run_native == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -178,6 +219,8 @@ jobs:
           yarn turbo run build:android --cache-dir="${{ env.TURBO_CACHE_DIR }}"
 
   build-ios:
+    needs: changes
+    if: needs.changes.outputs.run_native == 'true'
     runs-on: macos-15
     timeout-minutes: 35
     env:
