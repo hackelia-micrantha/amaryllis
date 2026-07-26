@@ -65,7 +65,10 @@ function parseYarnLock(lockText) {
 
     if (!current) continue;
 
-    const fieldMatch = rawLine.match(/^  ([^:]+):(?:\s+(.*))?$/);
+    // Top-level entry fields are indented by exactly two spaces. Require the
+    // field name to begin immediately after that indentation so nested
+    // dependency entries are not consumed by this branch.
+    const fieldMatch = rawLine.match(/^  (\S[^:]*):(?:\s+(.*))?$/);
     if (fieldMatch) {
       const [, field, rawValue] = fieldMatch;
       if (rawValue === undefined) {
