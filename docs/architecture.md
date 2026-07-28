@@ -41,10 +41,11 @@ It provides:
 
 - typed and versioned `ComponentSpec` contracts;
 - schema validation;
-- policy enforcement;
+- policy primitives and build/CLI policy validation;
 - registry and implementation identity primitives;
 - generation scaffolding;
-- bounded runtime overlays.
+- bounded runtime overlays;
+- runtime JSON Schema, unsafe-key, and patch validation.
 
 The component layer answers a different question from the inference runtime:
 
@@ -55,31 +56,31 @@ The component layer answers a different question from the inference runtime:
 ```text
 Application UI
   -> React Native components
-  -> navigation, state, and business logic
+  -> navigation, state, business logic, and application policy
 
-Application-owned contracts
-  -> model configuration and lifecycle policy
-  -> ComponentSpec
-  -> schemas and validation
-  -> registry and implementation identity
+Application-owned configuration
+  -> model assets and lifecycle
+  -> ContextStore
+  -> fallback and network behavior
 
 Amaryllis runtime
   -> LLMProvider
   -> hooks
   -> controller
   -> Context Engine
+  -> native Android and iOS inference
 
-Native inference
-  -> TurboModule bridge
-  -> Android and iOS runtime
-  -> on-device model execution
+Component tooling
+  -> ComponentSpec schema validation
+  -> build/CLI policy validation
+  -> generated artifacts and registered implementations
 
-Validated component output
-  -> props
-  -> variants
-  -> slot content
-  -> bounded JSON patches
-  -> registry-approved render
+Runtime personalization
+  -> registry lookup
+  -> registered JSON contract
+  -> schema, unsafe-key, and patch validation
+  -> bounded data overlay
+  -> registered component render
 ```
 
 The application owns the top-level authority. The model supplies capability within those boundaries.
@@ -90,14 +91,16 @@ The architecture distinguishes probabilistic capability from deterministic autho
 
 Authoritative systems include:
 
-- application code;
+- application code and policy;
 - component specifications;
-- schemas and policy;
+- runtime personalization contracts;
 - registries and implementation identities;
 - lifecycle and rendering code;
 - build and release controls.
 
-Model output is advisory until it has passed the relevant validation and policy checks.
+Model output is advisory until it has passed the checks actually composed into its execution path.
+
+At runtime, the current package automatically enforces the registered JSON contract, unsafe-key restrictions, and JSON Patch bounds. Broader policy such as network, accessibility, semantic business rules, and review requirements must be encoded in the contract, kept in component code, or composed by the application.
 
 ## Why the Separation Matters
 
@@ -115,9 +118,9 @@ Amaryllis takes a middle path:
 
 - local inference is available as a capability;
 - component behavior is contract-driven;
-- runtime output is structured and validated;
+- runtime output is structured and schema-validated;
 - executable implementations remain registry-controlled;
-- application code remains responsible for final behavior.
+- application code remains responsible for final behavior and policy.
 
 ## Build-Time and Device-Time AI
 
@@ -127,8 +130,9 @@ The architecture treats build-time generation and device-time personalization as
 
 Build-time workflows may generate source or larger artifacts because the output can pass through:
 
-- schema and source validation;
-- policy enforcement;
+- specification schema validation;
+- package policy validation;
+- generated-source analysis;
 - static analysis;
 - tests and previews;
 - human review;
@@ -145,9 +149,10 @@ Typical outputs include:
 - props JSON;
 - variant selection;
 - slot text;
-- constrained JSON patch operations.
+- design-token values;
+- constrained JSON Patch operations.
 
-This distinction is central to the runtime safety model.
+The current automatic runtime checks are contract/schema, unsafe-key, and patch validation. Full package policy evaluation is not implicitly performed for every programmatic runtime registration.
 
 ## Context Placement
 
@@ -165,18 +170,18 @@ Retrieval provenance can improve attribution, but does not make retrieved conten
 
 ## CopilotKit and AG-UI Placement
 
-CopilotKit and AG-UI fit at the application orchestration boundary. They may coordinate actions, shared frontend state, and generative UI flows, but they do not replace Amaryllis validation or registry authority.
+CopilotKit and AG-UI fit at the application orchestration boundary. They may coordinate actions, shared frontend state, and generative UI flows, but they do not replace Amaryllis registry or contract validation.
 
 ```text
 AG-UI or CopilotKit action
   -> Amaryllis inference capability
   -> structured output
-  -> component contract validation
-  -> registry-approved overlay
+  -> PersonalizationEngine validation
+  -> registered component overlay
   -> render
 ```
 
-The companion package therefore uses optional adapter contracts rather than making orchestration frameworks part of the core runtime.
+The companion package therefore uses optional adapter contracts rather than making orchestration frameworks part of the core runtime. Applications can compose additional policy around those adapters.
 
 ## Security Boundaries
 
@@ -194,7 +199,8 @@ The corresponding rules are:
 - model output is not authoritative;
 - context is not trusted merely because it is local;
 - component specs and registries remain authoritative;
-- runtime output must be schema- and policy-validated;
+- runtime output must satisfy its registered contract;
+- additional semantic and capability policy must be explicitly composed;
 - build-time source and device-time data use different review controls;
 - local inference shifts risk rather than eliminating it.
 
@@ -205,6 +211,7 @@ The current direction is to:
 - keep Amaryllis focused on local mobile AI execution;
 - keep the Context Engine storage-agnostic and application-owned;
 - make AI-enabled components declarative, typed, and governable;
+- compose broader policy into runtime personalization without conflating it with schema validation;
 - improve model delivery and integrity controls;
 - strengthen runtime observability and failure recovery;
 - preserve a clear boundary between inference capability and product authority.
