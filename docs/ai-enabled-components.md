@@ -1,295 +1,219 @@
 # AI-enabled Components
 
-This document explains the direction explored by the `feature/ai-components` branch.
+This document explains the component-governance model implemented by `@micrantha/amaryllis-components`.
 
-The branch introduces a companion workspace, `@micrantha/amaryllis-components`, that explores how AI can participate in component systems without turning the runtime into an unrestricted code-generation environment.
-
-The core idea is:
+The core principle is:
 
 > Components remain declarative and authoritative while AI participates through bounded contracts.
 
----
+## Motivation
 
-# Motivation
+AI-enabled UI commonly falls into one of two extremes:
 
-Many current AI UI systems fall into one of two categories:
+1. a chat assistant attached to otherwise static UI;
+2. unrestricted source or runtime UI generation.
 
-1. AI as a chat assistant attached to otherwise static UI
-2. AI as an unrestricted source-code generator
+The first limits adaptation. The second creates serious governance, reproducibility, accessibility, security, and design-consistency problems.
 
-The first approach limits adaptability.
+Amaryllis explores a middle path: useful AI capability inside application-owned component contracts.
 
-The second approach creates serious problems for:
-
-- governance
-- reproducibility
-- accessibility
-- security
-- design consistency
-- runtime trust boundaries
-
-This branch explores a middle path.
-
----
-
-# Core Principle
-
-The most important principle in this branch is:
+## Authority Model
 
 ```text
-The spec is authoritative.
-AI is a bounded implementation and personalization tool.
+ComponentSpec, registry, policy, and validation are authoritative.
+AI output is advisory until it passes those controls.
 ```
 
-This changes the role of AI substantially.
+The model cannot directly:
 
-Instead of:
+- register an implementation;
+- replace a component identity;
+- mutate authoritative policy;
+- introduce executable imports at runtime;
+- bypass validation;
+- decide what code is renderable.
 
-```text
-AI writes arbitrary UI
-```
+## ComponentSpec
 
-The architecture becomes:
+`ComponentSpec` is a typed, versioned, and reviewable declaration of:
 
-```text
-AI participates within constrained contracts
-```
+- component identity and metadata;
+- props and structure;
+- target framework and runtime;
+- behavior constraints;
+- AI execution mode;
+- policy requirements;
+- generation contracts.
 
----
+The specification exists before a model participates and remains the source of truth after generation or personalization.
 
-# Component Model
+## AI Execution Modes
 
-The companion module introduces a `ComponentSpec`.
+### Scaffold
 
-The spec defines:
+AI generates implementation artifacts in local tooling, build pipelines, or CI.
 
-- component identity
-- props
-- UI structure
-- allowed runtime behavior
-- AI execution mode
-- policy constraints
-- generation contracts
+Typical outputs include TSX, component scaffolding, tests, and derived contracts.
 
-The spec is intended to be:
+Because the output may be executable, it must pass normal software-delivery controls:
 
-- typed
-- versioned
-- reviewable
-- enforceable
-- portable
+- schema and source validation;
+- static analysis and tests;
+- import and capability policy;
+- preview and diff review;
+- package validation;
+- provenance and approval evidence.
 
----
+### Customize
 
-# AI Execution Modes
+AI adapts bounded parts of an existing component contract.
 
-The RFC currently defines three major modes.
+Examples include:
 
-## Scaffold
+- selecting known variants;
+- choosing approved layouts;
+- filling declared slots;
+- selecting design tokens;
+- producing constrained copy.
 
-AI helps generate implementation artifacts.
+Customization cannot change implementation identity, policy, imports, or undeclared capabilities.
 
-Typical environment:
+### Personalize
 
-- local tooling
-- CI
-- build pipelines
+AI participates at device time using structured output.
 
-Typical outputs:
+Examples include:
 
-- TSX
-- generated components
-- implementation scaffolding
+- local summaries;
+- adaptive slot content;
+- known variant selection;
+- validated props;
+- bounded JSON patch overlays.
 
-This mode assumes stronger validation and review controls.
+This is the most constrained mode because output reaches the user-facing runtime without the same review window available to build-time source generation.
 
----
-
-## Customize
-
-AI adapts or modifies bounded parts of a component.
-
-Examples:
-
-- choosing variants
-- changing layout selections
-- filling approved slots
-- selecting design tokens
-
-Customization is more constrained than unrestricted generation.
-
----
-
-## Personalize
-
-AI participates at runtime on device.
-
-Examples:
-
-- local summaries
-- adaptive UI behavior
-- slot text generation
-- local variant selection
-- bounded overlays
-
-This mode is intentionally the most constrained.
-
----
-
-# Why Local AI Matters
-
-The base Amaryllis runtime already supports on-device multimodal inference.
-
-That matters because AI-enabled components become much more useful when:
-
-- latency is low
-- network access is optional
-- user data remains local
-- multimodal state stays close to the UI
-- offline interaction is possible
-
-This is one reason the branch strongly separates:
-
-```text
-capability provider
-```
-
-from:
-
-```text
-hosted assistant service
-```
-
----
-
-# Runtime Safety Model
-
-The runtime model in this branch is intentionally conservative.
+## Runtime Safety Model
 
 At device time:
 
-- AI output is treated as untrusted
-- executable source generation is restricted
-- overlays must be validated
-- registries remain authoritative
-- policies remain external to the model
+- model output is untrusted;
+- executable source generation is not the default path;
+- registry-controlled implementations remain authoritative;
+- schemas and policy are enforced outside the model;
+- invalid output is rejected rather than coerced into authority;
+- fallback behavior remains application-controlled.
 
-This is a deliberate architectural choice.
+The intended flow is:
 
-The branch is attempting to support adaptive interfaces without implicitly trusting model output as executable runtime authority.
+```text
+prompt, context, or media
+  -> model capability
+  -> structured output
+  -> schema validation
+  -> policy validation
+  -> bounded overlay
+  -> registry-approved render
+```
 
----
+## Runtime Overlays
 
-# Runtime Overlays
+An overlay is a bounded modification applied to an authoritative component contract.
 
-The runtime model prefers overlays rather than arbitrary mutation.
+Supported patterns may include:
 
-Examples:
+- approved prop changes;
+- known variant selection;
+- declared slot text;
+- allowlisted JSON patch operations.
 
-- props updates
-- slot text
-- variant changes
-- bounded JSON patches
+Overlay validation should enforce:
 
-This allows the system to preserve:
+- allowed paths and operations;
+- value types and enum membership;
+- component and contract identity;
+- capability and network restrictions;
+- design-token and accessibility rules.
 
-- component identity
-- policy guarantees
-- design consistency
-- accessibility guarantees
-- registry authority
+Ambiguous recursive merging is avoided where explicit patch semantics provide a safer contract.
 
-while still allowing runtime adaptation.
+## Registry-centric Rendering
 
----
-
-# Registry-Centric Rendering
-
-The branch leans toward a registry-centric rendering model.
-
-Conceptually:
+The registry maps component, specification, contract, version, and implementation identities.
 
 ```text
 ComponentSpec
   -> validation
-  -> registry
+  -> registry resolution
   -> approved implementation
-  -> runtime overlays
+  -> validated overlay
   -> render
 ```
 
-This prevents the model from becoming the direct runtime source of executable UI.
+This preserves executable ownership in reviewed application code while allowing bounded adaptation.
 
----
+## Why Local AI Matters
 
-# CopilotKit And AG-UI Fit
+The Amaryllis runtime supports on-device multimodal inference. Local execution can provide:
 
-CopilotKit and AG-UI are useful integration surfaces for agent actions, shared frontend state, and generative UI orchestration.
+- lower interaction latency;
+- offline workflows;
+- application-controlled network behavior;
+- local image and text processing;
+- reduced dependency on hosted-data processing.
 
-Amaryllis should factor into those systems as a local-first capability and governance layer:
+Locality does not make model output trustworthy. It shifts the security and operational boundary to the application and device.
+
+Applications remain responsible for:
+
+- model distribution and integrity;
+- licensing and updates;
+- device resource budgets;
+- logging and persistence;
+- fallback behavior;
+- client compromise and reverse-engineering risk.
+
+## CopilotKit and AG-UI Integration
+
+CopilotKit and AG-UI can provide orchestration for agent actions, shared frontend state, and generative UI flows.
+
+Amaryllis fits as a local capability and governance boundary:
 
 ```text
 agent action
   -> Amaryllis inference
   -> structured output
-  -> ComponentSpec contract validation
-  -> registry-approved render overlay
+  -> ComponentSpec validation
+  -> registry-approved overlay
+  -> render
 ```
 
-The companion package therefore exposes dependency-free adapter contracts rather than importing CopilotKit directly. This keeps CopilotKit/AG-UI optional while preserving the Amaryllis rule that model output is advisory until validation passes.
+The companion package uses optional adapter contracts rather than requiring a specific orchestration framework. See [CopilotKit and AG-UI alignment](./copilotkit-ag-ui.md).
 
-See [CopilotKit and AG-UI alignment](./copilotkit-ag-ui.md).
+## Current Implementation
 
----
+The repository includes:
 
-# Why This Direction Exists
+- `ComponentSpec` types and schemas;
+- YAML and object parsing;
+- policy primitives;
+- registry and identity validation;
+- React source generation scaffolding;
+- bounded personalization outputs;
+- patch and overlay validation;
+- package and example verification;
+- CI, SBOM, and provenance controls.
 
-The broader goal is not merely:
+The project remains an active `0.1.x` implementation. Areas still evolving include preview ergonomics, approval workflows, runtime observability, model-delivery integrity, replayable evidence, and broader framework integration.
 
-```text
-React components with AI chat
-```
+## Explicit Non-goals
 
-The branch is exploring:
+The component system is not intended to provide:
 
-```text
-Declarative, governable, AI-enabled interfaces
-```
+- unrestricted device-time JSX or TSX generation;
+- autonomous mutation of application policy;
+- arbitrary runtime imports;
+- replacement of design-system governance;
+- implicit trust in local or hosted model output;
+- a universal generative UI protocol.
 
-That includes:
-
-- multimodal interactions
-- local inference
-- adaptive behavior
-- bounded personalization
-- spec-driven rendering
-- reproducible generation workflows
-- policy-aware runtime behavior
-
----
-
-# Current State
-
-This branch is exploratory.
-
-Several parts are already present:
-
-- `ComponentSpec` types
-- JSON schema generation
-- validation tooling
-- policy engine primitives
-- runtime overlay concepts
-- CLI and generator scaffolding
-- draft governance RFC
-
-But many areas remain intentionally open:
-
-- registry implementation details
-- preview systems
-- diff tooling
-- approval workflows
-- determinism guarantees
-- runtime observability
-- governance ergonomics
-
-The current goal is to establish strong architectural boundaries before scaling the generation surface.
+The goal is declarative, governable, AI-enabled interfaces with explicit limits and reviewable authority.
