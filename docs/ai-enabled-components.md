@@ -20,18 +20,21 @@ Amaryllis explores a middle path: useful AI capability inside application-owned 
 ## Authority Model
 
 ```text
-ComponentSpec, registry, policy, and validation are authoritative.
-AI output is advisory until it passes those controls.
+ComponentSpec and registered implementations are authoritative.
+Runtime contracts determine acceptable personalization data.
+Model output is untrusted until validated.
 ```
 
 The model cannot directly:
 
 - register an implementation;
 - replace a component identity;
-- mutate authoritative policy;
+- mutate the canonical specification;
 - introduce executable imports at runtime;
-- bypass validation;
-- decide what code is renderable.
+- decide what React implementation is renderable;
+- bypass the registered personalization contract.
+
+Broader application policy remains external to the model. The current runtime path does not automatically invoke every package policy rule for programmatically registered components.
 
 ## ComponentSpec
 
@@ -55,18 +58,21 @@ AI generates implementation artifacts in local tooling, build pipelines, or CI.
 
 Typical outputs include TSX, component scaffolding, tests, and derived contracts.
 
-Because the output may be executable, it must pass normal software-delivery controls:
+Because the output may be executable, it should pass normal software-delivery controls:
 
-- schema and source validation;
+- specification schema and policy validation;
+- generated-source validation;
 - static analysis and tests;
-- import and capability policy;
+- import and capability rules;
 - preview and diff review;
 - package validation;
 - provenance and approval evidence.
 
+The package's CLI generation path applies policy before generation, but applications remain responsible for their complete build and review process.
+
 ### Customize
 
-AI adapts bounded parts of an existing component contract.
+AI adapts bounded parts of an existing component specification during tooling or build workflows.
 
 Examples include:
 
@@ -76,7 +82,7 @@ Examples include:
 - selecting design tokens;
 - producing constrained copy.
 
-Customization cannot change implementation identity, policy, imports, or undeclared capabilities.
+The CLI customization path validates the specification against policy before producing output. Generated changes remain subject to normal review and testing.
 
 ### Personalize
 
@@ -88,53 +94,58 @@ Examples include:
 - adaptive slot content;
 - known variant selection;
 - validated props;
-- bounded JSON patch overlays.
+- bounded JSON Patch overlays.
 
 This is the most constrained mode because output reaches the user-facing runtime without the same review window available to build-time source generation.
 
-## Runtime Safety Model
+## Implemented Runtime Safety Model
 
 At device time:
 
 - model output is untrusted;
-- executable source generation is not the default path;
+- output is validated against a registered JSON Schema contract;
+- unsafe prototype-related object keys are rejected;
+- JSON Patch paths and values are validated;
+- patches are revalidated against the contract after application;
 - registry-controlled implementations remain authoritative;
-- schemas and policy are enforced outside the model;
-- invalid output is rejected rather than coerced into authority;
-- fallback behavior remains application-controlled.
+- invalid output falls back to base props;
+- fallback and retry behavior remain application-controlled.
 
-The intended flow is:
+The implemented path is:
 
 ```text
 prompt, context, or media
   -> model capability
-  -> structured output
-  -> schema validation
-  -> policy validation
-  -> bounded overlay
-  -> registry-approved render
+  -> untrusted structured output
+  -> registered contract validation
+  -> unsafe-key and patch validation
+  -> bounded prop overlay
+  -> registered component render
 ```
+
+The full `PolicyEngine` is currently used by build/CLI generation and customization flows. It is not automatically executed by every `PersonalizedComponent` call.
 
 ## Runtime Overlays
 
-An overlay is a bounded modification applied to an authoritative component contract.
+An overlay is a bounded data modification applied to base props for an authoritative registered component.
 
 Supported patterns may include:
 
 - approved prop changes;
 - known variant selection;
 - declared slot text;
-- allowlisted JSON patch operations.
+- declared design-token values;
+- JSON Patch operations targeting declared paths.
 
-Overlay validation should enforce:
+The runtime contract should encode all mechanically enforceable field, enum, path, and value restrictions.
 
-- allowed paths and operations;
-- value types and enum membership;
-- component and contract identity;
-- capability and network restrictions;
-- design-token and accessibility rules.
+Application-level checks are still required for rules that cannot be proven from JSON Schema alone, including:
 
-Ambiguous recursive merging is avoided where explicit patch semantics provide a safer contract.
+- whether a validated URL or identifier grants a sensitive capability;
+- accessibility behavior that depends on rendered output;
+- semantic business rules;
+- network and data-handling policy;
+- review or approval requirements.
 
 ## Registry-centric Rendering
 
@@ -142,14 +153,15 @@ The registry maps component, specification, contract, version, and implementatio
 
 ```text
 ComponentSpec
-  -> validation
-  -> registry resolution
-  -> approved implementation
-  -> validated overlay
+  -> registration and identity checks
+  -> registered implementation and contract
+  -> contract-validated overlay
   -> render
 ```
 
 This preserves executable ownership in reviewed application code while allowing bounded adaptation.
+
+Runtime registry hashes are deterministic identity values, not cryptographic signatures or proof of provenance.
 
 ## Why Local AI Matters
 
@@ -176,18 +188,18 @@ Applications remain responsible for:
 
 CopilotKit and AG-UI can provide orchestration for agent actions, shared frontend state, and generative UI flows.
 
-Amaryllis fits as a local capability and governance boundary:
+Amaryllis fits as a local capability and contract-validation boundary:
 
 ```text
 agent action
   -> Amaryllis inference
   -> structured output
-  -> ComponentSpec validation
-  -> registry-approved overlay
+  -> PersonalizationEngine validation
+  -> registered component overlay
   -> render
 ```
 
-The companion package uses optional adapter contracts rather than requiring a specific orchestration framework. See [CopilotKit and AG-UI alignment](./copilotkit-ag-ui.md).
+The companion package uses optional adapter contracts rather than requiring a specific orchestration framework. Additional policy checks can be composed by the application. See [CopilotKit and AG-UI alignment](./copilotkit-ag-ui.md).
 
 ## Current Implementation
 
@@ -195,15 +207,15 @@ The repository includes:
 
 - `ComponentSpec` types and schemas;
 - YAML and object parsing;
-- policy primitives;
-- registry and identity validation;
+- policy primitives and CLI policy validation;
+- registry identity and replacement checks;
 - React source generation scaffolding;
 - bounded personalization outputs;
-- patch and overlay validation;
+- JSON Schema, unsafe-key, patch-path, patch-value, and post-patch validation;
 - package and example verification;
 - CI, SBOM, and provenance controls.
 
-The project remains an active `0.1.x` implementation. Areas still evolving include preview ergonomics, approval workflows, runtime observability, model-delivery integrity, replayable evidence, and broader framework integration.
+The project remains an active `0.1.x` implementation. Areas still evolving include automatic runtime policy composition, preview ergonomics, approval workflows, runtime observability, model-delivery integrity, replayable evidence, and broader framework integration.
 
 ## Explicit Non-goals
 
@@ -212,8 +224,9 @@ The component system is not intended to provide:
 - unrestricted device-time JSX or TSX generation;
 - autonomous mutation of application policy;
 - arbitrary runtime imports;
+- automatic semantic safety from schema validation alone;
 - replacement of design-system governance;
 - implicit trust in local or hosted model output;
 - a universal generative UI protocol.
 
-The goal is declarative, governable, AI-enabled interfaces with explicit limits and reviewable authority.
+The goal is declarative, governable, AI-enabled interfaces with explicit limits and accurately documented authority.
