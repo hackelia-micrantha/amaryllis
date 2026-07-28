@@ -1,8 +1,6 @@
 # Registry and Validation
 
-This document explains the registry and validation direction for the `feature/ai-components` branch.
-
-The core architectural principle is:
+The registry and validation pipeline preserve executable ownership when AI participates in component generation or runtime personalization.
 
 ```text
 The registry is authoritative.
@@ -10,206 +8,204 @@ Validation is mandatory.
 Model output is advisory.
 ```
 
-This document focuses on the runtime contract lifecycle rather than generation semantics.
+This document focuses on runtime contract resolution and validation rather than generation prompts or model behavior.
 
----
+## Why Registry-centric Rendering Exists
 
-# Why Registry-Centric Rendering Exists
+Without an authoritative registry, AI-enabled UI can drift toward:
 
-Without an authoritative registry, runtime AI systems tend to drift toward:
+- arbitrary runtime mutation;
+- hidden implementation replacement;
+- unreviewed rendering behavior;
+- inconsistent policy attachment;
+- design-system fragmentation;
+- ambiguous version and contract identity.
 
-- arbitrary runtime mutation
-- hidden implementation changes
-- unreviewed rendering behavior
-- policy inconsistencies
-- design-system fragmentation
+The registry preserves component identity, implementation authority, validation requirements, and rendering stability.
 
-The registry exists to preserve:
+## Registry Responsibilities
 
-- component identity
-- implementation authority
-- policy attachment
-- validation requirements
-- rendering stability
-
----
-
-# Registry Responsibilities
-
-The registry is responsible for mapping:
+A registry entry binds:
 
 ```text
-Component identity
-  -> implementation
-  -> spec
-  -> validation contract
-  -> runtime policy
+component identity
+  -> version
+  -> implementation identity
+  -> ComponentSpec identity
+  -> generation or runtime contract
+  -> validators and policy
 ```
 
 The registry determines:
 
-- what may render
-- which variants are legal
-- which overlays are legal
-- which validators must run
-- which runtime capabilities are allowed
+- what implementation may render;
+- which specification and contract versions apply;
+- which variants, slots, props, and overlays are legal;
+- which validators must run;
+- which runtime capabilities are allowed;
+- how replacement or upgrade semantics work.
 
-The model cannot bypass the registry.
+The model cannot bypass or mutate the registry.
 
----
-
-# Runtime Flow
-
-At a high level:
+## Runtime Flow
 
 ```text
 ComponentSpec
   -> registry lookup
-  -> runtime AI invocation
-  -> structured output
+  -> contract and implementation resolution
+  -> AI invocation
+  -> untrusted structured output
   -> validation pipeline
-  -> overlay construction
+  -> bounded overlay
   -> render
 ```
 
-Validation sits between model output and rendering.
+Validation sits between probabilistic output and authoritative rendering.
 
----
+## Validation Pipeline
 
-# Validation Pipeline
-
-The branch currently leans toward layered validation.
-
-Example:
+Validation is layered so each concern remains explicit and testable.
 
 ```text
-Schema validation
+identity and version checks
+  -> schema validation
   -> policy validation
-  -> accessibility validation
-  -> token validation
+  -> accessibility and design validation
   -> overlay validation
+  -> render eligibility
 ```
 
-Each stage is intentionally explicit.
+Unknown identities, schema versions, operations, or capabilities should fail closed.
 
----
+## Validation Categories
 
-# Validation Categories
-
-## Schema Validation
+### Identity and version validation
 
 Confirms:
 
-- required fields exist
-- types are correct
-- enums are bounded
-- output structure is valid
+- the component is registered;
+- spec, contract, and implementation identities match;
+- versions are compatible;
+- replacement semantics are explicit;
+- the requested runtime mode is supported.
 
-Typical examples:
-
-- props JSON
-- variant identifiers
-- patch operations
-
----
-
-## Policy Validation
+### Schema validation
 
 Confirms:
 
-- forbidden operations are absent
-- runtime restrictions are respected
-- overlays stay within allowed paths
-- execution mode rules are followed
+- required fields exist;
+- types and formats are correct;
+- enums are bounded;
+- output structure matches the declared contract;
+- additional fields are rejected where appropriate.
 
----
+Typical outputs include props JSON, variant identifiers, slot values, and patch operations.
 
-## Accessibility Validation
-
-Confirms:
-
-- required labels exist
-- contrast requirements are preserved
-- slot behavior remains accessible
-- runtime personalization does not remove required semantics
-
----
-
-## Overlay Validation
+### Policy validation
 
 Confirms:
 
-- patch paths are legal
-- component identity is preserved
-- overlays remain bounded
-- mutations do not escape the runtime contract
+- forbidden operations are absent;
+- runtime and network restrictions are respected;
+- overlay paths stay within allowlists;
+- imports and capabilities remain within declared bounds;
+- execution-mode and review requirements are satisfied.
 
----
+Policy is deterministic and external to the model.
 
-# Overlay Philosophy
+### Accessibility and design validation
 
-The branch prefers:
+May confirm:
 
-```text
-bounded overlays
-```
+- required labels and semantics remain present;
+- runtime output cannot remove critical accessibility behavior;
+- only approved design tokens and variants are used;
+- generated source passes applicable accessibility checks;
+- contrast and interaction constraints remain satisfied.
 
-instead of:
+Some checks require source, rendered output, or platform-specific testing and cannot be proven from schema validation alone.
 
-```text
-arbitrary runtime mutation
-```
+### Overlay validation
 
-This keeps:
+Confirms:
 
-- replayability simpler
-- policy enforcement clearer
-- rendering authority explicit
-- validation deterministic
+- patch paths and operations are legal;
+- value types satisfy the target schema;
+- component and contract identity are preserved;
+- mutations cannot alter policy, imports, capabilities, or implementation identity;
+- overlays remain bounded and replayable.
 
----
+Explicit patch contracts are preferred over ambiguous recursive object merging.
 
-# Failure Handling
+### Generated-source validation
 
-Validation failures should not silently degrade into unrestricted behavior.
+Build-time executable output may require:
 
-Preferred failure modes:
+- import allowlists and sink denylists;
+- formatting, lint, and type checking;
+- unit, integration, and accessibility tests;
+- package and entrypoint validation;
+- human diff review;
+- provenance and approval evidence.
 
-- reject overlay
-- log validator failure
-- fall back to authoritative component
-- preserve stable rendering
+Passing source validation does not make generated behavior inherently correct; it makes the result reviewable through normal engineering controls.
 
-The runtime should fail closed where possible.
+## Failure Handling
 
----
+Validation failures must not silently degrade into unrestricted behavior.
 
-# Registry As A Security Boundary
+Preferred behavior is to:
 
-The registry is also a security boundary.
+- reject the invalid output or complete overlay;
+- return typed failure details;
+- preserve the authoritative base component;
+- avoid partial application unless the contract explicitly supports atomic subsets;
+- avoid implicit provider or network fallback;
+- record enough evidence for diagnosis without leaking sensitive prompts or context.
 
-It prevents:
+The runtime should fail closed where policy, identity, or capability boundaries are uncertain.
 
-- arbitrary component injection
-- runtime implementation replacement
-- unauthorized imports
-- hidden executable generation
+## Registry as a Security Boundary
 
-The model may influence rendering only through allowed contracts.
+The registry prevents:
 
----
+- arbitrary component injection;
+- runtime implementation replacement;
+- spec and implementation mismatch;
+- unauthorized imports and capabilities;
+- hidden executable generation;
+- silent contract drift.
 
-# Future Directions
+The model may influence rendering only through a contract attached to a known registry entry.
 
-Likely future registry capabilities include:
+## Provenance
 
-- signed manifests
-- spec hashing
-- overlay replay
-- validator provenance
-- approval workflows
-- policy version negotiation
-- runtime capability negotiation
-- deterministic render manifests
+Useful registry and validation evidence may include:
 
-The current goal is establishing strong architectural constraints before increasing runtime flexibility.
+- component, spec, contract, and implementation identifiers;
+- hashes and versions;
+- policy and validator versions;
+- model and provider identity;
+- raw and normalized output digests;
+- validation results;
+- review and approval metadata;
+- generated package SBOMs and release attestations.
+
+Provenance supports attribution and replay. It is not a substitute for policy or correctness checks.
+
+## Current Constraints and Future Work
+
+The repository contains working registry, schema, policy, and personalization primitives, but remains an active `0.1.x` implementation.
+
+Likely future work includes:
+
+- signed registry manifests;
+- stronger spec and contract hashing;
+- overlay replay and diff tooling;
+- validator provenance and compatibility negotiation;
+- explicit migration and replacement workflows;
+- runtime capability negotiation;
+- deterministic render manifests;
+- observability and audit interfaces.
+
+The immediate priority is preserving strong identity and validation boundaries before increasing runtime flexibility.
