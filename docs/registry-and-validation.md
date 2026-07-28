@@ -1,211 +1,147 @@
 # Registry and Validation
 
-The registry and validation pipeline preserve executable ownership when AI participates in component generation or runtime personalization.
+The registry and validation path preserve executable ownership when AI participates in component generation or runtime personalization.
 
 ```text
-The registry is authoritative.
-Validation is mandatory.
-Model output is advisory.
+The registry is authoritative over implementations.
+The runtime contract is authoritative over personalization data.
+Model output is untrusted until validated.
 ```
 
-This document focuses on runtime contract resolution and validation rather than generation prompts or model behavior.
-
-## Why Registry-centric Rendering Exists
-
-Without an authoritative registry, AI-enabled UI can drift toward:
-
-- arbitrary runtime mutation;
-- hidden implementation replacement;
-- unreviewed rendering behavior;
-- inconsistent policy attachment;
-- design-system fragmentation;
-- ambiguous version and contract identity.
-
-The registry preserves component identity, implementation authority, validation requirements, and rendering stability.
+This document distinguishes controls implemented in the current runtime path from broader policy and delivery controls used at build or CLI time.
 
 ## Registry Responsibilities
 
-A registry entry binds:
+A registered component binds:
 
 ```text
-component identity
-  -> version
+component name and version
+  -> ComponentSpec
+  -> personalization contract
   -> implementation identity
-  -> ComponentSpec identity
-  -> generation or runtime contract
-  -> validators and policy
+  -> deterministic spec and contract hashes
 ```
 
-The registry determines:
+`ComponentRegistry.register` verifies that supplied names, versions, and optional hashes match the specification and contract. Replacement is explicit through `{ replace: true }`.
 
-- what implementation may render;
-- which specification and contract versions apply;
-- which variants, slots, props, and overlays are legal;
-- which validators must run;
-- which runtime capabilities are allowed;
-- how replacement or upgrade semantics work.
+The registry therefore determines which reviewed implementation can render for a known component entry. Runtime model output cannot register or replace executable component code.
 
-The model cannot bypass or mutate the registry.
+The current hashes are deterministic identity and drift-detection values. They are not cryptographic signatures or proof that an implementation is trustworthy.
 
-## Runtime Flow
+## Implemented Runtime Path
+
+`PersonalizedComponent` currently follows this path:
 
 ```text
-ComponentSpec
+component name
   -> registry lookup
-  -> contract and implementation resolution
-  -> AI invocation
+  -> registered personalization contract
   -> untrusted structured output
-  -> validation pipeline
-  -> bounded overlay
-  -> render
+  -> JSON Schema validation
+  -> unsafe object-key validation
+  -> JSON Patch path and value validation
+  -> post-patch schema validation
+  -> bounded prop overlay
+  -> registered implementation render
 ```
 
-Validation sits between probabilistic output and authoritative rendering.
+The runtime rejects invalid personalization data and reverts to base props. Optional callbacks expose validation errors and diagnostics to the application.
 
-## Validation Pipeline
+### Contract validation
 
-Validation is layered so each concern remains explicit and testable.
+`PersonalizationEngine.validate` currently enforces:
 
-```text
-identity and version checks
-  -> schema validation
-  -> policy validation
-  -> accessibility and design validation
-  -> overlay validation
-  -> render eligibility
-```
+- JSON Schema shape, types, required fields, enums, and additional-property rules declared by the contract;
+- rejection of unsafe object keys such as `__proto__`, `constructor`, and `prototype`;
+- JSON Patch paths restricted to declared `props`, `slots`, and `designTokens`, plus the top-level `variant` field;
+- rejection of unsafe values within patch operations;
+- schema validation again after patches are applied.
 
-Unknown identities, schema versions, operations, or capabilities should fail closed.
+`PersonalizationEngine.apply` uses bounded recursive merging and ignores unsafe object keys when combining validated personalization data with base props.
 
-## Validation Categories
+### Registry identity checks
 
-### Identity and version validation
+Registration and hydration validate:
 
-Confirms:
+- component name against `spec.metadata.name`;
+- version against `spec.metadata.version`;
+- optional spec and runtime-contract hashes against recomputed values;
+- explicit replacement semantics for an existing versioned key.
 
-- the component is registered;
-- spec, contract, and implementation identities match;
-- versions are compatible;
-- replacement semantics are explicit;
-- the requested runtime mode is supported.
+An unversioned lookup resolves the registry's latest known entry for that component name. The project does not yet provide full compatibility negotiation or signed manifest verification.
 
-### Schema validation
+## Policy Enforcement Boundary
 
-Confirms:
+The package contains a `PolicyEngine`, and the `generate` and `customize` CLI flows validate specifications against policy before producing artifacts.
 
-- required fields exist;
-- types and formats are correct;
-- enums are bounded;
-- output structure matches the declared contract;
-- additional fields are rejected where appropriate.
+The current programmatic runtime personalization path does **not** automatically invoke the full `PolicyEngine`. Registering a component directly and rendering it through `PersonalizedComponent` guarantees contract, unsafe-key, and patch validation, but does not by itself enforce every possible:
 
-Typical outputs include props JSON, variant identifiers, slot values, and patch operations.
+- network or external-capability restriction;
+- accessibility requirement;
+- review or approval rule;
+- application-specific semantic constraint;
+- design-system rule that is not encoded in the runtime contract.
 
-### Policy validation
+Applications must encode enforceable runtime limits in the personalization schema and component implementation, and add application-level policy checks where required.
 
-Confirms:
+A future runtime policy layer should compose with `PersonalizationEngine` rather than treating schema validation as equivalent to policy enforcement.
 
-- forbidden operations are absent;
-- runtime and network restrictions are respected;
-- overlay paths stay within allowlists;
-- imports and capabilities remain within declared bounds;
-- execution-mode and review requirements are satisfied.
+## Build-Time Validation
 
-Policy is deterministic and external to the model.
+Build or CI generation can apply stronger controls because executable output is reviewable before release. Depending on the workflow, controls may include:
 
-### Accessibility and design validation
-
-May confirm:
-
-- required labels and semantics remain present;
-- runtime output cannot remove critical accessibility behavior;
-- only approved design tokens and variants are used;
-- generated source passes applicable accessibility checks;
-- contrast and interaction constraints remain satisfied.
-
-Some checks require source, rendered output, or platform-specific testing and cannot be proven from schema validation alone.
-
-### Overlay validation
-
-Confirms:
-
-- patch paths and operations are legal;
-- value types satisfy the target schema;
-- component and contract identity are preserved;
-- mutations cannot alter policy, imports, capabilities, or implementation identity;
-- overlays remain bounded and replayable.
-
-Explicit patch contracts are preferred over ambiguous recursive object merging.
-
-### Generated-source validation
-
-Build-time executable output may require:
-
-- import allowlists and sink denylists;
-- formatting, lint, and type checking;
+- ComponentSpec schema and policy validation;
+- import allowlists and dangerous-sink checks;
+- formatting, linting, and type checking;
 - unit, integration, and accessibility tests;
-- package and entrypoint validation;
+- package metadata and entrypoint validation;
 - human diff review;
-- provenance and approval evidence.
+- provenance, SBOM, and approval evidence.
 
-Passing source validation does not make generated behavior inherently correct; it makes the result reviewable through normal engineering controls.
+These controls are separate from device-time personalization and should not be inferred from the runtime schema-validation path.
 
 ## Failure Handling
 
-Validation failures must not silently degrade into unrestricted behavior.
+Validation failures must not silently expand authority.
 
-Preferred behavior is to:
+The implemented runtime behavior is to:
 
-- reject the invalid output or complete overlay;
-- return typed failure details;
-- preserve the authoritative base component;
-- avoid partial application unless the contract explicitly supports atomic subsets;
-- avoid implicit provider or network fallback;
-- record enough evidence for diagnosis without leaking sensitive prompts or context.
+- reject invalid personalization output;
+- preserve or restore base props;
+- expose typed error arrays and diagnostics from `PersonalizationEngine`;
+- optionally report validation events to application telemetry;
+- avoid executing model output as source code.
 
-The runtime should fail closed where policy, identity, or capability boundaries are uncertain.
+Applications remain responsible for retry policy, user-visible fallback, logging, privacy-safe telemetry, and any remote-provider fallback.
 
-## Registry as a Security Boundary
+## Security Properties and Limits
 
-The registry prevents:
+The current registry and runtime path provide useful boundaries:
 
-- arbitrary component injection;
-- runtime implementation replacement;
-- spec and implementation mismatch;
-- unauthorized imports and capabilities;
-- hidden executable generation;
-- silent contract drift.
+- the model cannot introduce a new React implementation at runtime;
+- personalization must satisfy a registered JSON contract;
+- JSON Patch operations are constrained to declared paths;
+- unsafe prototype-related keys are rejected or ignored;
+- registration identity mismatches fail explicitly.
 
-The model may influence rendering only through a contract attached to a known registry entry.
+They do not currently provide:
 
-## Provenance
+- cryptographically signed registry manifests;
+- automatic full-policy evaluation for every runtime personalization call;
+- proof of accessibility or semantic correctness;
+- capability isolation for component implementations;
+- complete replay, audit, or compatibility negotiation.
 
-Useful registry and validation evidence may include:
+## Future Work
 
-- component, spec, contract, and implementation identifiers;
-- hashes and versions;
-- policy and validator versions;
-- model and provider identity;
-- raw and normalized output digests;
-- validation results;
-- review and approval metadata;
-- generated package SBOMs and release attestations.
+Likely next steps include:
 
-Provenance supports attribution and replay. It is not a substitute for policy or correctness checks.
-
-## Current Constraints and Future Work
-
-The repository contains working registry, schema, policy, and personalization primitives, but remains an active `0.1.x` implementation.
-
-Likely future work includes:
-
-- signed registry manifests;
-- stronger spec and contract hashing;
+- compose runtime policy checks with contract validation;
+- signed registry and model manifests;
+- cryptographic identity and provenance evidence;
+- explicit version compatibility and migration rules;
 - overlay replay and diff tooling;
-- validator provenance and compatibility negotiation;
-- explicit migration and replacement workflows;
-- runtime capability negotiation;
-- deterministic render manifests;
-- observability and audit interfaces.
+- runtime observability and audit interfaces;
+- accessibility and design-system validators appropriate to the rendered platform.
 
-The immediate priority is preserving strong identity and validation boundaries before increasing runtime flexibility.
+The immediate priority is to keep implemented guarantees distinct from intended defense-in-depth controls while preserving strong registry and contract boundaries.
