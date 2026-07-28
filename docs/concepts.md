@@ -1,268 +1,227 @@
 # Concepts
 
-This document defines the core terminology used throughout the `feature/ai-components` branch.
+This document defines the core terminology used across the Amaryllis runtime, Context Engine, component workspace, and governance model.
 
-The goal is to establish a consistent mental model across:
+## Runtime Concepts
 
-- the base runtime
-- the Context Engine
-- the companion components workspace
-- the RFC and governance model
+### Runtime
 
----
+The React Native-facing AI subsystem. It coordinates inference and interaction state through:
 
-# Base Runtime Concepts
+- providers;
+- hooks;
+- controller APIs;
+- streaming interfaces;
+- context integration;
+- lifecycle and cancellation handling.
 
-## Runtime
+The runtime provides model capability. It does not own product policy or rendering authority.
 
-The React Native-facing AI subsystem.
+### Controller
 
-The runtime exposes:
+The lower-level interface to the native inference engine.
 
-- hooks
-- providers
-- controller APIs
-- streaming interfaces
-- context integration
+Typical responsibilities include initialization, model and session lifecycle, synchronous and streaming generation, multimodal requests, cancellation, and cleanup.
 
-The runtime is responsible for coordinating inference and interaction state.
+### Session
 
----
+Inference state that persists across related requests.
 
-## Controller
+A session may support images, conversational continuity, or personalization context. It is not necessarily equivalent to a stored chat transcript.
 
-The controller is the direct interface to the native inference engine.
+### Model asset
 
-Examples:
+An application-selected model, adapter, encoder, or related file used by the native runtime.
 
-- initialization
-- session management
-- synchronous generation
-- streaming generation
-- cancellation
+Applications own model licensing, distribution, integrity verification, storage, updates, rollback, and device compatibility.
 
-The controller is lower-level than hooks or providers.
+## Context Concepts
 
----
+### Context Engine
 
-## Session
-
-A session represents inference state that persists across requests.
-
-Sessions are particularly important for multimodal workflows involving:
-
-- images
-- conversational continuity
-- runtime personalization context
-
-A session is not equivalent to a chat transcript.
-
----
-
-## Context Engine
-
-The Context Engine is an interface-first memory and retrieval layer.
+An interface-first memory and retrieval layer.
 
 It provides:
 
-- retrieval
-- bounded context augmentation
-- validation hooks
-- optional scoring
-- storage abstraction
+- application-owned storage abstraction;
+- bounded retrieval;
+- TTL and item-count policy;
+- validation hooks;
+- optional scoring.
 
-It does not:
+It does not define component policy, govern rendering authority, or make retrieved content trustworthy.
 
-- define component policy
-- govern rendering authority
-- replace the component registry
+### ContextStore
 
----
+The application-provided persistence interface used by the Context Engine. Implementations may use SQLite, files, another database, or a custom service.
 
-# Component Model Concepts
+### Retrieved context
 
-## ComponentSpec
+Data selected for prompt or interaction augmentation. Retrieved context remains untrusted even when it originated locally or has known provenance.
+
+## Component Model Concepts
+
+### ComponentSpec
 
 The authoritative declarative definition of a component.
 
-The spec defines:
+A spec may define:
 
-- metadata
-- props
-- UI structure
-- behavior constraints
-- AI boundaries
-- policy constraints
-- generation contracts
+- metadata and version;
+- props and structure;
+- target framework and runtime;
+- behavior and capability constraints;
+- allowed AI execution mode;
+- policy requirements;
+- generation contracts.
 
-The spec is authoritative.
+The specification is authoritative. Model output is not.
 
-AI output is not.
+### Generation contract
 
----
+A declaration of what an AI workflow may produce, where it may execute, and how its output is validated.
 
-## Generation Contract
+Examples include:
 
-The generation contract defines:
+- build-time TSX generation;
+- props JSON;
+- variant selection;
+- slot text;
+- constrained JSON Patch overlays.
 
-- what AI may produce
-- which formats are allowed
-- how output is validated
-- where execution is allowed
+For runtime personalization, the registered JSON Schema contract is the automatic validation boundary implemented by `PersonalizationEngine`.
 
-Examples:
+### Registry
 
-- TSX generation
-- props JSON
-- variant selection
-- JSON patch overlays
+The authoritative mapping between:
 
----
+- component name and version;
+- specification and personalization contract;
+- deterministic identity hashes;
+- executable implementation identity.
 
-## Runtime Personalization
+The registry decides what implementation is renderable. Model output cannot register arbitrary runtime code.
 
-Runtime personalization means:
+Registry hashes currently provide deterministic identity and drift detection. They are not cryptographic signatures.
 
-> AI influences rendered behavior without becoming the authoritative source of executable UI.
+### Overlay
 
-Typical outputs:
+A bounded data modification applied to base props for an authoritative registered component.
 
-- props
-- variants
-- slot text
-- bounded overlays
+Examples include approved prop updates, known variant selection, slot text, design-token values, and constrained patch operations.
 
-Runtime personalization is intentionally more constrained than build-time generation.
+The current runtime requires overlays to pass:
 
----
+- the registered JSON Schema contract;
+- unsafe object-key validation;
+- JSON Patch path and value validation where patches are used;
+- schema validation after patches are applied.
 
-## Registry
+Additional semantic, capability, accessibility, network, or business policy must be encoded in the contract or composed by the application.
 
-The registry is the authoritative mapping between:
+### Runtime personalization
 
-- component identity
-- implementation identity
-- spec identity
-- runtime contract identity
+AI-influenced rendering behavior where the model does not become the authoritative source of executable UI.
 
-The registry decides what is renderable.
+Typical outputs include props, variants, slot text, design-token values, and bounded overlays. Runtime personalization is intentionally more constrained than build-time source generation.
 
-The registry is not the model.
+## AI Concepts
 
----
+### Local AI
 
-## Overlay
+Inference executed on the device rather than requiring a hosted inference service.
 
-An overlay is a bounded runtime modification applied on top of an authoritative component contract.
+Local execution can reduce network exposure and latency, but remains subject to client compromise, model tampering, resource limits, logging, storage, and fallback risks.
 
-Examples:
+Locality is a deployment characteristic, not a guarantee of trust.
 
-- variant selection
-- slot text
-- approved props updates
-- limited JSON patch operations
+### Capability provider
 
-Overlays must pass validation before rendering.
+A model runtime or service capable of performing a bounded task, such as:
 
----
+- summarization;
+- image understanding;
+- personalization;
+- variant selection;
+- slot generation.
 
-# AI Concepts
+Amaryllis models AI as one or more capability providers rather than assuming a single authoritative assistant.
 
-## Local AI
+### Structured output
 
-Inference executed on device.
+Model output constrained to a schema or bounded contract.
 
-Examples:
+Examples include JSON, typed props, variant identifiers, and patch operations.
 
-- MediaPipe-backed inference
-- mobile multimodal sessions
-- local summarization
-- offline personalization
+Structured output is easier to validate and govern than arbitrary executable source, but it is not inherently safe or semantically correct.
 
-Local AI is a deployment characteristic, not a trust boundary.
+### Deterministic control
 
----
+Application-owned logic whose behavior can be validated independently of model output.
 
-## Capability Provider
+Examples include schemas, policy engines, registry identity checks, patch validation, static analysis, and release gates.
 
-A capability provider is a runtime capable of performing a bounded AI task.
+A deterministic control is effective only when it is actually composed into the relevant execution path.
 
-Examples:
+## Governance Concepts
 
-- image understanding
-- summarization
-- personalization
-- variant selection
-- slot generation
+### Policy
 
-This branch intentionally thinks in terms of:
+Rules defining what a workflow or runtime is allowed to do.
 
-```text
-AI capability providers
-```
+Policy may cover:
 
-rather than:
+- imports and dependencies;
+- runtime execution modes;
+- network behavior;
+- allowed and forbidden operations;
+- slots, variants, and design tokens;
+- accessibility requirements;
+- review and approval requirements.
 
-```text
-single assistant model
-```
+Policy is defined and enforced outside the model.
 
----
+In the current package, `PolicyEngine` is used by build and CLI generation/customization flows. Programmatic runtime personalization does not automatically execute the complete policy engine.
 
-## Structured Output
+### Validation
 
-Structured output is model output constrained to a schema or bounded contract.
+The process of confirming that an input or artifact satisfies the checks composed into its path.
 
-Examples:
+Examples include:
 
-- JSON
-- variant identifiers
-- patch operations
-- typed props
+- specification schema validation;
+- runtime personalization contract validation;
+- registry name, version, and hash checks;
+- unsafe-key and patch validation;
+- build/CLI policy validation;
+- generated-source and package checks.
 
-Structured output is preferred for runtime personalization because it is more governable than arbitrary source generation.
+Validation remains deterministic even when generation is probabilistic. Passing one validation layer does not imply that every semantic or security policy has been evaluated.
 
----
+### Authoritative boundary
 
-# Governance Concepts
+The boundary defining which subsystem has final control over behavior.
 
-## Policy
+In Amaryllis:
 
-Policy defines what the system allows.
+- the model is not authoritative;
+- application code and registered implementations remain authoritative over execution;
+- specifications and runtime contracts remain authoritative over declared structure and personalization data;
+- application policy remains authoritative over sensitive behavior;
+- runtime output must pass its registered contract before rendering.
 
-Examples:
+### Provenance
 
-- import restrictions
-- runtime restrictions
-- review requirements
-- allowed operations
-- forbidden operations
+Evidence describing where an artifact or decision came from.
 
-Policy is enforced outside the model.
+Potential provenance includes specification, contract, model, policy, validator, generation, build, review, and release identities.
 
----
+Provenance improves attribution and replayability. It does not prove correctness or safety.
 
-## Validation
+### Build-time generation
 
-Validation is the process of confirming that:
+AI-assisted generation occurring in local tooling, build pipelines, or CI. It may produce executable artifacts because stronger validation, testing, review, and evidence controls can be applied.
 
-- specs are well-formed
-- outputs match contracts
-- overlays stay within allowed bounds
-- generated artifacts satisfy policy
+### Device-time personalization
 
-Validation is central to the branch architecture.
-
----
-
-## Authoritative Boundary
-
-The authoritative boundary defines which subsystem has final control.
-
-In this branch:
-
-- the model is not authoritative
-- specs and registries are authoritative
-- runtime outputs must be validated before rendering
-
-That distinction is the foundation of the branch’s governance model.
+AI-assisted adaptation occurring in the user-facing runtime. It is constrained to bounded structured output because the review and recovery conditions are materially different from build-time generation.

@@ -1,208 +1,229 @@
 # Architecture
 
-This document explains the architecture of the `feature/ai-components` branch.
+This document provides a working mental model for the current Amaryllis repository. It is intentionally lighter than the component RFC and focuses on subsystem ownership, data flow, and trust boundaries.
 
-It is intentionally lighter than the RFC. The goal here is to provide a working mental model for contributors and users before they dive into the more normative component-governance material.
+## System Layers
 
-## Branch Structure
+Amaryllis contains three related but independently governed layers.
 
-This branch contains two related but distinct layers:
+### 1. On-device runtime
 
-1. **Base Amaryllis runtime**
-   - a React Native runtime for on-device multimodal AI
-   - native inference bridges for mobile
-   - hooks, provider, controller, and context integration
+The runtime is responsible for:
 
-2. **`@micrantha/amaryllis-components` companion module**
-   - a spec-driven component layer
-   - validation, policy, generation, and personalization primitives
-   - a path toward governed AI-enabled components
+- exposing React Native provider, hook, and controller APIs;
+- initializing native model runtimes;
+- managing multimodal sessions;
+- streaming output and cancellation;
+- integrating optional context retrieval;
+- keeping network fallback under application control.
 
-The important separation is that the base runtime is primarily concerned with **local inference**, while the companion module is concerned with **how AI is allowed to influence component behavior and generation**.
+At this layer, Amaryllis is an inference SDK. It does not own product policy or rendering authority.
 
----
+### 2. Context Engine
+
+The Context Engine is an interface-first memory and retrieval subsystem.
+
+It provides:
+
+- application-owned storage integration;
+- bounded retrieval;
+- TTL and item-count policy;
+- validation hooks;
+- optional scoring and ranking.
+
+It does not define component policy, replace the component registry, or make retrieved content trustworthy.
+
+### 3. Component governance
+
+`@micrantha/amaryllis-components` defines how AI may participate in component generation and runtime personalization.
+
+It provides:
+
+- typed and versioned `ComponentSpec` contracts;
+- schema validation;
+- policy primitives and build/CLI policy validation;
+- registry and implementation identity primitives;
+- generation scaffolding;
+- bounded runtime overlays;
+- runtime JSON Schema, unsafe-key, and patch validation.
+
+The component layer answers a different question from the inference runtime:
+
+> How can AI influence component generation or behavior without becoming an unbounded runtime code-execution authority?
 
 ## Layered View
 
 ```text
 Application UI
   -> React Native components
-  -> app state / navigation / business logic
+  -> navigation, state, business logic, and application policy
 
-Amaryllis Runtime Layer
+Application-owned configuration
+  -> model assets and lifecycle
+  -> ContextStore
+  -> fallback and network behavior
+
+Amaryllis runtime
   -> LLMProvider
   -> hooks
   -> controller
   -> Context Engine
+  -> native Android and iOS inference
 
-Native Inference Layer
-  -> TurboModule bridge
-  -> platform runtime
-  -> on-device model execution
+Component tooling
+  -> ComponentSpec schema validation
+  -> build/CLI policy validation
+  -> generated artifacts and registered implementations
 
-Component Governance Layer
-  -> ComponentSpec
-  -> schema validation
-  -> policy engine
-  -> registry / runtime overlays
-
-Generated or Personalized Output
-  -> validated props
-  -> variant selection
-  -> slot content
-  -> bounded JSON patch overlays
+Runtime personalization
+  -> registry lookup
+  -> registered JSON contract
+  -> schema, unsafe-key, and patch validation
+  -> bounded data overlay
+  -> registered component render
 ```
 
----
+The application owns the top-level authority. The model supplies capability within those boundaries.
 
-## Base Runtime Responsibilities
+## Authority Model
 
-The base runtime is responsible for:
+The architecture distinguishes probabilistic capability from deterministic authority.
 
-- initializing the local model runtime
-- exposing a React Native API surface
-- managing sessions for multimodal flows
-- handling streaming output
-- integrating optional context retrieval
-- keeping inference local to the device unless the application chooses otherwise
+Authoritative systems include:
 
-At this layer, the system is still fundamentally an inference SDK.
+- application code and policy;
+- component specifications;
+- runtime personalization contracts;
+- registries and implementation identities;
+- lifecycle and rendering code;
+- build and release controls.
 
----
+Model output is advisory until it has passed the checks actually composed into its execution path.
 
-## Companion Module Responsibilities
-
-The companion module exists to answer a different question:
-
-> How should AI participate in component generation or runtime personalization without turning the UI into an unbounded code-execution surface?
-
-That module introduces a typed `ComponentSpec` and a supporting toolchain for:
-
-- parsing and validating specs
-- enforcing policy constraints
-- generating artifacts
-- constraining runtime personalization
-- preserving an authoritative component contract
-
-This is the branch’s most important architectural move.
-
----
+At runtime, the current package automatically enforces the registered JSON contract, unsafe-key restrictions, and JSON Patch bounds. Broader policy such as network, accessibility, semantic business rules, and review requirements must be encoded in the contract, kept in component code, or composed by the application.
 
 ## Why the Separation Matters
 
-Without a clear separation, the system easily drifts into one of two poor extremes:
+Without explicit boundaries, AI-enabled UI tends to drift toward one of two extremes.
 
-### Extreme 1: AI as arbitrary source generator
+### Arbitrary source generation
 
-This is fast for experimentation, but weak for governance, reproducibility, and security.
+Allowing a model to produce authoritative runtime JSX or TSX is flexible, but weak for security, reviewability, reproducibility, accessibility, and design governance.
 
-### Extreme 2: AI as a thin chat layer bolted onto static UI
+### Static UI with a chat layer
 
-This is safer, but it does not really unlock AI-enabled components or adaptive interfaces.
+Keeping AI isolated in a chat surface is easier to reason about, but does not enable meaningful component adaptation.
 
-The architecture in this branch aims for the middle path:
+Amaryllis takes a middle path:
 
-- local AI is available as a capability
-- component behavior is spec-driven
-- runtime outputs are bounded and validated
-- the authoritative UI contract remains outside the model
+- local inference is available as a capability;
+- component behavior is contract-driven;
+- runtime output is structured and schema-validated;
+- executable implementations remain registry-controlled;
+- application code remains responsible for final behavior and policy.
 
----
+## Build-Time and Device-Time AI
 
-## Build-Time vs Device-Time AI
-
-A critical distinction in this branch is the difference between:
+The architecture treats build-time generation and device-time personalization as different trust classes.
 
 ### Build-time or CI-time generation
 
-This is where the system can allow more powerful transformations, including source generation, so long as policy, validation, and review controls are enforced.
+Build-time workflows may generate source or larger artifacts because the output can pass through:
 
-Typical outputs:
+- specification schema validation;
+- package policy validation;
+- generated-source analysis;
+- static analysis;
+- tests and previews;
+- human review;
+- provenance and artifact tracking.
 
-- generated React code
-- generated artifacts
-- reviewable diffs
-- provenance metadata
+Typical outputs include generated React source, implementation scaffolding, reviewable diffs, and package artifacts.
 
 ### Device-time personalization
 
-This is much more constrained.
+Device-time output is substantially more constrained. The model acts as an untrusted structured-data producer rather than a source-code generator.
 
-On device, AI should behave as an **untrusted structured-data producer**, not as a code generator.
+Typical outputs include:
 
-Typical outputs:
+- props JSON;
+- variant selection;
+- slot text;
+- design-token values;
+- constrained JSON Patch operations.
 
-- props JSON
-- variant selection
-- slot text
-- limited JSON patch overlays
+The current automatic runtime checks are contract/schema, unsafe-key, and patch validation. Full package policy evaluation is not implicitly performed for every programmatic runtime registration.
 
-That distinction is central to the safety model of the branch.
+## Context Placement
 
----
-
-## Context Engine Placement
-
-The Context Engine sits beside the inference runtime, not above the component spec layer.
-
-Its role is to provide:
-
-- memory
-- retrieval
-- bounded context augmentation
-- interface-first storage integration
-
-It should not be confused with a policy engine or a component registry. It is a supporting subsystem for prompt and interaction context.
-
----
-
-## CopilotKit And AG-UI Placement
-
-CopilotKit and AG-UI fit at the application orchestration boundary, above Amaryllis inference and component governance.
-
-In this branch, they are treated as optional integration protocols for actions, frontend-rendered tool output, and generative UI flows. They do not replace the Amaryllis registry or validation model.
-
-The intended flow is:
+The Context Engine sits beside the inference runtime. It enriches prompts and interactions, but does not sit above the component policy layer.
 
 ```text
-AG-UI/CopilotKit action
-  -> Amaryllis local inference capability
-  -> structured output
-  -> amaryllis-components validation
-  -> registry-approved component overlay
+ContextStore
+  -> bounded retrieval
+  -> prompt or interaction context
+  -> model capability
+  -> independently validated output
 ```
 
-That keeps Amaryllis responsible for local AI execution and render authority while allowing CopilotKit-style applications to orchestrate agent UI flows.
+Retrieval provenance can improve attribution, but does not make retrieved content safe.
 
----
+## CopilotKit and AG-UI Placement
+
+CopilotKit and AG-UI fit at the application orchestration boundary. They may coordinate actions, shared frontend state, and generative UI flows, but they do not replace Amaryllis registry or contract validation.
+
+```text
+AG-UI or CopilotKit action
+  -> Amaryllis inference capability
+  -> structured output
+  -> PersonalizationEngine validation
+  -> registered component overlay
+  -> render
+```
+
+The companion package therefore uses optional adapter contracts rather than making orchestration frameworks part of the core runtime. Applications can compose additional policy around those adapters.
 
 ## Security Boundaries
 
-This branch creates several important trust boundaries:
+The primary boundaries are:
 
-1. **Model output is not authoritative**
-2. **Component specs are authoritative**
-3. **Registry and validation decide what can be rendered**
-4. **Device-time AI output must be schema- and policy-validated**
-5. **Source generation is treated differently from runtime personalization**
+1. application input crossing into native inference;
+2. retrieved context crossing into prompts;
+3. model output crossing into application-controlled logic;
+4. generated artifacts crossing into source and package outputs;
+5. registry identities crossing into rendered implementations;
+6. model assets crossing into the application trust boundary.
 
-That lets the system support adaptive behavior without implicitly trusting the model as a code author at runtime.
+The corresponding rules are:
 
----
+- model output is not authoritative;
+- context is not trusted merely because it is local;
+- component specs and registries remain authoritative;
+- runtime output must satisfy its registered contract;
+- additional semantic and capability policy must be explicitly composed;
+- build-time source and device-time data use different review controls;
+- local inference shifts risk rather than eliminating it.
 
 ## Design Direction
 
-The overall direction of this branch is:
+The current direction is to:
 
-- keep Amaryllis as the local AI runtime substrate
-- build a companion component model on top of it
-- make AI-enabled components declarative, typed, and governable
-- preserve a strong distinction between inference capability and UI authority
+- keep Amaryllis focused on local mobile AI execution;
+- keep the Context Engine storage-agnostic and application-owned;
+- make AI-enabled components declarative, typed, and governable;
+- compose broader policy into runtime personalization without conflating it with schema validation;
+- improve model delivery and integrity controls;
+- strengthen runtime observability and failure recovery;
+- preserve a clear boundary between inference capability and product authority.
 
-For the detailed component contract and enforcement model, see:
+For more detail, see:
 
-- [AI-enabled components](./ai-enabled-components.md)
 - [Concepts](./concepts.md)
+- [AI-enabled components](./ai-enabled-components.md)
+- [Runtime personalization](./runtime-personalization.md)
+- [Registry and validation](./registry-and-validation.md)
 - [Local AI and MediaPipe](./local-ai.md)
 - [CopilotKit and AG-UI alignment](./copilotkit-ag-ui.md)
+- [Security model](./security-model.md)
+- [Threat model](./threat-model.md)
 - [Amaryllis Components RFC](./amaryllis_ai_component_module_rfc.md)

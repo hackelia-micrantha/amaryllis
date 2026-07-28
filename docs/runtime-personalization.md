@@ -1,142 +1,95 @@
 # Runtime Personalization
 
-This document describes the runtime personalization model explored by the `feature/ai-components` branch.
+Runtime personalization allows AI to influence rendering through bounded structured output without becoming the authoritative source of executable UI.
 
-The central idea is:
+> The registered component remains authoritative. Model output may only contribute data that passes its registered personalization contract.
 
-> Runtime AI may influence rendering through bounded overlays and structured outputs, but it does not become the authoritative source of executable UI.
+## Why Runtime Personalization Exists
 
-This distinction is fundamental to the branch architecture.
+Adaptive mobile interfaces may need:
 
----
+- local summaries;
+- context-aware variants;
+- multimodal reactions;
+- user-specific slot content;
+- bounded layout choices;
+- accessibility-aware presentation changes.
 
-# Why Runtime Personalization Exists
+Unrestricted runtime source generation creates governance drift, policy bypass, accessibility regressions, reproducibility loss, and arbitrary execution surfaces.
 
-Many adaptive interfaces need some degree of runtime intelligence.
+The personalization model preserves adaptive behavior while keeping product authority in application code and registered component implementations.
 
-Examples:
-
-- local summaries
-- adaptive layouts
-- multimodal reactions
-- user-specific slot content
-- context-aware variants
-- accessibility-aware presentation changes
-
-However, unrestricted runtime code generation creates severe problems:
-
-- governance drift
-- runtime trust collapse
-- accessibility regressions
-- policy bypass
-- reproducibility loss
-- arbitrary execution surfaces
-
-The runtime personalization model exists to preserve adaptive behavior while maintaining explicit system boundaries.
-
----
-
-# Personalization Lifecycle
-
-At a high level:
+## Implemented Lifecycle
 
 ```text
-ComponentSpec
-  -> runtime contract
+component name
+  -> registry lookup
+  -> registered personalization contract
   -> AI invocation
-  -> structured output
-  -> validation
-  -> overlay generation
-  -> render
+  -> untrusted structured output
+  -> JSON Schema and unsafe-key validation
+  -> JSON Patch path, value, and post-patch validation
+  -> bounded prop overlay
+  -> registered component render
 ```
 
-The important detail is that rendering happens through validated overlays, not directly from raw model output.
+Rendering does not occur directly from raw model output.
 
----
+The current runtime path validates data against the registered contract. It does not automatically execute the package's full `PolicyEngine` for every personalization call.
 
-# Runtime Overlay Model
-
-The branch currently leans toward overlays rather than arbitrary mutation.
-
-Conceptually:
+## Overlay Model
 
 ```text
-Authoritative component
-  + validated overlay
-  = rendered output
+authoritative base props
+  + contract-validated personalization data
+  = props passed to the registered implementation
 ```
 
-The authoritative component remains stable.
+The canonical `ComponentSpec`, registry entry, contract, and React implementation are not replaced by model output.
 
-The overlay is bounded.
+## Supported Runtime Data
 
----
+The contract model can represent bounded forms such as:
 
-# Allowed Runtime Outputs
+- props JSON;
+- known variant identifiers;
+- declared slot text;
+- declared design-token values;
+- JSON Patch operations targeting declared personalization paths.
 
-The RFC currently identifies several acceptable runtime output forms:
+The exact fields and values accepted at runtime depend on the JSON Schema registered for the component.
 
-- props JSON
-- variant selection
-- slot text
-- bounded JSON patch operations
+## What the Runtime Does Not Execute
 
-These outputs are easier to:
+Device-time personalization is not interpreted as:
 
-- validate
-- audit
-- constrain
-- replay
-- reason about
+- JSX or TSX source;
+- executable JavaScript;
+- module imports;
+- native code;
+- arbitrary markup or style programs.
 
-than arbitrary executable source.
+This prevents model output from directly becoming executable component code. It does not automatically prevent a validated prop value from triggering behavior already implemented by the application. Capability-bearing props, URLs, commands, or identifiers must therefore be constrained by the contract and component implementation.
 
----
-
-# Forbidden Runtime Outputs
-
-The runtime model intentionally rejects:
-
-- arbitrary JSX
-- arbitrary TSX
-- executable JavaScript
-- unrestricted imports
-- unrestricted native access
-- arbitrary style injection
-- unrestricted network access
-
-This is not merely a convenience restriction.
-
-It is a core architectural boundary.
-
----
-
-# Example Runtime Flow
-
-## 1. Authoritative Spec
+## Example Contract
 
 ```yaml
 apiVersion: amaryllis/v1alpha1
 kind: ComponentSpec
-
 metadata:
   name: SummaryCard
   version: 0.1.0
-
 target:
   framework: react
   runtime: rn
-
 props:
   type: object
   properties:
     title:
       type: string
-
 ui:
   slots:
     - summary
-
 ai:
   mode: personalize
   execution: device
@@ -144,135 +97,98 @@ ai:
     output: props-json
 ```
 
----
-
-## 2. Runtime Invocation
-
-The runtime asks the local model for structured output.
-
-Conceptually:
+A corresponding personalization contract might accept data such as:
 
 ```json
 {
-  "summary": "Short local summary",
+  "props": {
+    "title": "Local summary"
+  },
   "variant": "compact"
 }
 ```
 
----
+## Current Runtime Validation
 
-## 3. Validation
+`PersonalizationEngine.validate` currently performs:
 
-The runtime validates:
+- JSON Schema validation through AJV;
+- unsafe object-key detection for `__proto__`, `constructor`, and `prototype`;
+- JSON Patch path checks against declared `props`, `slots`, and `designTokens`, plus `variant`;
+- unsafe patch-value detection;
+- schema validation after patches are applied.
 
-- schema shape
-- allowed variants
-- slot boundaries
-- policy restrictions
-- token restrictions
+`PersonalizationEngine.apply` then merges accepted data into base props using a bounded recursive merge that ignores unsafe keys.
 
-If validation fails, rendering falls back to the authoritative component.
+Registry registration separately verifies component name, version, optional hashes, and explicit replacement semantics.
 
----
+## Policy Boundary
 
-## 4. Overlay Application
+The package's `PolicyEngine` currently participates in build and CLI generation/customization flows. It is not automatically called by `PersonalizedComponent` when a component is registered programmatically.
 
-A bounded overlay is applied:
+Runtime applications that require network, capability, accessibility, review, or application-specific semantic policy must:
+
+- encode enforceable limits in the personalization contract;
+- keep sensitive capability decisions in reviewed component code;
+- run additional application-level policy checks before applying personalization;
+- treat schema validity as necessary but not sufficient for semantic safety.
+
+## Failure Handling
+
+When personalization data is invalid, `PersonalizedComponent`:
+
+- rejects the personalization result;
+- restores base props;
+- exposes validation errors and diagnostics through an optional callback;
+- can emit an optional console warning;
+- renders only the already-registered implementation.
+
+Applications decide whether to retry, show a static fallback, disable personalization, or invoke another provider. Remote fallback is not implicit in this component path.
+
+## Context and Prompt Inputs
+
+User input, media, retrieved context, and persisted memory are all untrusted. The validity of final output must not depend on the prompt or retrieval source being safe.
+
+The Context Engine can provide bounded retrieval and attribution, but personalization output still passes through the registered contract.
+
+## Local Inference
+
+Runtime personalization fits naturally with on-device inference because it can provide low latency, offline behavior, and application-controlled network use.
+
+Local execution does not eliminate:
+
+- client compromise;
+- model or adapter tampering;
+- resource exhaustion;
+- sensitive logging or persistence;
+- privacy leakage through application fallback;
+- probabilistic or adversarial model behavior.
+
+## CopilotKit and AG-UI
+
+CopilotKit and AG-UI may initiate personalization as frontend actions or render-tool flows. The adapter path remains:
 
 ```text
-base component
-  + validated runtime overlay
-  = final render
+orchestration action
+  -> inference function
+  -> untrusted structured output
+  -> PersonalizationEngine contract validation
+  -> validated data for the registered component
 ```
 
-The canonical `ComponentSpec` remains unchanged.
+Orchestration does not replace the registry or runtime contract. Additional policy enforcement remains an application responsibility unless explicitly composed into the adapter.
 
----
+## Current Constraints and Future Work
 
-# Registry Interaction
+The project is an active `0.1.x` implementation. Areas still evolving include:
 
-The branch architecture assumes the registry remains authoritative.
+- automatic runtime `PolicyEngine` composition;
+- overlay replay and diff tooling;
+- runtime observability and audit interfaces;
+- rollback and conflict resolution;
+- policy-version negotiation;
+- approval workflows for promoted personalization;
+- cryptographic model and registry identity evidence;
+- privacy-safe telemetry.
 
-Conceptually:
-
-```text
-registry
-  -> approved component implementation
-  -> spec identity
-  -> runtime contract identity
-```
-
-Runtime AI output cannot replace the registry.
-
-It can only provide bounded overlays within the approved contract.
-
----
-
-# Why Structured Output Matters
-
-Structured outputs are easier to govern because:
-
-- schemas are enforceable
-- validation is deterministic
-- replayability improves
-- review tooling becomes possible
-- runtime safety boundaries are clearer
-
-This is one reason the branch strongly prefers:
-
-```text
-props-json
-variant-selection
-json-patch
-```
-
-instead of unrestricted runtime source generation.
-
----
-
-# Relationship To Local AI
-
-The personalization model fits naturally with local inference.
-
-Benefits include:
-
-- lower latency
-- offline adaptation
-- local multimodal context
-- stronger privacy boundaries
-- reduced network dependency
-
-This is especially important for mobile UI flows where interaction timing and responsiveness matter.
-
----
-
-# Relationship To CopilotKit And AG-UI
-
-CopilotKit and AG-UI can initiate personalization as frontend actions or render-tool flows, but they should not bypass Amaryllis validation.
-
-The first adapter surface in `@micrantha/amaryllis-components` keeps that boundary explicit:
-
-- the action receives prompt and context
-- the inference function produces untrusted structured output
-- `PersonalizationEngine` validates output against the registered contract
-- only validated props are returned for rendering
-
-This lets CopilotKit/AG-UI orchestrate user-facing agent interactions while Amaryllis remains the authority for local inference, contracts, and overlays.
-
----
-
-# Future Directions
-
-Several runtime personalization areas remain open:
-
-- replay and observability
-- overlay diff tooling
-- personalization telemetry
-- rollback behavior
-- runtime policy hot reloads
-- conflict resolution
-- approval workflows for promoted overlays
-
-The current goal is not maximum generation flexibility.
-
-The current goal is establishing a strong runtime contract model first.
+The goal is not maximum generation flexibility. The goal is a stable, explicit, and testable runtime contract with accurately documented guarantees.
