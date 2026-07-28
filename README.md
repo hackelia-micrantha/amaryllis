@@ -18,8 +18,9 @@ Mobile AI often forces a poor choice between a thin hosted assistant and unrestr
 - inference can remain on device;
 - application code owns model selection, lifecycle, storage, rendering, and fallback behavior;
 - model output is treated as untrusted input;
-- schemas, registries, policy, and deterministic validation remain authoritative;
-- runtime personalization uses bounded structured data rather than executable JSX or TSX.
+- registered component implementations and runtime contracts remain authoritative;
+- runtime personalization uses bounded structured data rather than executable JSX or TSX;
+- broader semantic and capability policy remains explicit rather than hidden inside the model.
 
 ## Architecture
 
@@ -37,22 +38,30 @@ The repository contains three related layers:
 
 3. **Amaryllis Components**
    - typed and versioned `ComponentSpec` contracts;
-   - schema and policy validation;
+   - specification schema and policy primitives;
    - generation, registry, and packaging primitives;
-   - bounded runtime personalization.
+   - bounded runtime personalization;
+   - JSON Schema, unsafe-key, and JSON Patch validation.
 
 ```text
 Application UI and product logic
-  -> contracts, policy, and validation
+  -> application policy, lifecycle, and fallback
   -> Amaryllis provider / hooks / controller
   -> native Android and iOS inference
   -> application-selected model assets
 
-ComponentSpec
-  -> schema and policy validation
-  -> registry-approved implementation
-  -> validated props, variants, slots, or patches
-  -> render
+Build and CLI component flow
+  ComponentSpec
+    -> schema and policy validation
+    -> generated or customized artifacts
+    -> normal review and delivery controls
+
+Runtime personalization flow
+  registered component and contract
+    -> untrusted structured output
+    -> schema, unsafe-key, and patch validation
+    -> bounded prop overlay
+    -> registered implementation render
 ```
 
 The model is a capability provider, not the authority over application behavior.
@@ -160,7 +169,7 @@ Retrieved context remains untrusted input. Output validation must not depend on 
 
 - **Scaffold:** generate reviewable source at build or CI time;
 - **Customize:** produce bounded variants within declared layouts, slots, tokens, and imports;
-- **Personalize:** return validated props, variants, slot text, or constrained JSON patches at runtime.
+- **Personalize:** return contract-validated props, variants, slot text, design-token values, or constrained JSON patches at runtime.
 
 ```ts
 import { parseSpec } from '@micrantha/amaryllis-components/dist/parser/yaml';
@@ -187,7 +196,9 @@ ai:
 `);
 ```
 
-Runtime AI does not directly register implementations, mutate authoritative specs, bypass policy, or introduce executable imports.
+Runtime AI cannot directly register implementations, mutate authoritative specs, or introduce executable imports. The current runtime path validates against the registered JSON contract and patch bounds.
+
+The full package `PolicyEngine` is currently applied by build and CLI generation/customization flows, not automatically by every programmatic `PersonalizedComponent` call. Applications must compose additional policy for network access, sensitive capabilities, semantic business rules, accessibility, and data handling where required.
 
 ## Security Model
 
@@ -197,17 +208,20 @@ The central security principle is:
 AI output is not authoritative.
 ```
 
-Amaryllis keeps authority in deterministic application-controlled systems:
+Implemented runtime controls include:
 
-- component specs and runtime contracts;
-- registries and implementation identities;
-- schema and policy validation;
-- lifecycle and rendering code;
-- build review and release controls.
+- registry lookup of a reviewed implementation and contract;
+- JSON Schema validation;
+- unsafe prototype-related key detection;
+- JSON Patch path and value validation;
+- post-patch schema validation;
+- fallback to base props on validation failure.
+
+Build and CLI workflows provide separate specification-policy and generated-artifact controls.
 
 Local inference reduces some network exposure, but it does not eliminate client compromise, reverse engineering, malicious model assets, resource exhaustion, or privacy leakage through application logging and fallback behavior.
 
-See [Security Model](docs/security-model.md) and [Threat Model](docs/threat-model.md).
+See [Security Model](docs/security-model.md), [Threat Model](docs/threat-model.md), and [Registry and validation](docs/registry-and-validation.md).
 
 ## Delivery and Supply Chain
 
@@ -247,10 +261,12 @@ Amaryllis is not currently intended to provide:
 - server-scale training or fleet orchestration;
 - a universal model distribution service;
 - unrestricted runtime source generation;
+- automatic full-policy enforcement for every runtime personalization call;
+- automatic semantic safety from schema validation alone;
 - automatic security merely because inference is local;
 - stable compatibility across every React Native, operating-system, device, and model combination.
 
-Applications remain responsible for model licensing, distribution, integrity, storage, updates, device performance budgets, privacy policy, fallback behavior, and operational monitoring.
+Applications remain responsible for model licensing, distribution, integrity, storage, updates, device performance budgets, privacy policy, sensitive capability authorization, fallback behavior, and operational monitoring.
 
 ## Contributing
 
