@@ -1,362 +1,282 @@
 # Threat Model
 
-This document describes the primary threat surfaces for the `feature/ai-components` branch.
+This document describes the primary threat surfaces for the current Amaryllis architecture:
 
-It covers both:
+- the React Native runtime for local multimodal inference;
+- the application-owned Context Engine;
+- `@micrantha/amaryllis-components` generation and personalization workflows.
 
-- the base Amaryllis runtime for local multimodal inference
-- the `@micrantha/amaryllis-components` companion workspace
-
-The goal is not to be exhaustive. The goal is to establish a clear security model for the current architecture and to make the intended controls explicit.
-
----
+The model is intentionally architectural rather than exhaustive. Applications integrating Amaryllis must extend it for their data, models, devices, deployment paths, and regulatory requirements.
 
 ## Security Posture
 
-The branch is intentionally designed around a conservative rule:
-
 > Model output is not authoritative.
 
-That rule leads to three important consequences:
+This leads to three baseline rules:
 
-1. runtime AI output is treated as untrusted until validated
-2. component specs and registries remain authoritative
-3. device-time AI is bounded to structured outputs rather than unrestricted executable UI generation
-
-This is the core security position of the branch.
-
----
+1. model and retrieved output are untrusted until validated;
+2. application code, component specs, registries, and policy remain authoritative;
+3. device-time AI is bounded to structured output rather than unrestricted executable UI generation.
 
 ## Assets
 
 Important assets include:
 
-- model files on device
-- prompts and context inputs
-- user-provided media
-- component specs
-- runtime personalization outputs
-- generated source artifacts
-- policy definitions
-- registry entries and implementation identities
-- application secrets and network credentials
-
-Not all of these assets have the same sensitivity, but they all participate in the trust model.
-
----
+- model and adapter files;
+- prompts, retrieved context, and persisted memory;
+- user-provided media;
+- component specifications and generation contracts;
+- runtime personalization outputs;
+- generated source and package artifacts;
+- policy definitions;
+- registry entries and implementation identities;
+- application secrets, network credentials, and local storage;
+- build, review, provenance, and release evidence.
 
 ## Trust Boundaries
 
-### Boundary 1: App input -> inference runtime
+### B1: Application input to inference runtime
 
-User text, media, and app context cross into the inference subsystem.
+Text, media, and application context cross into native inference.
 
-Key risks:
+Risks include prompt injection, malformed media, URI abuse, resource exhaustion, and unexpected multimodal behavior.
 
-- prompt injection
-- oversized or malformed media
-- resource exhaustion
-- unexpected multimodal behavior
+### B2: Context store to prompt construction
 
-### Boundary 2: model output -> personalization/runtime layer
+Retrieved or persisted content crosses into model input.
 
-Model output crosses into application-controlled rendering logic.
+Risks include context poisoning, stale data, indirect prompt injection, privacy leakage, and mistaken trust in provenance.
 
-Key risks:
+### B3: Model output to application logic
 
-- invalid structured output
-- policy violations
-- overlay drift
-- hidden capability escalation
+Probabilistic output crosses into application-controlled rendering and behavior.
 
-### Boundary 3: spec/generator -> generated artifact
+Risks include invalid structured output, policy violations, hidden capability escalation, overlay drift, and unsafe fallback.
 
-Build-time generation crosses into source artifacts or derived runtime contracts.
+### B4: Generator to executable artifact
 
-Key risks:
+Build-time generation crosses into source, packages, or derived contracts.
 
-- unsafe imports
-- hidden sinks
-- design-system drift
-- accessibility regressions
-- provenance loss
+Risks include unsafe imports, dynamic execution, hidden network behavior, accessibility regressions, design drift, and provenance loss.
 
-### Boundary 4: registry -> rendered component
+### B5: Registry to rendered implementation
 
-The runtime decides what implementation is actually renderable.
+Registry identity is resolved into executable application code.
 
-Key risks:
+Risks include spec or implementation mismatch, stale identities, unauthorized replacement, and review bypass.
 
-- spec/implementation mismatch
-- stale or replaced identities
-- unauthorized overrides
-- unreviewed component substitutions
+### B6: Model distribution to native runtime
 
----
+Application-selected model files cross into the mobile trust boundary.
+
+Risks include model substitution, tampering, incompatible artifacts, licensing failures, resource abuse, and parser or runtime vulnerabilities.
 
 ## Threat Categories
 
-## T1: Prompt Injection
+### T1: Prompt injection
 
-### Description
+**Description:** User-controlled, retrieved, or multimodal content attempts to override intended inference or personalization boundaries.
 
-User-controlled or retrieved content attempts to alter model behavior outside intended component or inference boundaries.
+**Examples:**
 
-### Examples
+- retrieved memory instructs the model to emit fields outside the schema;
+- image text attempts to override component policy;
+- slot content asks the model to change capability or network settings.
 
-- a slot content source attempts to override the personalization contract
-- retrieved memory tells the model to emit fields outside the schema
-- multimodal input contains text intended to steer behavior away from policy
+**Controls:**
 
-### Controls
+- keep policy and rendering authority outside the model;
+- validate output independently of prompt source;
+- use bounded structured contracts;
+- treat retrieved and multimodal content as untrusted;
+- separate prompt construction from execution authority.
 
-- keep specs authoritative
-- validate runtime output against schemas
-- treat retrieved context as untrusted input
-- separate prompt formatting from rendering authority
-- keep policy enforcement outside the model
+### T2: Arbitrary runtime code generation
 
----
+**Description:** A device-time model produces JSX, TSX, JavaScript, imports, or markup that becomes authoritative UI logic.
 
-## T2: Arbitrary Runtime Code Generation
+**Impact:** Capability escalation, hidden behavior, unreviewed network access, rendering injection, and loss of reproducibility.
 
-### Description
+**Controls:**
 
-A device-time model attempts to produce executable JSX, TSX, JavaScript, imports, or markup that would become authoritative UI logic.
+- prohibit runtime source generation by default;
+- accept structured props, variants, slots, or patches instead;
+- validate before rendering;
+- keep executable implementations registry-controlled.
 
-### Impact
+### T3: Policy bypass through structured output
 
-- capability escalation
-- hidden behavior injection
-- unreviewed network access
-- XSS-like rendering hazards
-- loss of governance and reproducibility
+**Description:** A model uses allowed data structures to trigger disallowed behavior.
 
-### Controls
+**Examples:**
 
-- do not allow runtime source generation as the default path
-- restrict device-time outputs to structured data
-- require validation before rendering
-- keep registry-managed implementations authoritative
+- patching unauthorized paths;
+- selecting values that indirectly enable unsafe behavior;
+- changing identity, policy, or capability fields;
+- exploiting ambiguous deep-merge behavior.
 
----
+**Controls:**
 
-## T3: Policy Bypass Through Structured Output
+- allowlist patch paths and operations;
+- use strict enums and typed values;
+- define overlay semantics explicitly;
+- reject changes to authoritative fields;
+- fail closed on unknown values or schema versions.
 
-### Description
+### T4: Registry integrity failure
 
-Even when output is structured, the model may attempt to smuggle behavior through allowed fields.
+**Description:** The rendered implementation does not match the expected component, specification, version, or runtime contract.
 
-### Examples
+**Impact:** Unauthorized substitution, stale behavior, review bypass, and inconsistent rendering.
 
-- patching disallowed paths
-- setting fields that indirectly trigger unsafe behavior
-- attempting token or slot values outside approved sets
+**Controls:**
 
-### Controls
+- bind registry entries to versioned identities;
+- reject mismatches;
+- require explicit replacement semantics;
+- preserve reviewable registration and provenance;
+- consider signed manifests for higher-assurance deployments.
 
-- allowlist patch paths
-- constrain slot names and variant IDs
-- validate enums and token selections strictly
-- reject overlays that modify authoritative policy or target fields
+### T5: Generated source abuse
 
----
+**Description:** Build-time or CI-time generation produces unsafe executable artifacts.
 
-## T4: Registry Integrity Failure
+**Examples:** Unsafe imports, dynamic execution, raw markup sinks, undeclared capabilities, hidden persistence, or network behavior.
 
-### Description
+**Controls:**
 
-The runtime renders a component whose implementation identity does not match the expected spec or contract.
+- validate source after generation;
+- enforce import allowlists and sink denylists;
+- run lint, type checks, tests, and security analysis;
+- require human review for executable output;
+- record generation and approval evidence.
 
-### Impact
+### T6: Media and native resource exhaustion
 
-- unauthorized substitutions
-- stale implementations
-- review bypass
-- inconsistent runtime behavior
+**Description:** Large, malformed, or adversarial media causes memory pressure, CPU exhaustion, crashes, or inference instability.
 
-### Controls
+**Controls:**
 
-- bind registry entries to spec and contract identities
-- reject mismatched registration attempts
-- require explicit replacement semantics
-- keep authoritative identities versioned
+- bound file size, dimensions, count, tokens, and session duration;
+- restrict URI schemes and file locations;
+- preprocess and validate media;
+- support cancellation and lifecycle cleanup;
+- recover safely without implicit network fallback.
 
----
+### T7: Context poisoning
 
-## T5: Generated Source Abuse
+**Description:** Stored or retrieved context influences output in misleading or hostile ways.
 
-### Description
+**Impact:** Policy drift, invalid personalization, degraded relevance, and indirect prompt injection.
 
-Build-time or CI-time generation produces unsafe source artifacts.
+**Controls:**
 
-### Examples
+- treat context as untrusted;
+- bound retrieval and formatting;
+- validate final output independently;
+- preserve attribution without equating provenance with safety;
+- support deletion, expiration, and source-specific policy.
 
-- unsafe imports
-- dynamic code execution
-- raw markup sinks
-- undeclared capabilities
-- hidden persistence or network behavior
+### T8: Privacy boundary erosion
 
-### Controls
+**Description:** A local-first workflow leaks prompts, media, context, or personalization data through logs, telemetry, fallback, storage, or generated artifacts.
 
-- source validation after generation
-- import allowlists and denylists
-- ban dynamic execution sinks
-- require human review for executable artifacts
-- record provenance and review metadata
+**Controls:**
 
----
+- make network behavior explicit and application-controlled;
+- minimize sensitive logging;
+- document persistence and retention;
+- separate local personalization from publishable artifacts;
+- audit error reporting and fallback paths.
 
-## T6: Media Input Resource Exhaustion
+### T9: Accessibility and design drift
 
-### Description
+**Description:** Generated or personalized output is structurally valid but violates accessibility or design-system rules.
 
-Large or malformed image inputs cause memory pressure, CPU exhaustion, or runtime instability.
+**Controls:**
 
-### Impact
+- encode machine-checkable accessibility and token rules;
+- constrain variants, slots, and design tokens;
+- preserve registry-controlled implementations;
+- include accessibility testing in generated-source review.
 
-- crashes
-- degraded UX
-- denial of service
-- unpredictable inference failures
+### T10: Model or adapter tampering
 
-### Controls
+**Description:** A model asset is replaced, corrupted, or supplied from an untrusted distribution path.
 
-- file size limits
-- URI restrictions
-- resizing and preprocessing
-- bounded image counts
-- graceful failure handling
+**Impact:** Changed behavior, targeted output manipulation, runtime failure, licensing violations, or native exploitation.
 
----
+**Controls:**
 
-## T7: Context Poisoning
+- verify hashes or signatures before activation;
+- bind model identity to configuration and evidence;
+- use application-controlled storage and update paths;
+- reject incompatible or unexpected artifacts;
+- document rollback and revocation behavior.
 
-### Description
+### T11: Unsafe fallback or capability expansion
 
-The Context Engine or retrieval layer returns misleading or hostile data that influences model output in unsafe ways.
+**Description:** Failure of local inference causes an application to silently switch to a remote service or broader capability set.
 
-### Impact
+**Impact:** Privacy violations, policy bypass, inconsistent behavior, and unexpected cost or availability dependencies.
 
-- policy drift
-- invalid personalization
-- degraded relevance
-- indirect prompt injection
+**Controls:**
 
-### Controls
+- require explicit fallback policy;
+- preserve equivalent validation boundaries across providers;
+- surface provider and execution-mode changes;
+- fail closed where privacy or policy requires it.
 
-- treat retrieved context as untrusted
-- bound retrieval and formatting
-- validate runtime outputs independently of context source
-- avoid equating provenance with safety
+### T12: Evidence and provenance confusion
 
----
+**Description:** Generated artifacts, model identities, validator results, or approvals cannot be reliably attributed.
 
-## T8: Privacy Boundary Erosion
+**Impact:** Silent drift, ambiguous review, replay failure, and unverifiable releases.
 
-### Description
+**Controls:**
 
-A local-first system unintentionally leaks prompts, media, or personalization data through logs, network fallbacks, or generated artifacts.
-
-### Impact
-
-- user privacy loss
-- policy violations
-- enterprise data handling failures
-
-### Controls
-
-- keep network behavior application-controlled
-- document local-first assumptions clearly
-- avoid implicit remote execution
-- minimize sensitive logging
-- separate local personalization from publishable artifacts
-
----
-
-## T9: Accessibility and Design Drift
-
-### Description
-
-AI-assisted generation or personalization produces outputs that are technically valid but violate accessibility or design constraints.
-
-### Impact
-
-- inconsistent UX
-- accessibility regressions
-- degraded maintainability
-- weakened product governance
-
-### Controls
-
-- encode accessibility and design rules in policy
-- validate token usage and runtime choices
-- preserve registry-controlled base implementations
-- keep overlays bounded to approved dimensions
-
----
-
-## T10: Deep Merge / Overlay Corruption
-
-### Description
-
-Runtime personalization modifies nested structures in unsafe or unexpected ways.
-
-### Impact
-
-- broken components
-- state corruption
-- policy bypass through structural ambiguity
-
-### Controls
-
-- define overlay semantics precisely
-- prefer explicit patch schemas over ad hoc object merges
-- validate overlay paths and value types
-- treat merge behavior as part of the security boundary
-
----
+- record spec, contract, model, policy, and validator identities;
+- retain build and review metadata;
+- generate SBOMs and release attestations;
+- distinguish provenance from correctness or safety claims.
 
 ## Security Assumptions
 
-This branch currently assumes:
+The current design assumes:
 
-- local inference is available and under application control
-- runtime AI output is untrusted until validated
-- build-time generation is subject to stronger review controls than device-time personalization
-- policy enforcement happens outside the model
-- registry identity and validation remain authoritative
+- the application controls local inference configuration and model distribution;
+- runtime AI output is untrusted until validated;
+- build-time generation receives stronger review than device-time personalization;
+- policy enforcement occurs outside the model;
+- registry identity and validation remain authoritative;
+- the mobile operating system and application sandbox are not perfect isolation boundaries;
+- network fallback is explicit rather than implicit.
 
-If any of these assumptions change, the threat model must be revisited.
-
----
+Changing any of these assumptions requires revisiting the threat model.
 
 ## Near-Term Hardening Priorities
 
-The highest-value hardening work for this branch is:
-
-1. formalize registry identity and replacement rules
-2. define overlay semantics more precisely than shallow object merging
-3. add generated-source validation for build and CI outputs
-4. make runtime validation failures observable and recoverable
-5. document explicit privacy and logging expectations for local-first operation
-6. ensure accessibility and design-token constraints are machine-checkable
-
----
+1. strengthen model and registry integrity verification;
+2. make overlay semantics and failure behavior fully explicit;
+3. expand generated-source and package validation;
+4. improve runtime validation observability and recovery;
+5. define privacy, logging, retention, and fallback expectations;
+6. make accessibility and design constraints machine-checkable;
+7. add adversarial multimodal and resource-exhaustion test coverage;
+8. improve replayable evidence for personalization and generation.
 
 ## Summary
 
-The branch is attempting to support AI-enabled interfaces without collapsing the boundary between:
+The primary security property is the separation between:
 
 ```text
-untrusted model output
+untrusted probabilistic capability
 ```
 
-and
+and:
 
 ```text
-authoritative UI behavior
+authoritative application behavior
 ```
 
-That separation is the primary security property of the architecture.
+Amaryllis is designed to preserve that separation across inference, context retrieval, component generation, personalization, registry resolution, and release workflows.
