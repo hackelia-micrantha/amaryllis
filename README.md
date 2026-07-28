@@ -1,69 +1,63 @@
-# react-native-amaryllis
+# Amaryllis
 
-![amaryllis](docs/amaryllis-128.png)
+![Amaryllis](docs/amaryllis-128.png)
 
-[![npm version](https://img.shields.io/npm/v/react-native-amaryllis.svg)](https://www.npmjs.com/package/react-native-amaryllis) [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![npm version](https://img.shields.io/npm/v/@micrantha/react-native-amaryllis.svg)](https://www.npmjs.com/package/@micrantha/react-native-amaryllis)
+[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> **Amaryllis Hippeastrum**: Symbolizes hope and emergence, blooming even in tough conditions.
+> **Amaryllis Hippeastrum** symbolizes hope and emergence, blooming even in difficult conditions.
 
-Amaryllis is a React Native runtime for on-device multimodal AI. It exposes local inference, streaming interaction, and offline-first context integration through a native mobile API surface.
+Amaryllis is an open-source React Native foundation for on-device multimodal AI. It combines native Android and iOS inference, streaming interaction, offline-first context interfaces, and a companion component system for governed AI-enabled UI.
 
-On the `feature/ai-components` branch, that base runtime is extended with a companion workspace, `@micrantha/amaryllis-components`, for spec-driven, governed, AI-enabled React components.
+The project is an active `0.1.x` implementation. APIs and model integration details may evolve while the core trust boundaries are stabilized.
 
----
+## Why Amaryllis
 
-## What lives in this branch
+Mobile AI often forces a poor choice between a thin hosted assistant and unrestricted generated UI. Amaryllis explores a more controlled model:
 
-This branch contains two related layers:
+- inference can remain on device;
+- application code owns model selection, lifecycle, storage, rendering, and fallback behavior;
+- model output is treated as untrusted input;
+- schemas, registries, policy, and deterministic validation remain authoritative;
+- runtime personalization uses bounded structured data rather than executable JSX or TSX.
 
-1. **Base Amaryllis runtime**
-   - on-device multimodal inference for React Native
-   - local model execution on Android and iOS
-   - streaming hooks, provider, and controller APIs
-   - offline-first context and retrieval interfaces
+## Architecture
 
-2. **Amaryllis Components companion module**
-   - a typed `ComponentSpec`
-   - schema validation and policy enforcement
-   - generation and registry primitives
-   - bounded runtime personalization contracts
-   - a draft RFC for governed AI-enabled components
+The repository contains three related layers:
 
-At a high level:
+1. **On-device runtime**
+   - native model execution on Android and iOS;
+   - React Native provider, hooks, and controller APIs;
+   - streaming output, cancellation, image inputs, and typed errors.
+
+2. **Context Engine**
+   - interface-first memory and retrieval;
+   - application-owned storage;
+   - bounded retrieval, TTL policy, validation, and optional scoring.
+
+3. **Amaryllis Components**
+   - typed and versioned `ComponentSpec` contracts;
+   - schema and policy validation;
+   - generation, registry, and packaging primitives;
+   - bounded runtime personalization.
 
 ```text
-React Native components
-  -> LLMProvider / hooks / controller
-  -> TurboModule bridge
-  -> native inference runtime
-  -> on-device model assets
+Application UI and product logic
+  -> contracts, policy, and validation
+  -> Amaryllis provider / hooks / controller
+  -> native Android and iOS inference
+  -> application-selected model assets
 
-ComponentSpec / policy / registry
-  -> @micrantha/amaryllis-components
-  -> validated generation or personalization outputs
-  -> governed component rendering
+ComponentSpec
+  -> schema and policy validation
+  -> registry-approved implementation
+  -> validated props, variants, slots, or patches
+  -> render
 ```
 
----
+The model is a capability provider, not the authority over application behavior.
 
-## Branch-aware documentation
-
-- [Architecture](docs/architecture.md)
-- [Local AI and MediaPipe](docs/local-ai.md)
-- [Concepts](docs/concepts.md)
-- [AI-enabled components](docs/ai-enabled-components.md)
-- [Runtime personalization](docs/runtime-personalization.md)
-- [Registry and validation](docs/registry-and-validation.md)
-- [CopilotKit and AG-UI alignment](docs/copilotkit-ag-ui.md)
-- [Security model](docs/security-model.md)
-- [Amaryllis Components RFC](docs/amaryllis_ai_component_module_rfc.md)
-- [Context Engine](docs/context-engine.md)
-- [Examples](docs/examples)
-- [Runtime validation flow example](docs/examples/runtime-validation-flow.md)
-
----
-
-## 🚀 Installation
+## Installation
 
 ```sh
 npm install @micrantha/react-native-amaryllis
@@ -73,59 +67,33 @@ yarn add @micrantha/react-native-amaryllis
 pnpm add @micrantha/react-native-amaryllis
 ```
 
-For the companion package in this branch:
+The companion package is developed in the same workspace:
 
 ```sh
 yarn workspace @micrantha/amaryllis-components build
 ```
 
----
+## Requirements
 
-## ✅ Requirements
+- React Native and React as peer dependencies;
+- Node.js 24 for repository development, as defined by `.nvmrc`;
+- React 18 or newer for `@micrantha/amaryllis-components`.
 
-- React Native and React (peer dependencies)
-- Node.js v24.0.0 for development (see `.nvmrc`)
-- React 18+ for `@micrantha/amaryllis-components`
+## Compatibility
 
----
-
-## 📱 Compatibility
-
-| Area | Status |
+| Area | Current repository coverage |
 | --- | --- |
-| React Native | Tested with 0.83.x in this repo |
-| Android | Example app built in CI on ubuntu-latest |
-| iOS | Example app built in CI with Xcode 16.4 |
-| Components workspace | Present on `feature/ai-components` |
+| React Native | Tested with the repository's pinned React Native version |
+| Android | Example application built in CI |
+| iOS | Example application built in CI with Xcode 16.4 |
+| Node.js | Compatibility checks on Node.js 20, 22, and 24 |
+| Components | Included as `@micrantha/amaryllis-components` |
 
----
+Compatibility coverage is evidence for the tested repository configuration, not a promise that every device, model, or React Native combination is supported.
 
-## 📦 Features
+## Runtime Quickstart
 
-### Base runtime
-
-- Native on-device LLM engine for Android & iOS
-- Multimodal support (text + images)
-- Streaming inference with hooks & observables
-- Easy integration with React Native context/provider
-- Offline-first context retrieval and memory interfaces
-- LoRA customization (GPU only)
-
-### Companion module (`@micrantha/amaryllis-components`)
-
-- Typed `ComponentSpec` model
-- JSON schema and policy validation
-- CLI and generator scaffolding
-- Personalization runtime primitives
-- Bounded outputs for variants, props, and JSON patch workflows
-
----
-
-## 🛠️ Usage
-
-### Provider Setup
-
-Wrap your application with `LLMProvider` and provide the necessary model paths. The models should be downloaded to the device.
+Wrap the application with `LLMProvider` and provide application-managed model paths:
 
 ```tsx
 import { LLMProvider } from '@micrantha/react-native-amaryllis';
@@ -140,71 +108,59 @@ import { LLMProvider } from '@micrantha/react-native-amaryllis';
     maxTokens: 512,
   }}
 >
-  {/* Your app components */}
-</LLMProvider>
+  <App />
+</LLMProvider>;
 ```
 
-You can access the LLM controller with a `useLLMContext` hook. See **Core API** for details on the controller API.
-
-```tsx
-const {
-  config,
-  controller,
-  error,
-  isReady,
-} = useLLMContext();
-```
-
-### Inference Hook
-
-Use the `useInferenceAsync` hook to access the LLM runtime.
+Use `useInferenceAsync` for streaming generation:
 
 ```tsx
 import { useInferenceAsync } from '@micrantha/react-native-amaryllis';
-import { useCallback, useMemo, useState } from 'react';
-import { View, TextInput, Button, Text } from 'react-native';
 
-const LLMPrompt = () => {
-  const [prompt, setPrompt] = useState('');
-  const [results, setResults] = useState<string[]>([]);
-  const [images, setImages] = useState<string[]>([]);
-  const [error, setError] = useState<Error | undefined>(undefined);
-  const [isBusy, setIsBusy] = useState(false);
+const generate = useInferenceAsync({
+  onResult: (chunk, isFinal) => {
+    append(chunk);
+    if (isFinal) finish();
+  },
+  onError: handleError,
+});
 
-  const props = useMemo(
-    () => ({
-      onGenerate: () => {
-        setError(undefined);
-        setIsBusy(true);
-      },
-      onResult: (result: string, isFinal: boolean) => {
-        setResults((prev) => [...prev, result]);
-        if (isFinal) {
-          setIsBusy(false);
-        }
-      },
-      onError: (err: Error) => setError(err),
-    }),
-    []
-  );
-
-  const generate = useInferenceAsync(props);
-
-  const infer = useCallback(async () => {
-    await generate({ prompt, images });
-  }, [prompt, generate, images]);
-
-  return (
-    <View>
-      <TextInput value={prompt} onChangeText={setPrompt} placeholder="Enter prompt..." />
-      <Button title="Generate" onPress={infer} disabled={isBusy} />
-      <Text>{error ? error.message : results.join('\n')}</Text>
-    </View>
-  );
-};
+await generate({ prompt, images });
 ```
 
-### Companion Module Example
+Applications should cancel active work during lifecycle cleanup and bound image count, image size, and token budgets for predictable resource use.
+
+## Context Engine
+
+The Context Engine provides memory and retrieval without imposing a hosted storage dependency. Applications supply a `ContextStore`, such as SQLite, files, or another database.
+
+```ts
+import { ContextEngine } from '@micrantha/react-native-amaryllis/context';
+
+const engine = new ContextEngine({
+  store: myStore,
+  policy: {
+    maxItems: 1000,
+    defaultTtlSeconds: 60 * 60 * 24,
+  },
+});
+
+await engine.add([
+  { id: 'memory-1', text: 'Quest started', createdAt: Date.now() },
+]);
+
+const results = await engine.search({ text: 'quest', limit: 5 });
+```
+
+Retrieved context remains untrusted input. Output validation must not depend on the context source being safe.
+
+## Governed Components
+
+`@micrantha/amaryllis-components` defines a spec-driven component model with three modes:
+
+- **Scaffold:** generate reviewable source at build or CI time;
+- **Customize:** produce bounded variants within declared layouts, slots, tokens, and imports;
+- **Personalize:** return validated props, variants, slot text, or constrained JSON patches at runtime.
 
 ```ts
 import { parseSpec } from '@micrantha/amaryllis-components/dist/parser/yaml';
@@ -231,91 +187,75 @@ ai:
 `);
 ```
 
----
+Runtime AI does not directly register implementations, mutate authoritative specs, bypass policy, or introduce executable imports.
 
-## ✅ Best Practices
+## Security Model
 
-- Stream results for responsive UIs and show partial tokens
-- Cancel async generation on unmount to avoid leaks
-- Limit image sizes and count for consistent memory usage
-- Validate file paths before passing them to native APIs
-- Keep model assets and prompts within your app’s privacy boundary
-- Treat runtime AI output as untrusted data until validated
-- Keep the `ComponentSpec` and registry authoritative over personalization overlays
+The central security principle is:
 
----
-
-## ❓ FAQ
-
-**Does Amaryllis require a network connection?**  
-No. Inference runs on-device; any network usage is up to your app.
-
-**Is this branch only about chat UIs?**  
-No. The base runtime supports multimodal local inference, and the companion workspace explores governed AI-enabled components.
-
-**Can on-device AI emit arbitrary JSX or TSX?**  
-Not in the component model described by this branch. The RFC constrains device-time outputs to structured data such as props, variants, slot text, or limited JSON patch overlays.
-
----
-
-## 🧠 Context Engine
-
-The Context Engine is an interface-first layer for memory and retrieval. You bring your own `ContextStore` (SQLite, files, or custom DB) while the engine handles validation, policy bounds, and optional scoring.
-Context APIs are also available via the `@micrantha/react-native-amaryllis/context` subpath.
-
-```ts
-import { ContextEngine } from '@micrantha/react-native-amaryllis/context';
-
-const engine = new ContextEngine({
-  store: myStore,
-  policy: { maxItems: 1000, defaultTtlSeconds: 60 * 60 * 24 },
-});
-
-await engine.add([{ id: 'mem-1', text: 'Quest started', createdAt: Date.now() }]);
-const results = await engine.search({ text: 'quest', limit: 5 });
+```text
+AI output is not authoritative.
 ```
 
-See `docs/context-engine.md` for details.
+Amaryllis keeps authority in deterministic application-controlled systems:
 
----
+- component specs and runtime contracts;
+- registries and implementation identities;
+- schema and policy validation;
+- lifecycle and rendering code;
+- build review and release controls.
 
-## 📚 Documentation
+Local inference reduces some network exposure, but it does not eliminate client compromise, reverse engineering, malicious model assets, resource exhaustion, or privacy leakage through application logging and fallback behavior.
 
-- [API Reference](src/Types.ts)
+See [Security Model](docs/security-model.md) and [Threat Model](docs/threat-model.md).
+
+## Delivery and Supply Chain
+
+The repository includes production-minded delivery controls such as:
+
+- lint, tests, type checking, and native builds;
+- compatibility matrices;
+- package metadata and entrypoint validation;
+- change-aware CI gating;
+- repository and package-scoped CycloneDX SBOMs;
+- release provenance and artifact attestation workflows.
+
+These controls improve reviewability and traceability; they do not replace application-specific security review or device testing.
+
+## Documentation
+
 - [Architecture](docs/architecture.md)
-- [Local AI and MediaPipe](docs/local-ai.md)
 - [Concepts](docs/concepts.md)
+- [Local AI and MediaPipe](docs/local-ai.md)
+- [Context Engine](docs/context-engine.md)
 - [AI-enabled components](docs/ai-enabled-components.md)
 - [Runtime personalization](docs/runtime-personalization.md)
 - [Registry and validation](docs/registry-and-validation.md)
 - [CopilotKit and AG-UI alignment](docs/copilotkit-ag-ui.md)
 - [Security model](docs/security-model.md)
+- [Threat model](docs/threat-model.md)
 - [Amaryllis Components RFC](docs/amaryllis_ai_component_module_rfc.md)
-- [Context Engine](docs/context-engine.md)
 - [Examples](docs/examples)
-- [Runtime validation flow example](docs/examples/runtime-validation-flow.md)
-- [Example App](example/)
 - [Development workflow](CONTRIBUTING.md)
-- [Code of Conduct](CODE_OF_CONDUCT.md)
 - [Security policy](SECURITY.md)
 - [Support](SUPPORT.md)
 
----
+## Current Constraints
 
-## 🔒 Security & Privacy
+Amaryllis is not currently intended to provide:
 
-Amaryllis runs inference on-device. You control model files, prompts, and image inputs. Ensure your app follows your organization’s data handling and privacy requirements.
+- server-scale training or fleet orchestration;
+- a universal model distribution service;
+- unrestricted runtime source generation;
+- automatic security merely because inference is local;
+- stable compatibility across every React Native, operating-system, device, and model combination.
 
-For the companion component model, runtime AI output should be treated as untrusted until it passes schema and policy validation.
+Applications remain responsible for model licensing, distribution, integrity, storage, updates, device performance budgets, privacy policy, fallback behavior, and operational monitoring.
 
----
+## Contributing
 
-## 🤝 Contributing
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development and contribution guidance.
 
-We welcome contributions. Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+## License
 
----
-
-## 📄 License
-
-This project is [MIT licensed](LICENSE).
+Amaryllis is [MIT licensed](LICENSE).
