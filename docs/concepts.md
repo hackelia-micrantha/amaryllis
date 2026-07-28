@@ -21,13 +21,7 @@ The runtime provides model capability. It does not own product policy or renderi
 
 The lower-level interface to the native inference engine.
 
-Typical responsibilities include:
-
-- initialization;
-- model and session lifecycle;
-- synchronous and streaming generation;
-- multimodal requests;
-- cancellation and cleanup.
+Typical responsibilities include initialization, model and session lifecycle, synchronous and streaming generation, multimodal requests, cancellation, and cleanup.
 
 ### Session
 
@@ -81,7 +75,7 @@ A spec may define:
 - policy requirements;
 - generation contracts.
 
-The spec is authoritative. Model output is not.
+The specification is authoritative. Model output is not.
 
 ### Generation contract
 
@@ -93,32 +87,43 @@ Examples include:
 - props JSON;
 - variant selection;
 - slot text;
-- constrained JSON patch overlays.
+- constrained JSON Patch overlays.
+
+For runtime personalization, the registered JSON Schema contract is the automatic validation boundary implemented by `PersonalizationEngine`.
 
 ### Registry
 
 The authoritative mapping between:
 
-- component identity;
-- spec and contract identity;
-- version;
+- component name and version;
+- specification and personalization contract;
+- deterministic identity hashes;
 - executable implementation identity.
 
-The registry decides what implementation is renderable. The model cannot register arbitrary runtime code.
+The registry decides what implementation is renderable. Model output cannot register arbitrary runtime code.
+
+Registry hashes currently provide deterministic identity and drift detection. They are not cryptographic signatures.
 
 ### Overlay
 
-A bounded modification applied on top of an authoritative component contract.
+A bounded data modification applied to base props for an authoritative registered component.
 
-Examples include approved prop updates, known variant selection, slot text, and constrained patch operations.
+Examples include approved prop updates, known variant selection, slot text, design-token values, and constrained patch operations.
 
-Overlays must pass schema and policy validation before rendering.
+The current runtime requires overlays to pass:
+
+- the registered JSON Schema contract;
+- unsafe object-key validation;
+- JSON Patch path and value validation where patches are used;
+- schema validation after patches are applied.
+
+Additional semantic, capability, accessibility, network, or business policy must be encoded in the contract or composed by the application.
 
 ### Runtime personalization
 
 AI-influenced rendering behavior where the model does not become the authoritative source of executable UI.
 
-Typical outputs include props, variants, slot text, and bounded overlays. Runtime personalization is intentionally more constrained than build-time source generation.
+Typical outputs include props, variants, slot text, design-token values, and bounded overlays. Runtime personalization is intentionally more constrained than build-time source generation.
 
 ## AI Concepts
 
@@ -148,13 +153,15 @@ Model output constrained to a schema or bounded contract.
 
 Examples include JSON, typed props, variant identifiers, and patch operations.
 
-Structured output is easier to validate and govern than arbitrary executable source, but it is not inherently safe.
+Structured output is easier to validate and govern than arbitrary executable source, but it is not inherently safe or semantically correct.
 
 ### Deterministic control
 
 Application-owned logic whose behavior can be validated independently of model output.
 
 Examples include schemas, policy engines, registry identity checks, patch validation, static analysis, and release gates.
+
+A deterministic control is effective only when it is actually composed into the relevant execution path.
 
 ## Governance Concepts
 
@@ -172,20 +179,24 @@ Policy may cover:
 - accessibility requirements;
 - review and approval requirements.
 
-Policy is enforced outside the model.
+Policy is defined and enforced outside the model.
+
+In the current package, `PolicyEngine` is used by build and CLI generation/customization flows. Programmatic runtime personalization does not automatically execute the complete policy engine.
 
 ### Validation
 
-The process of confirming that:
+The process of confirming that an input or artifact satisfies the checks composed into its path.
 
-- specs and contracts are well formed;
-- identities and versions match;
-- outputs satisfy schemas;
-- overlays remain within allowed bounds;
-- generated artifacts satisfy source and package policy;
-- failures are observable and recoverable.
+Examples include:
 
-Validation remains deterministic even when generation is probabilistic.
+- specification schema validation;
+- runtime personalization contract validation;
+- registry name, version, and hash checks;
+- unsafe-key and patch validation;
+- build/CLI policy validation;
+- generated-source and package checks.
+
+Validation remains deterministic even when generation is probabilistic. Passing one validation layer does not imply that every semantic or security policy has been evaluated.
 
 ### Authoritative boundary
 
@@ -194,14 +205,16 @@ The boundary defining which subsystem has final control over behavior.
 In Amaryllis:
 
 - the model is not authoritative;
-- application code, specs, policy, registries, and validators are authoritative;
-- runtime output must be validated before rendering or execution.
+- application code and registered implementations remain authoritative over execution;
+- specifications and runtime contracts remain authoritative over declared structure and personalization data;
+- application policy remains authoritative over sensitive behavior;
+- runtime output must pass its registered contract before rendering.
 
 ### Provenance
 
 Evidence describing where an artifact or decision came from.
 
-Potential provenance includes spec, contract, model, policy, validator, generation, build, review, and release identities.
+Potential provenance includes specification, contract, model, policy, validator, generation, build, review, and release identities.
 
 Provenance improves attribution and replayability. It does not prove correctness or safety.
 
