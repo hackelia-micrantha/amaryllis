@@ -3,11 +3,19 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Amaryllis — Governed on-device AI for mobile</title>
+    <title>Amaryllis — On-device AI with enforceable boundaries</title>
     <meta
       name="description"
-      content="Amaryllis combines a React Native on-device multimodal AI runtime with governed, spec-driven adaptive components."
+      content="Amaryllis is an open-source React Native implementation for on-device multimodal AI, offline-first context, and governed adaptive components."
     />
+    <meta name="author" content="Micrantha" />
+    <meta name="theme-color" content="#f6f4ee" />
+    <meta property="og:title" content="Amaryllis — On-device AI with enforceable boundaries" />
+    <meta
+      property="og:description"
+      content="A React Native implementation for local multimodal inference and governed, spec-driven adaptive UI."
+    />
+    <meta property="og:type" content="website" />
     <link rel="stylesheet" href="site.css" />
   </head>
   <body>
@@ -17,9 +25,10 @@
         <span>Amaryllis</span>
       </a>
       <nav class="nav-links" aria-label="Primary navigation">
-        <a href="#outcomes">Outcomes</a>
+        <a href="#implementation">Implementation</a>
         <a href="#architecture">Architecture</a>
-        <a href="#components">Components</a>
+        <a href="#components">Governance</a>
+        <a href="#fit">Fit</a>
         <a href="#quickstart">Quickstart</a>
         <a href="https://github.com/hackelia-micrantha/amaryllis">GitHub</a>
       </nav>
@@ -31,53 +40,80 @@
           <img src="amaryllis-128.png" alt="Amaryllis flower mark" />
         </div>
         <div>
-          <p class="eyebrow">Private mobile AI · governed adaptive UI</p>
-          <h1>Build mobile AI that stays local, bounded, and reviewable.</h1>
+          <p class="eyebrow">Open-source React Native systems engineering</p>
+          <h1>On-device mobile AI with enforceable application boundaries.</h1>
           <p class="lead">
-            Amaryllis is a React Native foundation for on-device multimodal inference,
-            streaming interaction, offline-first context, and spec-driven AI-enabled
-            components. It is designed for teams that need useful AI behavior without
-            turning runtime model output into an unrestricted code execution surface.
+            Amaryllis combines local multimodal inference, streaming interaction,
+            offline-first context, and governed adaptive components. The implementation
+            explores how useful AI behavior can remain private and responsive without
+            making probabilistic model output authoritative over application code,
+            policy, or rendering.
           </p>
           <div class="actions">
-            <a class="button" href="#quickstart">Start with the runtime</a>
-            <a class="button button-outline" href="#components">Explore components</a>
-            <a class="button button-outline" href="https://github.com/hackelia-micrantha/amaryllis/tree/main/docs">Read the docs</a>
+            <a class="button" href="#implementation">Review the implementation</a>
+            <a class="button button-outline" href="https://github.com/hackelia-micrantha/amaryllis/tree/main/docs">Technical documentation</a>
+            <a class="button button-outline" href="https://github.com/hackelia-micrantha/amaryllis/actions">Source and CI</a>
+          </div>
+          <div class="status-row" aria-label="Project status">
+            <span>Active 0.1.x implementation</span>
+            <span>Android and iOS</span>
+            <span>MIT licensed</span>
           </div>
           <div class="signal-grid">
-            <div><strong>Local-first</strong><span>Prompts, images, and inference can remain on-device.</span></div>
-            <div><strong>Structured output</strong><span>Runtime personalization returns validated data, not executable UI code.</span></div>
-            <div><strong>Production boundary</strong><span>Policy, provenance, CI, and package checks are part of the implementation.</span></div>
+            <div>
+              <strong>Local-first execution</strong>
+              <span>Prompts, images, context, and inference can remain within the mobile application boundary.</span>
+            </div>
+            <div>
+              <strong>Deterministic controls</strong>
+              <span>Schemas, registries, policy, and validators remain authoritative when model output is probabilistic.</span>
+            </div>
+            <div>
+              <strong>Production-minded delivery</strong>
+              <span>Lifecycle handling, compatibility CI, package checks, SBOMs, and provenance are treated as implementation concerns.</span>
+            </div>
           </div>
         </div>
       </section>
 
-      <section id="outcomes" class="section">
+      <section id="implementation" class="section">
         <div class="section-heading">
           <p class="eyebrow">Current implementation</p>
-          <h2>Two layers, one explicit trust model.</h2>
+          <h2>Three layers with explicit ownership and trust boundaries.</h2>
           <p>
-            The repository now contains both the native inference runtime and the
-            companion component system. The boundary between them is intentional:
-            inference produces signals and structured data; application code and
-            component specifications remain authoritative.
+            Native inference provides model capability. The context layer provides
+            application-owned retrieval. The component layer constrains how generated
+            output can affect user interfaces. Each layer can be tested, replaced,
+            restricted, or disabled independently.
           </p>
         </div>
         <div class="card-grid three">
           <article class="card tint-blue">
             <p class="label">Runtime</p>
             <h3>On-device multimodal inference</h3>
-            <p>React Native APIs bridge to native Android and iOS model execution with streaming results, cancellation, image inputs, and explicit lifecycle control.</p>
+            <p>
+              React Native APIs bridge to Android and iOS model execution with streamed
+              results, image inputs, cancellation, typed errors, and explicit lifecycle
+              control.
+            </p>
           </article>
           <article class="card tint-green">
             <p class="label">Context</p>
             <h3>Offline-first retrieval interfaces</h3>
-            <p>An interface-driven context engine supports application-owned storage, bounded retrieval, TTL policy, validation, and optional scoring without forcing a cloud dependency.</p>
+            <p>
+              An interface-driven context engine supports application-owned storage,
+              bounded retrieval, TTL policy, validation, and optional scoring without
+              requiring a hosted data service.
+            </p>
           </article>
           <article class="card tint-amber">
             <p class="label">Components</p>
             <h3>Governed adaptive UI</h3>
-            <p>Typed ComponentSpecs, schema validation, registries, generators, policy checks, and bounded personalization primitives constrain how AI can affect rendered interfaces.</p>
+            <p>
+              Typed ComponentSpecs, registries, generators, schema validation, policy
+              checks, and bounded personalization constrain how AI can influence rendered
+              interfaces.
+            </p>
           </article>
         </div>
       </section>
@@ -87,15 +123,18 @@
           <p class="eyebrow">Architecture</p>
           <h2>Keep model capability behind application-owned contracts.</h2>
           <p>
-            Amaryllis separates native inference, context retrieval, component
-            definition, and runtime personalization so each boundary can be tested,
-            governed, replaced, or disabled independently.
+            The model is a capability provider, not the authority. Application code owns
+            model selection, storage, lifecycle, rendering, fallback behavior, and policy.
+            Runtime model output is treated as untrusted input before it reaches product UI.
           </p>
+          <a class="text-link" href="https://github.com/hackelia-micrantha/amaryllis/blob/main/docs/security-model.md">Read the security model</a>
         </div>
         <div class="flow" aria-label="Amaryllis architecture flow">
           <div><span>Application UI</span><small>React Native components and product logic</small></div>
           <b>↓</b>
-          <div><span>Amaryllis APIs</span><small>Provider, hooks, controller, context interfaces</small></div>
+          <div><span>Contracts and policy</span><small>Specs, schemas, registries, validation, and lifecycle rules</small></div>
+          <b>↓</b>
+          <div><span>Amaryllis APIs</span><small>Provider, hooks, controller, and context interfaces</small></div>
           <b>↓</b>
           <div><span>Native runtime</span><small>Android and iOS on-device model execution</small></div>
           <b>↓</b>
@@ -105,13 +144,29 @@
 
       <section class="section">
         <div class="section-heading">
-          <p class="eyebrow">Operational outcomes</p>
-          <h2>Built past the demo boundary.</h2>
+          <p class="eyebrow">Engineering scope</p>
+          <h2>The implementation includes more than a happy-path AI demo.</h2>
+          <p>
+            Amaryllis is also a systems-engineering exercise across native mobile APIs,
+            deterministic validation, secure delivery, and long-lived package boundaries.
+          </p>
         </div>
         <div class="card-grid three compact">
-          <article class="card"><h3>Predictable failure modes</h3><p>Cancellation, lifecycle cleanup, bounded inputs, typed errors, and validation paths are explicit API concerns.</p></article>
-          <article class="card"><h3>Reviewable generation</h3><p>Build-time component generation passes through schemas, policy, static checks, deterministic packaging, and human review.</p></article>
-          <article class="card"><h3>Supply-chain evidence</h3><p>CI includes compatibility checks, package validation, repository and package-scoped SBOM generation, and release provenance controls.</p></article>
+          <article class="card">
+            <p class="label">Mobile systems</p>
+            <h3>Native runtime integration</h3>
+            <p>React Native modules, Android and iOS build paths, native resource management, streaming APIs, cancellation, and compatibility testing.</p>
+          </article>
+          <article class="card">
+            <p class="label">AI governance</p>
+            <h3>Deterministic control surfaces</h3>
+            <p>Typed contracts, schema validation, import and capability restrictions, registry authority, bounded patches, and explicit non-goals.</p>
+          </article>
+          <article class="card">
+            <p class="label">Delivery assurance</p>
+            <h3>Reviewable software supply chain</h3>
+            <p>Change-aware CI, package and entrypoint validation, compatibility matrices, repository and package SBOMs, and release provenance controls.</p>
+          </article>
         </div>
       </section>
 
@@ -120,21 +175,65 @@
           <p class="eyebrow">@micrantha/amaryllis-components</p>
           <h2>Adaptive components without arbitrary runtime code generation.</h2>
           <p>
-            ComponentSpec is the source of truth. It declares structure, props,
-            target runtime, allowed AI behavior, and generation contracts before a
-            model is involved.
+            ComponentSpec is the source of truth. It declares structure, props, target
+            runtime, allowed AI behavior, and generation contracts before a model is
+            involved.
           </p>
         </div>
         <div class="mode-grid">
-          <article><span>01</span><h3>Scaffold</h3><p>Generate source at build time, then validate, inspect, test, and publish it through the normal software delivery path.</p></article>
-          <article><span>02</span><h3>Customize</h3><p>Create bounded variants within declared slots, design tokens, copy rules, layouts, and import allowlists.</p></article>
-          <article><span>03</span><h3>Personalize</h3><p>Return schema-validated props, variants, slot text, or constrained JSON patches at runtime—never raw JSX, TSX, imports, or scripts.</p></article>
+          <article>
+            <span>01</span>
+            <h3>Scaffold</h3>
+            <p>Generate source at build time, then validate, inspect, test, and publish it through the normal software delivery path.</p>
+          </article>
+          <article>
+            <span>02</span>
+            <h3>Customize</h3>
+            <p>Create bounded variants within declared slots, design tokens, copy rules, layouts, and import allowlists.</p>
+          </article>
+          <article>
+            <span>03</span>
+            <h3>Personalize</h3>
+            <p>Return schema-validated props, variants, slot text, or constrained JSON patches at runtime—never raw JSX, TSX, imports, or scripts.</p>
+          </article>
         </div>
         <div class="guardrails">
-          <div><strong>Authoritative registry</strong><span>Only known component identities and versions can be resolved.</span></div>
-          <div><strong>Schema + policy validation</strong><span>Every generated or personalized output is treated as untrusted input.</span></div>
-          <div><strong>Capability limits</strong><span>Network, imports, tokens, slots, and patch paths can be explicitly constrained.</span></div>
-          <div><strong>Provenance</strong><span>Generation inputs, outputs, versions, and approvals can remain attributable.</span></div>
+          <div><strong>Authoritative registry</strong><span>Only known component identities, versions, and implementations can be resolved.</span></div>
+          <div><strong>Schema and policy validation</strong><span>Every generated or personalized output is treated as untrusted input.</span></div>
+          <div><strong>Capability limits</strong><span>Network use, imports, design tokens, slots, and patch paths can be explicitly constrained.</span></div>
+          <div><strong>Attributable changes</strong><span>Generation inputs, outputs, versions, validator results, and approvals can remain reviewable.</span></div>
+        </div>
+      </section>
+
+      <section id="fit" class="section">
+        <div class="section-heading">
+          <p class="eyebrow">Where it fits</p>
+          <h2>A focused foundation, not a universal AI platform.</h2>
+          <p>
+            The strongest fit is mobile software where privacy, offline behavior,
+            latency, application ownership, and constrained adaptation matter more than
+            access to the largest hosted model.
+          </p>
+        </div>
+        <div class="fit-grid">
+          <article class="fit-card fit-positive">
+            <p class="label">Strong fit</p>
+            <ul>
+              <li>Privacy-sensitive or intermittently connected mobile workflows</li>
+              <li>On-device text and image features with responsive streaming UI</li>
+              <li>Adaptive interfaces governed by schemas, policy, and known components</li>
+              <li>Teams that need inspectable AI-assisted generation and release evidence</li>
+            </ul>
+          </article>
+          <article class="fit-card">
+            <p class="label">Current constraints</p>
+            <ul>
+              <li>The project is an active 0.1.x implementation and APIs may evolve</li>
+              <li>Applications own model distribution, storage, updates, and device performance budgets</li>
+              <li>Local inference shifts risk; it does not remove client compromise, reverse engineering, or model tampering concerns</li>
+              <li>It is not a replacement for server-scale training, fleet orchestration, or unrestricted generative UI</li>
+            </ul>
+          </article>
         </div>
       </section>
 
@@ -163,7 +262,9 @@
           </div>
           <div class="code-card">
             <p class="label">Streaming</p>
-            <pre><code>const generate = useInferenceAsync({
+            <pre><code>import { useInferenceAsync } from '@micrantha/react-native-amaryllis';
+
+const generate = useInferenceAsync({
   onResult: (chunk, isFinal) =&gt; {
     append(chunk);
     if (isFinal) finish();
@@ -179,10 +280,10 @@ await generate({ prompt, images });</code></pre>
       <section class="section callout">
         <div>
           <p class="eyebrow">Project direction</p>
-          <h2>Private-by-default mobile intelligence with enforceable UI boundaries.</h2>
+          <h2>Private mobile intelligence with explicit control boundaries.</h2>
           <p>
             Current work continues to harden native compatibility, model delivery,
-            package publication, context integration, component governance, and
+            context integration, package publication, component governance, and
             evidence-producing release workflows.
           </p>
         </div>
@@ -195,7 +296,7 @@ await generate({ prompt, images });</code></pre>
 
     <footer class="footer shell">
       <span>Amaryllis by Micrantha</span>
-      <span>MIT licensed</span>
+      <span>Open source · MIT</span>
       <a href="https://github.com/hackelia-micrantha/amaryllis/blob/main/SECURITY.md">Security policy</a>
     </footer>
   </body>
