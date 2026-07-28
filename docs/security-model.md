@@ -1,349 +1,250 @@
 # Security Model
 
-This document describes the security model for the `feature/ai-components` branch.
+This document describes the architectural security model for Amaryllis. It covers the on-device inference runtime, Context Engine, AI-assisted component workflows, and runtime personalization.
 
-The branch combines:
+It is not a compliance claim or a substitute for application-specific threat modeling.
 
-- local multimodal inference
-- AI-assisted component workflows
-- runtime personalization
-- declarative component contracts
-
-Those capabilities create several important trust boundaries that should be explicit rather than implied.
-
-This document is intentionally architectural rather than compliance-oriented.
-
----
-
-# Core Security Principle
-
-The most important principle in this branch is:
+## Core Principle
 
 ```text
 AI output is not authoritative.
 ```
 
-Instead:
+Authority remains in deterministic, application-controlled systems:
 
-- specs are authoritative
-- registries are authoritative
-- policy is authoritative
-- validation is authoritative
+- application code and lifecycle rules;
+- component specifications;
+- registries and implementation identities;
+- schemas and policy;
+- validation and rendering logic;
+- build, review, and release controls.
 
 AI is treated as a bounded capability provider operating inside those constraints.
 
-This principle drives most of the branch’s design decisions.
+## Trust Boundaries
 
----
+### Model output boundary
 
-# Major Trust Boundaries
+Generated source, multimodal responses, props JSON, slot content, variants, and patch operations are untrusted until validated.
 
-## 1. Model Output Boundary
-
-Model output is treated as untrusted until validated.
-
-This applies to:
-
-- generated source
-- personalization overlays
-- props JSON
-- slot content
-- patch operations
-- multimodal responses
-
-The runtime should never assume:
+The runtime must never assume:
 
 ```text
 model output == safe executable UI
 ```
 
----
+### Runtime authority boundary
 
-## 2. Runtime Authority Boundary
+The renderer and application code are authoritative. The model cannot directly:
 
-The runtime renderer is authoritative.
+- control rendering;
+- bypass validation;
+- mutate authoritative specs;
+- replace registry entries;
+- escalate runtime permissions;
+- enable network access or imports.
 
-The model does not:
-
-- directly control rendering
-- bypass validation
-- mutate authoritative specs
-- replace registry entries
-- escalate runtime permissions
-
-Instead, model output flows through:
+The intended path is:
 
 ```text
 structured output
-  -> validation
-  -> overlay
-  -> render
+  -> schema validation
+  -> policy validation
+  -> bounded overlay
+  -> registry-approved render
 ```
 
----
+### Registry boundary
 
-## 3. Registry Boundary
+The registry binds component, specification, runtime contract, version, and implementation identities. Only registered implementations are renderable.
 
-The registry binds:
+Runtime model output cannot introduce a new executable implementation.
 
-- component identity
-- spec identity
-- runtime contract identity
-- implementation identity
+### Policy boundary
 
-The registry determines what implementations are renderable.
+Policy exists outside the model and is enforced deterministically. Policy may constrain:
 
-The model cannot directly introduce new executable implementations at runtime.
+- imports and dependencies;
+- runtime execution modes;
+- overlay paths;
+- slots, variants, and design tokens;
+- network behavior;
+- accessibility requirements;
+- review and approval requirements.
 
----
+### Context boundary
 
-## 4. Policy Boundary
+User input, retrieved content, persisted memory, and media may all contain hostile or misleading instructions. Local provenance does not imply safety.
 
-Policy exists outside the model.
+Context can influence inference but cannot bypass output validation.
 
-The model may attempt to produce outputs that violate policy.
+### Native and model-asset boundary
 
-Validation and enforcement layers are responsible for:
+Model files, media decoders, native bridges, URIs, and platform APIs execute within the mobile client trust boundary. Applications remain responsible for model integrity, licensing, storage, updates, and platform hardening.
 
-- import restrictions
-- runtime restrictions
-- overlay restrictions
-- accessibility requirements
-- generation constraints
-- review requirements
+## Major Threat Surfaces
 
-This prevents the model from becoming the effective policy authority.
+### Prompt injection
 
----
+Potential vectors include user prompts, retrieved context, multimodal inputs, slot content, and persisted personalization data.
 
-# Threat Surfaces
+Controls include:
 
-## Prompt Injection
+- structured output contracts;
+- bounded schemas;
+- independent policy enforcement;
+- strict overlay validation;
+- separation between prompt formatting and rendering authority.
 
-Potential vectors:
+### Arbitrary runtime source generation
 
-- user prompts
-- multimodal inputs
-- retrieved context
-- slot content
-- persisted personalization data
+Unrestricted device-time JSX, TSX, JavaScript, imports, or markup creates arbitrary execution, import injection, review bypass, and accessibility risks.
 
-Potential impacts:
+Runtime personalization therefore prefers:
 
-- unauthorized overlays
-- policy bypass attempts
-- generation manipulation
-- data exfiltration attempts
+- props JSON;
+- known variant identifiers;
+- approved slot text;
+- constrained JSON patch operations.
 
-Mitigations:
+Executable source generation belongs in build or CI workflows with stronger review controls.
 
-- structured output
-- bounded schemas
-- overlay validation
-- policy enforcement
-- explicit runtime contracts
+### Structured-output escalation
 
----
+Structured data can still trigger unsafe behavior through disallowed fields, values, or patch paths.
 
-## Arbitrary Source Generation
+Controls include:
 
-Unrestricted runtime JSX or TSX generation creates:
+- path allowlists;
+- strict enums and token sets;
+- type validation;
+- rejection of changes to policy, identity, implementation, or capability fields;
+- explicit overlay semantics instead of ambiguous deep merges.
 
-- arbitrary execution risk
-- import injection risk
-- policy bypass risk
-- accessibility regressions
-- unreviewed runtime behavior
+### Multimodal input risks
 
-The branch intentionally restricts device-time generation.
+Images and other media introduce malformed-input, resource-exhaustion, hidden-prompt, and data-extraction risks.
 
-Runtime personalization should prefer:
+Applications should constrain:
 
-- props JSON
-- variants
-- slot text
-- bounded patch overlays
+- file size and image count;
+- URI schemes and file locations;
+- preprocessing and decoding;
+- token and session budgets;
+- memory use and cancellation;
+- error and fallback behavior.
 
-rather than executable source.
+### Registry integrity failure
 
----
+A spec or implementation identity mismatch can lead to unauthorized substitution or stale behavior.
 
-## Multimodal Input Risks
+Controls include versioned identities, explicit replacement semantics, mismatch rejection, and reviewable registration.
 
-Image and multimodal systems create additional attack surfaces:
+### Privacy boundary erosion
 
-- malformed media
-- oversized payloads
-- adversarial image content
-- memory pressure attacks
-- hidden prompt content
-- data extraction attempts
+Local inference can still leak data through logs, telemetry, implicit network fallback, generated artifacts, or application-controlled storage.
 
-The runtime therefore constrains:
+Network behavior, logging, persistence, and publication must remain explicit application decisions.
 
-- file handling
-- image sizing
-- URI handling
-- session usage
-- runtime memory behavior
+## Build-Time and Device-Time Security
 
----
+### Build-time or CI generation
 
-## Overlay Escalation
+Build-time generation may produce executable source or larger transformations, but should require:
 
-A personalization overlay should never become an unrestricted mutation surface.
+- schema and policy validation;
+- generated-source analysis;
+- tests and static checks;
+- human review;
+- provenance and artifact tracking;
+- deterministic package validation.
 
-Risks include:
+### Device-time personalization
 
-- modifying policy
-- changing imports
-- replacing layouts
-- introducing executable content
-- bypassing registry controls
-
-The RFC therefore constrains overlay paths and output formats.
-
----
-
-# Build-Time vs Device-Time Security
-
-The branch intentionally distinguishes:
-
-## Build-time / CI generation
-
-Potentially allows:
-
-- TSX generation
-- implementation scaffolding
-- larger transformations
-
-But requires:
-
-- validation
-- review
-- provenance
-- policy enforcement
-- artifact tracking
-
----
-
-## Device-time personalization
-
-Much more constrained.
+Device-time output is more constrained because it executes in the user-facing runtime and may be influenced by untrusted input.
 
 The device-time model assumes:
 
-- runtime AI is probabilistic
-- runtime output is untrusted
-- rendering boundaries must remain stable
-- policy enforcement must remain external
+- model behavior is probabilistic;
+- output is untrusted;
+- rendering boundaries must remain stable;
+- policy enforcement is external;
+- failure must be observable and recoverable.
 
-This is why the branch heavily prefers structured outputs over executable source.
+## Local AI Security Characteristics
 
----
+Local inference can provide:
 
-# Local AI Security Characteristics
+- reduced hosted-data exposure;
+- offline operation;
+- lower latency;
+- application-controlled network behavior;
+- local multimodal processing.
 
-Local inference changes the threat model.
+It also introduces or preserves:
 
-Benefits:
+- client compromise and reverse engineering;
+- malicious or replaced model assets;
+- model licensing and distribution risk;
+- device resource exhaustion;
+- sensitive local storage;
+- platform-specific native attack surfaces.
 
-- reduced network exposure
-- stronger privacy boundaries
-- offline operation
-- local multimodal processing
-- reduced hosted-data dependency
+Local execution changes where trust and exposure exist. It does not make the system automatically secure.
 
-Tradeoffs:
-
-- device resource pressure
-- model distribution concerns
-- local model tampering risk
-- client-side trust assumptions
-- reverse-engineering exposure
-
-Local AI is not automatically “secure.”
-
-It simply shifts where trust and exposure exist.
-
----
-
-# Validation Responsibilities
-
-Validation is one of the most important security mechanisms in the branch.
-
-Validation responsibilities include:
-
-- schema validation
-- patch validation
-- variant validation
-- slot validation
-- import restrictions
-- runtime restrictions
-- policy enforcement
-- accessibility checks
-- design-token enforcement
+## Validation Responsibilities
 
 Validation should remain deterministic even when generation is probabilistic.
 
----
+Responsibilities include:
 
-# Provenance And Replay
+- schema validation;
+- component and contract identity checks;
+- patch-path and value validation;
+- variant and slot validation;
+- import and capability restrictions;
+- runtime-mode restrictions;
+- accessibility and design-token enforcement;
+- generated-source checks;
+- failure reporting and safe fallback.
 
-The branch also moves toward stronger provenance and replay semantics.
+## Provenance and Evidence
 
-Potential provenance artifacts include:
+Useful evidence may include:
 
-- spec hashes
-- contract hashes
-- model identity
-- validator results
-- generation metadata
-- review metadata
+- spec and contract hashes;
+- model identity and version;
+- validator and policy versions;
+- generation inputs and outputs;
+- build and test results;
+- review and approval metadata;
+- package SBOMs and release attestations.
 
-This helps reduce:
+Provenance improves attribution and replayability, but does not prove that an output is safe or correct.
 
-- silent drift
-- untracked generation
-- review ambiguity
-- runtime inconsistency
+## Explicit Non-Goals
 
----
+The current architecture does not aim to provide:
 
-# Explicit Non-Goals
+- unrestricted runtime code generation;
+- autonomous mutation of authoritative UI contracts;
+- implicit model trust;
+- hidden policy enforcement;
+- unrestricted imports or network behavior;
+- security merely because inference is local;
+- a complete mobile sandbox for hostile model assets.
 
-The current direction is intentionally not:
+## Open Security Work
 
-- unrestricted runtime code generation
-- autonomous runtime UI mutation
-- implicit model trust
-- hidden policy enforcement
-- unrestricted runtime imports
-- opaque personalization behavior
+High-value future work includes:
 
-The branch instead prioritizes:
+- signed model and registry manifests;
+- stronger model-delivery integrity;
+- runtime audit and observability interfaces;
+- replayable personalization evidence;
+- policy-version negotiation;
+- capability isolation;
+- multimodal adversarial test corpora;
+- device-specific resource and abuse testing.
 
-- bounded adaptation
-- explicit contracts
-- validation
-- local-first execution
-- runtime governance
-- declarative rendering boundaries
-
----
-
-# Future Security Areas
-
-Several areas remain open for future work:
-
-- overlay replayability
-- runtime observability
-- signed registry manifests
-- attestation of generated artifacts
-- policy version negotiation
-- secure model distribution
-- capability isolation
-- multimodal red-team corpora
-- runtime audit logging
-
-The current focus is establishing stable boundaries before increasing generation flexibility.
+The current priority is to keep trust boundaries stable and explicit before expanding generation flexibility.
