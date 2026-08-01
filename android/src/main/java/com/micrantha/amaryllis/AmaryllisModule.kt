@@ -69,6 +69,7 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
     }
 
     activeRequestId = requestId
+    val accumulatedText = StringBuilder()
     try {
       amaryllis.generateAsync(params) { partialResult, done ->
         val text = partialResult ?: ""
@@ -76,10 +77,16 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
           if (!clearRequest(requestId)) {
             return@generateAsync
           }
-          sendTextEvent(EVENT_ON_FINAL_RESULT, requestId, text)
+          val finalText = synchronized(accumulatedText) {
+            accumulatedText.append(text).toString()
+          }
+          sendTextEvent(EVENT_ON_FINAL_RESULT, requestId, text, finalText)
         } else {
           if (!ownsRequest(requestId)) {
             return@generateAsync
+          }
+          synchronized(accumulatedText) {
+            accumulatedText.append(text)
           }
           sendTextEvent(EVENT_ON_PARTIAL_RESULT, requestId, text)
         }
@@ -139,10 +146,18 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
     return true
   }
 
-  private fun sendTextEvent(event: String, requestId: String, text: String) {
+  private fun sendTextEvent(
+    event: String,
+    requestId: String,
+    text: String,
+    finalText: String? = null
+  ) {
     val data = Arguments.createMap().apply {
       putString("requestId", requestId)
       putString("text", text)
+      if (finalText != null) {
+        putString("finalText", finalText)
+      }
     }
     sendEvent(event, data)
   }
