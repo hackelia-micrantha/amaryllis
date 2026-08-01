@@ -115,6 +115,7 @@ RCT_EXPORT_MODULE(Amaryllis)
 
   @try {
     NSError *error = nil;
+    __block NSString *latestPartial = @"";
     __weak AmaryllisModule *weakSelf = self;
 
     PartialResponseHandler progress = ^(NSString *result, NSError *err) {
@@ -134,10 +135,11 @@ RCT_EXPORT_MODULE(Amaryllis)
         return;
       }
 
+      latestPartial = result ?: @"";
       [strongSelf sendEventWithName:EVENT_ON_PARTIAL_RESULT
                                body:@{
                                  @"requestId" : requestId,
-                                 @"text" : result ?: @"",
+                                 @"text" : latestPartial,
                                }];
     };
 
@@ -152,6 +154,7 @@ RCT_EXPORT_MODULE(Amaryllis)
                                body:@{
                                  @"requestId" : requestId,
                                  @"text" : @"",
+                                 @"finalText" : latestPartial,
                                }];
     };
 
