@@ -22,11 +22,14 @@ export interface Spec extends TurboModule {
 
   generate(params: { prompt: string; images?: string[] }): Promise<string>;
 
-  generateAsync(params: { prompt: string; images?: string[] }): Promise<void>;
+  generateAsync(
+    params: { prompt: string; images?: string[] },
+    requestId: string
+  ): Promise<void>;
 
   close(): void;
 
-  cancelAsync(): void;
+  cancelAsync(requestId: string): void;
 }
 
 export default TurboModuleRegistry.getEnforcing<Spec>('Amaryllis');
