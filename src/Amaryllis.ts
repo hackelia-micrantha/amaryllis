@@ -242,8 +242,7 @@ export class LlmPipe implements LlmEngine {
       !payload ||
       payload.requestId !== requestId ||
       typeof payload.text !== 'string' ||
-      (payload.finalText !== undefined &&
-        typeof payload.finalText !== 'string')
+      (payload.finalText !== undefined && typeof payload.finalText !== 'string')
     ) {
       return null;
     }
