@@ -1,6 +1,7 @@
 package com.micrantha.amaryllis
 
 import android.util.Log
+import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactMethod
@@ -14,6 +15,7 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
   NativeAmaryllisSpec(reactContext) {
 
   private val amaryllis = Amaryllis()
+  private var activeRequestId: String? = null
 
   override fun getName() = NAME
 
@@ -59,37 +61,66 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
-  override fun generateAsync(params: ReadableMap, promise: Promise) {
+  @Synchronized
+  override fun generateAsync(params: ReadableMap, requestId: String, promise: Promise) {
+    if (activeRequestId != null) {
+      promise.reject(ERROR_CODE_IN_PROGRESS, "generation already in progress")
+      return
+    }
+
+    activeRequestId = requestId
+    val accumulatedText = StringBuilder()
     try {
       amaryllis.generateAsync(params) { partialResult, done ->
+        val text = partialResult ?: ""
         if (done) {
-          sendEvent(EVENT_ON_FINAL_RESULT, partialResult ?: "")
+          if (!clearRequest(requestId)) {
+            return@generateAsync
+          }
+          val finalText = synchronized(accumulatedText) {
+            accumulatedText.append(text).toString()
+          }
+          sendTextEvent(EVENT_ON_FINAL_RESULT, requestId, text, finalText)
         } else {
-          sendEvent(EVENT_ON_PARTIAL_RESULT, partialResult ?: "")
+          if (!ownsRequest(requestId)) {
+            return@generateAsync
+          }
+          synchronized(accumulatedText) {
+            accumulatedText.append(text)
+          }
+          sendTextEvent(EVENT_ON_PARTIAL_RESULT, requestId, text)
         }
       }
       promise.resolve(null)
     } catch (e: Amaryllis.SessionRequiredException) {
+      activeRequestId = null
       Log.e(NAME, "session is required", e)
       promise.reject(ERROR_CODE_SESSION, "session is required", e)
     } catch (e: Amaryllis.NotInitializedException) {
+      activeRequestId = null
       Log.e(NAME, "sdk is not initialized", e)
       promise.reject(ERROR_CODE_INFER, "sdk is not initialized", e)
     } catch (e: Throwable) {
+      activeRequestId = null
       Log.e(NAME, "unable to generate response", e)
-      sendEvent(EVENT_ON_ERROR, "unable to generate response")
+      sendErrorEvent(requestId, "unable to generate response", ERROR_CODE_INFER)
       promise.reject(ERROR_CODE_INFER, "unable to generate response", e)
     }
   }
 
   @ReactMethod
+  @Synchronized
   override fun close() {
     Log.d(NAME, "closing")
+    activeRequestId = null
     amaryllis.close()
   }
 
   @ReactMethod
-  override fun cancelAsync() {
+  override fun cancelAsync(requestId: String) {
+    if (!clearRequest(requestId)) {
+      return
+    }
     amaryllis.cancelAsync()
   }
 
@@ -103,7 +134,44 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
     // No-op
   }
 
-  private fun sendEvent(event: String, data: String) {
+  @Synchronized
+  private fun ownsRequest(requestId: String): Boolean = activeRequestId == requestId
+
+  @Synchronized
+  private fun clearRequest(requestId: String): Boolean {
+    if (activeRequestId != requestId) {
+      return false
+    }
+    activeRequestId = null
+    return true
+  }
+
+  private fun sendTextEvent(
+    event: String,
+    requestId: String,
+    text: String,
+    finalText: String? = null
+  ) {
+    val data = Arguments.createMap().apply {
+      putString("requestId", requestId)
+      putString("text", text)
+      if (finalText != null) {
+        putString("finalText", finalText)
+      }
+    }
+    sendEvent(event, data)
+  }
+
+  private fun sendErrorEvent(requestId: String, message: String, code: String) {
+    val data = Arguments.createMap().apply {
+      putString("requestId", requestId)
+      putString("message", message)
+      putString("code", code)
+    }
+    sendEvent(EVENT_ON_ERROR, data)
+  }
+
+  private fun sendEvent(event: String, data: WritableMap) {
     Log.d(NAME, "sending event $event")
     reactApplicationContext
       .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
@@ -111,14 +179,12 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
   }
 
   override fun getConstants() = mapOf(
-    // events
     "EVENT_ON_PARTIAL_RESULT" to EVENT_ON_PARTIAL_RESULT,
     "EVENT_ON_FINAL_RESULT" to EVENT_ON_FINAL_RESULT,
     "EVENT_ON_ERROR" to EVENT_ON_ERROR,
-    // errors
     "ERROR_CODE_INFER" to ERROR_CODE_INFER,
     "ERROR_CODE_SESSION" to ERROR_CODE_SESSION,
-    // params
+    "ERROR_CODE_IN_PROGRESS" to ERROR_CODE_IN_PROGRESS,
     "PARAM_IMAGES" to PARAM_IMAGES,
     "PARAM_PROMPT" to PARAM_PROMPT,
     "PARAM_MAX_TOP_K" to PARAM_MAX_TOP_K,
@@ -138,16 +204,14 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
   companion object {
     const val NAME = "Amaryllis"
 
-    // Events
     const val EVENT_ON_PARTIAL_RESULT = "onPartialResult"
     const val EVENT_ON_FINAL_RESULT = "onFinalResult"
     const val EVENT_ON_ERROR = "onError"
 
-    // Errors
     const val ERROR_CODE_INFER = "ERR_INFER"
     const val ERROR_CODE_SESSION = "ERR_SESSION"
+    const val ERROR_CODE_IN_PROGRESS = "GENERATION_IN_PROGRESS"
 
-    // Params
     const val PARAM_IMAGES = "images"
     const val PARAM_PROMPT = "prompt"
     const val PARAM_MAX_TOP_K = "maxTopK"

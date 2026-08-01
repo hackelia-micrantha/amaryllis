@@ -7,10 +7,12 @@ static NSString *const EVENT_ON_FINAL_RESULT = @"onFinalResult";
 static NSString *const EVENT_ON_ERROR = @"onError";
 static NSString *const ERROR_CODE_INFER = @"ERR_INFER";
 static NSString *const ERROR_CODE_SESSION = @"ERR_SESSION";
+static NSString *const ERROR_CODE_IN_PROGRESS = @"GENERATION_IN_PROGRESS";
 
 @interface AmaryllisModule ()
 
 @property(nonatomic, strong) Amaryllis *amaryllis;
+@property(nonatomic, copy, nullable) NSString *activeRequestId;
 
 @end
 
@@ -18,7 +20,7 @@ static NSString *const ERROR_CODE_SESSION = @"ERR_SESSION";
 
 RCT_EXPORT_MODULE(Amaryllis)
 
-- (instancetype) init {
+- (instancetype)init {
   self = [super init];
   self.amaryllis = [[Amaryllis alloc] init];
   return self;
@@ -28,6 +30,7 @@ RCT_EXPORT_MODULE(Amaryllis)
     (const facebook::react::ObjCTurboModule::InitParams &)params {
   return std::make_shared<facebook::react::NativeAmaryllisSpecJSI>(params);
 }
+
 #pragma mark - Event Emitter
 
 - (NSArray *)supportedEvents {
@@ -40,9 +43,8 @@ RCT_EXPORT_MODULE(Amaryllis)
        resolve:(nonnull RCTPromiseResolveBlock)resolve
         reject:(nonnull RCTPromiseRejectBlock)reject {
   NSError *error = nil;
-  
+
   @try {
-   
     [self.amaryllis initWithParams:config error:&error];
 
     if (error) {
@@ -61,11 +63,10 @@ RCT_EXPORT_MODULE(Amaryllis)
            resolve:(nonnull RCTPromiseResolveBlock)resolve
             reject:(nonnull RCTPromiseRejectBlock)reject {
   NSError *error = nil;
-  
+
   @try {
-    
-    [self.amaryllis newSessionWithParams: params error: &error];
-    
+    [self.amaryllis newSessionWithParams:params error:&error];
+
     if (error) {
       reject(ERROR_CODE_INFER, @"unable to initialize inference", error);
       return;
@@ -74,7 +75,6 @@ RCT_EXPORT_MODULE(Amaryllis)
     resolve(nil);
   } @catch (NSException *exception) {
     NSLog(@"Amaryllis: error create new session (%@)", exception.description);
-    [self sendEventWithName:EVENT_ON_ERROR body:nil];
     reject(ERROR_CODE_SESSION, @"unable to create session", nil);
   }
 }
@@ -86,7 +86,7 @@ RCT_EXPORT_MODULE(Amaryllis)
           reject:(nonnull RCTPromiseRejectBlock)reject {
   @try {
     NSError *error = nil;
-    NSString *result = [self.amaryllis generateWithParams: params error:&error];
+    NSString *result = [self.amaryllis generateWithParams:params error:&error];
 
     if (error) {
       reject(ERROR_CODE_INFER, @"unable to generate response", error);
@@ -102,43 +102,125 @@ RCT_EXPORT_MODULE(Amaryllis)
 #pragma mark - Generate Async
 
 - (void)generateAsync:(nonnull NSDictionary *)params
-              resolve:(nonnull RCTPromiseResolveBlock)resolve
-               reject:(nonnull RCTPromiseRejectBlock)reject {
+             requestId:(nonnull NSString *)requestId
+               resolve:(nonnull RCTPromiseResolveBlock)resolve
+                reject:(nonnull RCTPromiseRejectBlock)reject {
+  @synchronized(self) {
+    if (self.activeRequestId != nil) {
+      reject(ERROR_CODE_IN_PROGRESS, @"generation already in progress", nil);
+      return;
+    }
+    self.activeRequestId = requestId;
+  }
+
   @try {
     NSError *error = nil;
-    __block NSString *latestPartial = @"";
+    NSMutableString *accumulatedText = [NSMutableString string];
+    __weak AmaryllisModule *weakSelf = self;
 
     PartialResponseHandler progress = ^(NSString *result, NSError *err) {
-      if (!err) {
-        latestPartial = result ?: @"";
-        [self sendEventWithName:EVENT_ON_PARTIAL_RESULT body:latestPartial];
-      } else {
-        [self sendEventWithName:EVENT_ON_ERROR body:err.localizedDescription ?: @"unknown error"];
+      AmaryllisModule *strongSelf = weakSelf;
+      if (!strongSelf || ![strongSelf ownsRequest:requestId]) {
+        return;
       }
+
+      if (err) {
+        [strongSelf clearRequest:requestId];
+        [strongSelf sendEventWithName:EVENT_ON_ERROR
+                                 body:@{
+                                   @"requestId" : requestId,
+                                   @"message" : err.localizedDescription ?: @"unknown error",
+                                   @"code" : ERROR_CODE_INFER,
+                                 }];
+        return;
+      }
+
+      NSString *partialText = result ?: @"";
+      @synchronized(accumulatedText) {
+        [accumulatedText appendString:partialText];
+      }
+      [strongSelf sendEventWithName:EVENT_ON_PARTIAL_RESULT
+                               body:@{
+                                 @"requestId" : requestId,
+                                 @"text" : partialText,
+                               }];
     };
 
     CompletionHandler completion = ^{
-      [self sendEventWithName:EVENT_ON_FINAL_RESULT body:latestPartial];
+      AmaryllisModule *strongSelf = weakSelf;
+      if (!strongSelf || ![strongSelf ownsRequest:requestId]) {
+        return;
+      }
+
+      NSString *finalText;
+      @synchronized(accumulatedText) {
+        finalText = [accumulatedText copy];
+      }
+      [strongSelf clearRequest:requestId];
+      [strongSelf sendEventWithName:EVENT_ON_FINAL_RESULT
+                               body:@{
+                                 @"requestId" : requestId,
+                                 @"text" : @"",
+                                 @"finalText" : finalText,
+                               }];
     };
 
-    [self.amaryllis generateAsyncWithParams:params error:&error response:progress completion:completion];
-    
+    [self.amaryllis generateAsyncWithParams:params
+                                      error:&error
+                                   response:progress
+                                 completion:completion];
+
+    if (error) {
+      [self clearRequest:requestId];
+      reject(ERROR_CODE_INFER, @"unable to generate response", error);
+      return;
+    }
+
     resolve(nil);
   } @catch (NSException *exception) {
+    [self clearRequest:requestId];
     NSLog(@"Amaryllis: error generating inference (%@)", exception.description);
-    [self sendEventWithName:EVENT_ON_ERROR body:nil];
+    [self sendEventWithName:EVENT_ON_ERROR
+                       body:@{
+                         @"requestId" : requestId,
+                         @"message" : @"unable to generate response",
+                         @"code" : ERROR_CODE_INFER,
+                       }];
     reject(ERROR_CODE_INFER, @"unable to generate response", nil);
   }
 }
 
 #pragma mark - Close Engine
 
-- (void) close {
+- (void)close {
+  @synchronized(self) {
+    self.activeRequestId = nil;
+  }
   [self.amaryllis close];
 }
 
-- (void) cancelAsync {
+- (void)cancelAsync:(nonnull NSString *)requestId {
+  @synchronized(self) {
+    if (![self.activeRequestId isEqualToString:requestId]) {
+      return;
+    }
+    self.activeRequestId = nil;
+  }
   [self.amaryllis cancelAsync];
+}
+
+- (BOOL)ownsRequest:(NSString *)requestId {
+  @synchronized(self) {
+    return [self.activeRequestId isEqualToString:requestId];
+  }
+}
+
+- (void)clearRequest:(NSString *)requestId {
+  @synchronized(self) {
+    if ([self.activeRequestId isEqualToString:requestId]) {
+      self.activeRequestId = nil;
+    }
+  }
 }
 
 - (NSDictionary *)constantsToExport {
@@ -146,10 +228,9 @@ RCT_EXPORT_MODULE(Amaryllis)
     @"EVENT_ON_PARTIAL_RESULT" : EVENT_ON_PARTIAL_RESULT,
     @"EVENT_ON_FINAL_RESULT" : EVENT_ON_FINAL_RESULT,
     @"EVENT_ON_ERROR" : EVENT_ON_ERROR,
-    // errors
     @"ERROR_CODE_INFER" : ERROR_CODE_INFER,
     @"ERROR_CODE_SESSION" : ERROR_CODE_SESSION,
-    // params
+    @"ERROR_CODE_IN_PROGRESS" : ERROR_CODE_IN_PROGRESS,
     @"PARAM_IMAGES" : PARAM_IMAGES,
     @"PARAM_PROMPT" : PARAM_PROMPT,
     @"PARAM_MAX_TOP_K" : PARAM_MAX_TOP_K,
