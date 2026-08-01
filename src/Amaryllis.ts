@@ -27,6 +27,17 @@ type NativeOperation = {
   owner: LlmPipe;
 };
 
+type NativeTextEvent = {
+  requestId: string;
+  text: string;
+};
+
+type NativeErrorEvent = {
+  requestId: string;
+  message: string;
+  code?: string;
+};
+
 const activeNativeOperations = new WeakMap<LlmNativeEngine, NativeOperation>();
 const closingNativeEngines = new WeakSet<LlmNativeEngine>();
 let nextOperationId = 1;
@@ -91,7 +102,7 @@ export class LlmPipe implements LlmEngine {
     try {
       this.setupAsyncCallbacks(callbacks ?? {}, generationId);
       const nativeParams = toNativeRequestParams(params);
-      await this.llmNative.generateAsync(nativeParams);
+      await this.llmNative.generateAsync(nativeParams, String(generationId));
     } catch (error) {
       this.finishAsyncGeneration(generationId);
       throw error;
@@ -143,21 +154,23 @@ export class LlmPipe implements LlmEngine {
     if (scopedGenerationId === null) {
       return;
     }
+    const requestId = String(scopedGenerationId);
 
     if (callbacks.onPartialResult || callbacks.onEvent) {
       const subscription = this.llmEmitter.addListener(
         EVENT_ON_PARTIAL_RESULT,
-        (result: string) => {
-          if (!this.isActiveGeneration(scopedGenerationId)) {
+        (payload: NativeTextEvent | string) => {
+          const result = this.normalizeTextEvent(payload, requestId);
+          if (!result || !this.isActiveGeneration(scopedGenerationId)) {
             return;
           }
           try {
-            callbacks.onEvent?.({ type: 'partial', text: result });
+            callbacks.onEvent?.({ type: 'partial', text: result.text });
           } catch (error) {
             console.error('Error in onEvent callback:', error);
           }
           try {
-            callbacks.onPartialResult?.(result);
+            callbacks.onPartialResult?.(result.text);
           } catch (error) {
             console.error('Error in onPartialResult callback:', error);
           }
@@ -168,19 +181,20 @@ export class LlmPipe implements LlmEngine {
 
     const finalSubscription = this.llmEmitter.addListener(
       EVENT_ON_FINAL_RESULT,
-      (result: string) => {
-        if (!this.isActiveGeneration(scopedGenerationId)) {
+      (payload: NativeTextEvent | string) => {
+        const result = this.normalizeTextEvent(payload, requestId);
+        if (!result || !this.isActiveGeneration(scopedGenerationId)) {
           return;
         }
 
         this.releaseNativeOperation(scopedGenerationId);
         try {
-          callbacks.onEvent?.({ type: 'final', text: result });
+          callbacks.onEvent?.({ type: 'final', text: result.text });
         } catch (error) {
           console.error('Error in onEvent callback:', error);
         }
         try {
-          callbacks.onFinalResult?.(result);
+          callbacks.onFinalResult?.(result.text);
         } catch (error) {
           console.error('Error in onFinalResult callback:', error);
         }
@@ -190,13 +204,17 @@ export class LlmPipe implements LlmEngine {
 
     const errorSubscription = this.llmEmitter.addListener(
       EVENT_ON_ERROR,
-      (error: string) => {
-        if (!this.isActiveGeneration(scopedGenerationId)) {
+      (payload: NativeErrorEvent | string) => {
+        const result = this.normalizeErrorEvent(payload, requestId);
+        if (!result || !this.isActiveGeneration(scopedGenerationId)) {
           return;
         }
 
         this.releaseNativeOperation(scopedGenerationId);
-        const errorObj = new Error(error);
+        const errorObj = new Error(result.message);
+        if (result.code) {
+          Object.assign(errorObj, { code: result.code });
+        }
         try {
           callbacks.onEvent?.({ type: 'error', error: errorObj });
         } catch (callbackError) {
@@ -210,6 +228,40 @@ export class LlmPipe implements LlmEngine {
       }
     );
     this.subscriptions.push(errorSubscription);
+  }
+
+  private normalizeTextEvent(
+    payload: NativeTextEvent | string,
+    requestId: string
+  ): NativeTextEvent | null {
+    if (typeof payload === 'string') {
+      return { requestId, text: payload };
+    }
+    if (
+      !payload ||
+      payload.requestId !== requestId ||
+      typeof payload.text !== 'string'
+    ) {
+      return null;
+    }
+    return payload;
+  }
+
+  private normalizeErrorEvent(
+    payload: NativeErrorEvent | string,
+    requestId: string
+  ): NativeErrorEvent | null {
+    if (typeof payload === 'string') {
+      return { requestId, message: payload };
+    }
+    if (
+      !payload ||
+      payload.requestId !== requestId ||
+      typeof payload.message !== 'string'
+    ) {
+      return null;
+    }
+    return payload;
   }
 
   private claimNativeOperation(kind: NativeOperation['kind']): number {
@@ -242,7 +294,7 @@ export class LlmPipe implements LlmEngine {
 
     this.releaseNativeOperation(activeOperation.id);
     try {
-      this.llmNative.cancelAsync();
+      this.llmNative.cancelAsync(String(activeOperation.id));
     } finally {
       if (notifyLifecycle) {
         this.notifyAsyncLifecycle({ type: 'cancelled' });
