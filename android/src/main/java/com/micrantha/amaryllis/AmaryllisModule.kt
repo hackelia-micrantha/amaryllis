@@ -71,15 +71,16 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
     activeRequestId = requestId
     try {
       amaryllis.generateAsync(params) { partialResult, done ->
-        if (!ownsRequest(requestId)) {
-          return@generateAsync
-        }
-
         val text = partialResult ?: ""
         if (done) {
-          activeRequestId = null
+          if (!clearRequest(requestId)) {
+            return@generateAsync
+          }
           sendTextEvent(EVENT_ON_FINAL_RESULT, requestId, text)
         } else {
+          if (!ownsRequest(requestId)) {
+            return@generateAsync
+          }
           sendTextEvent(EVENT_ON_PARTIAL_RESULT, requestId, text)
         }
       }
@@ -109,12 +110,10 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
-  @Synchronized
   override fun cancelAsync(requestId: String) {
-    if (!ownsRequest(requestId)) {
+    if (!clearRequest(requestId)) {
       return
     }
-    activeRequestId = null
     amaryllis.cancelAsync()
   }
 
@@ -130,6 +129,15 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
 
   @Synchronized
   private fun ownsRequest(requestId: String): Boolean = activeRequestId == requestId
+
+  @Synchronized
+  private fun clearRequest(requestId: String): Boolean {
+    if (activeRequestId != requestId) {
+      return false
+    }
+    activeRequestId = null
+    return true
+  }
 
   private fun sendTextEvent(event: String, requestId: String, text: String) {
     val data = Arguments.createMap().apply {
