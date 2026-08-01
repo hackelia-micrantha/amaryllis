@@ -30,6 +30,7 @@ type NativeOperation = {
 type NativeTextEvent = {
   requestId: string;
   text: string;
+  finalText?: string;
 };
 
 type NativeErrorEvent = {
@@ -194,7 +195,7 @@ export class LlmPipe implements LlmEngine {
           console.error('Error in onEvent callback:', error);
         }
         try {
-          callbacks.onFinalResult?.(result.text);
+          callbacks.onFinalResult?.(result.finalText ?? result.text);
         } catch (error) {
           console.error('Error in onFinalResult callback:', error);
         }
@@ -240,7 +241,9 @@ export class LlmPipe implements LlmEngine {
     if (
       !payload ||
       payload.requestId !== requestId ||
-      typeof payload.text !== 'string'
+      typeof payload.text !== 'string' ||
+      (payload.finalText !== undefined &&
+        typeof payload.finalText !== 'string')
     ) {
       return null;
     }
