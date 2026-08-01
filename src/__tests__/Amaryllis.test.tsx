@@ -11,15 +11,15 @@ import {
   GenerationInProgressError,
 } from '../Errors';
 
-let listeners: Record<string, (result: string) => void> = {};
+let listeners: Record<string, (result: any) => void> = {};
 
 const nativeMock = {
   init: jest.fn(),
   newSession: jest.fn(),
   generate: jest.fn<Promise<string>, [LlmRequestParams]>(),
-  generateAsync: jest.fn<Promise<void>, [LlmRequestParams]>(),
+  generateAsync: jest.fn<Promise<void>, [LlmRequestParams, string]>(),
   close: jest.fn(),
-  cancelAsync: jest.fn(),
+  cancelAsync: jest.fn<void, [string]>(),
   EVENT_ON_PARTIAL_RESULT: 'onPartialResult',
   EVENT_ON_FINAL_RESULT: 'onFinalResult',
   EVENT_ON_ERROR: 'onError',
@@ -46,6 +46,14 @@ const sessionParams: LlmSessionParams = {
   randomSeed: 12345,
 } as LlmSessionParams;
 const requestParams: LlmRequestParams = { prompt: 'baz' } as LlmRequestParams;
+
+const getLastRequestId = (): string => {
+  const call = nativeMock.generateAsync.mock.calls.at(-1);
+  if (!call) {
+    throw new Error('Expected an asynchronous native generation call');
+  }
+  return call[1];
+};
 
 describe('LlmPipe', () => {
   beforeEach(() => {
@@ -83,7 +91,10 @@ describe('LlmPipe', () => {
     const onEvent = jest.fn();
     const callbacks: LlmCallbacks = { onEvent };
     await pipe.generateAsync(requestParams, callbacks);
-    expect(nativeMock.generateAsync).toHaveBeenCalledWith(requestParams);
+    expect(nativeMock.generateAsync).toHaveBeenCalledWith(
+      requestParams,
+      expect.any(String)
+    );
     expect(listeners[nativeMock.EVENT_ON_PARTIAL_RESULT]).toBeDefined();
     expect(listeners[nativeMock.EVENT_ON_FINAL_RESULT]).toBeDefined();
     expect(listeners[nativeMock.EVENT_ON_ERROR]).toBeDefined();
@@ -95,6 +106,52 @@ describe('LlmPipe', () => {
     listeners[nativeMock.EVENT_ON_FINAL_RESULT]?.('final');
     expect(onEvent).toHaveBeenCalledWith({ type: 'final', text: 'final' });
     expect(nativeMock.cancelAsync).not.toHaveBeenCalled();
+    expect(listeners).toEqual({});
+  });
+
+  it('routes structured native events only to their request', async () => {
+    const onEvent = jest.fn();
+    await pipe.generateAsync(requestParams, { onEvent });
+    const requestId = getLastRequestId();
+
+    listeners[nativeMock.EVENT_ON_PARTIAL_RESULT]?.({
+      requestId: 'another-request',
+      text: 'stale',
+    });
+    listeners[nativeMock.EVENT_ON_PARTIAL_RESULT]?.({
+      requestId,
+      text: 'partial',
+    });
+    listeners[nativeMock.EVENT_ON_FINAL_RESULT]?.({
+      requestId,
+      text: '',
+    });
+
+    expect(onEvent).toHaveBeenNthCalledWith(1, {
+      type: 'partial',
+      text: 'partial',
+    });
+    expect(onEvent).toHaveBeenNthCalledWith(2, {
+      type: 'final',
+      text: '',
+    });
+    expect(onEvent).toHaveBeenCalledTimes(2);
+    expect(listeners).toEqual({});
+  });
+
+  it('preserves a final snapshot for final-only callbacks', async () => {
+    const onFinalResult = jest.fn();
+    await pipe.generateAsync(requestParams, { onFinalResult });
+    const requestId = getLastRequestId();
+
+    expect(listeners[nativeMock.EVENT_ON_PARTIAL_RESULT]).toBeUndefined();
+    listeners[nativeMock.EVENT_ON_FINAL_RESULT]?.({
+      requestId,
+      text: '',
+      finalText: 'complete result',
+    });
+
+    expect(onFinalResult).toHaveBeenCalledWith('complete result');
     expect(listeners).toEqual({});
   });
 
@@ -241,10 +298,11 @@ describe('LlmPipe', () => {
     const lifecycleListener = jest.fn();
     pipe.subscribeAsyncLifecycle(lifecycleListener);
     await pipe.generateAsync(requestParams, { onEvent: jest.fn() });
+    const requestId = getLastRequestId();
 
     pipe.cancelAsync();
 
-    expect(nativeMock.cancelAsync).toHaveBeenCalledTimes(1);
+    expect(nativeMock.cancelAsync).toHaveBeenCalledWith(requestId);
     expect(lifecycleListener).toHaveBeenCalledWith({ type: 'cancelled' });
   });
 
@@ -253,11 +311,12 @@ describe('LlmPipe', () => {
     const secondOnEvent = jest.fn();
 
     await pipe.generateAsync(requestParams, { onEvent: firstOnEvent });
+    const firstRequestId = getLastRequestId();
     const staleFinalListener = listeners[nativeMock.EVENT_ON_FINAL_RESULT];
 
     pipe.cancelAsync();
 
-    expect(nativeMock.cancelAsync).toHaveBeenCalledTimes(1);
+    expect(nativeMock.cancelAsync).toHaveBeenCalledWith(firstRequestId);
     expect(listeners).toEqual({});
 
     await pipe.generateAsync({ prompt: 'second' }, { onEvent: secondOnEvent });
