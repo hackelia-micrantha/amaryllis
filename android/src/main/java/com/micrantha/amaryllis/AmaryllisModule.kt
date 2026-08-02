@@ -15,7 +15,7 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
   NativeAmaryllisSpec(reactContext) {
 
   private val amaryllis = Amaryllis()
-  private var activeRequestId: String? = null
+  private val requestTracker = NativeRequestTracker()
 
   override fun getName() = NAME
 
@@ -61,20 +61,18 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
-  @Synchronized
   override fun generateAsync(params: ReadableMap, requestId: String, promise: Promise) {
-    if (activeRequestId != null) {
+    if (!requestTracker.tryStart(requestId)) {
       promise.reject(ERROR_CODE_IN_PROGRESS, "generation already in progress")
       return
     }
 
-    activeRequestId = requestId
     val accumulatedText = StringBuilder()
     try {
       amaryllis.generateAsync(params) { partialResult, done ->
         val text = partialResult ?: ""
         if (done) {
-          if (!clearRequest(requestId)) {
+          if (!requestTracker.clear(requestId)) {
             return@generateAsync
           }
           val finalText = synchronized(accumulatedText) {
@@ -82,7 +80,7 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
           }
           sendTextEvent(EVENT_ON_FINAL_RESULT, requestId, text, finalText)
         } else {
-          if (!ownsRequest(requestId)) {
+          if (!requestTracker.owns(requestId)) {
             return@generateAsync
           }
           synchronized(accumulatedText) {
@@ -93,15 +91,15 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
       }
       promise.resolve(null)
     } catch (e: Amaryllis.SessionRequiredException) {
-      activeRequestId = null
+      requestTracker.clear(requestId)
       Log.e(NAME, "session is required", e)
       promise.reject(ERROR_CODE_SESSION, "session is required", e)
     } catch (e: Amaryllis.NotInitializedException) {
-      activeRequestId = null
+      requestTracker.clear(requestId)
       Log.e(NAME, "sdk is not initialized", e)
       promise.reject(ERROR_CODE_INFER, "sdk is not initialized", e)
     } catch (e: Throwable) {
-      activeRequestId = null
+      requestTracker.clear(requestId)
       Log.e(NAME, "unable to generate response", e)
       sendErrorEvent(requestId, "unable to generate response", ERROR_CODE_INFER)
       promise.reject(ERROR_CODE_INFER, "unable to generate response", e)
@@ -109,16 +107,15 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
-  @Synchronized
   override fun close() {
     Log.d(NAME, "closing")
-    activeRequestId = null
+    requestTracker.clearAll()
     amaryllis.close()
   }
 
   @ReactMethod
   override fun cancelAsync(requestId: String) {
-    if (!clearRequest(requestId)) {
+    if (!requestTracker.clear(requestId)) {
       return
     }
     amaryllis.cancelAsync()
@@ -132,18 +129,6 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
   @Override
   fun removeListeners(count: Int) {
     // No-op
-  }
-
-  @Synchronized
-  private fun ownsRequest(requestId: String): Boolean = activeRequestId == requestId
-
-  @Synchronized
-  private fun clearRequest(requestId: String): Boolean {
-    if (activeRequestId != requestId) {
-      return false
-    }
-    activeRequestId = null
-    return true
   }
 
   private fun sendTextEvent(
