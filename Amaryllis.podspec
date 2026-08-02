@@ -14,8 +14,9 @@ Pod::Spec.new do |s|
   s.source       = { :git => "https://github.com/hackelia-micrantha/react-native-amaryllis.git", :tag => "#{s.version}" }
 
   s.source_files = "ios/**/*.{h,m,mm,cpp}"
+  s.exclude_files = "ios/tests/**/*"
   s.private_header_files = "ios/**/*.h"
-   
+
   s.dependency "MediaPipeTasksGenAI"
 
   install_modules_dependencies(s)
