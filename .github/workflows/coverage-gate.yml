@@ -87,6 +87,34 @@ jobs:
 
       - name: Comment coverage result on PR
         if: always()
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: actions/github-script@v9
         with:
-          path: coverage-comment.md
+          script: |
+            const fs = require('node:fs');
+            const marker = '<!-- amaryllis-coverage-gate -->';
+            const summary = fs.existsSync('coverage-comment.md')
+              ? fs.readFileSync('coverage-comment.md', 'utf8')
+              : '### Coverage Summary\n\nCoverage execution failed before a summary was generated.';
+            const body = `${marker}\n${summary}`;
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
+            });
+            const existing = comments.find(
+              (comment) => comment.user?.type === 'Bot' && comment.body?.startsWith(marker),
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
