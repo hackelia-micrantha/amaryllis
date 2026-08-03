@@ -61,6 +61,7 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
+  @Synchronized
   override fun generateAsync(params: ReadableMap, requestId: String, promise: Promise) {
     if (!requestTracker.tryStart(requestId)) {
       promise.reject(ERROR_CODE_IN_PROGRESS, "generation already in progress")
@@ -107,6 +108,7 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
+  @Synchronized
   override fun close() {
     Log.d(NAME, "closing")
     requestTracker.clearAll()
