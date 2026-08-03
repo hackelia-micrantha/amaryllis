@@ -107,92 +107,96 @@ RCT_EXPORT_MODULE(Amaryllis)
              requestId:(nonnull NSString *)requestId
                resolve:(nonnull RCTPromiseResolveBlock)resolve
                 reject:(nonnull RCTPromiseRejectBlock)reject {
-  if (![self.requestTracker tryStart:requestId]) {
-    reject(ERROR_CODE_IN_PROGRESS, @"generation already in progress", nil);
-    return;
-  }
-
-  @try {
-    NSError *error = nil;
-    NSMutableString *accumulatedText = [NSMutableString string];
-    __weak AmaryllisModule *weakSelf = self;
-
-    PartialResponseHandler progress = ^(NSString *result, NSError *err) {
-      AmaryllisModule *strongSelf = weakSelf;
-      if (!strongSelf || ![strongSelf.requestTracker owns:requestId]) {
-        return;
-      }
-
-      if (err) {
-        [strongSelf.requestTracker clear:requestId];
-        [strongSelf sendEventWithName:EVENT_ON_ERROR
-                                 body:@{
-                                   @"requestId" : requestId,
-                                   @"message" : err.localizedDescription ?: @"unknown error",
-                                   @"code" : ERROR_CODE_INFER,
-                                 }];
-        return;
-      }
-
-      NSString *partialText = result ?: @"";
-      @synchronized(accumulatedText) {
-        [accumulatedText appendString:partialText];
-      }
-      [strongSelf sendEventWithName:EVENT_ON_PARTIAL_RESULT
-                               body:@{
-                                 @"requestId" : requestId,
-                                 @"text" : partialText,
-                               }];
-    };
-
-    CompletionHandler completion = ^{
-      AmaryllisModule *strongSelf = weakSelf;
-      if (!strongSelf || ![strongSelf.requestTracker clear:requestId]) {
-        return;
-      }
-
-      NSString *finalText;
-      @synchronized(accumulatedText) {
-        finalText = [accumulatedText copy];
-      }
-      [strongSelf sendEventWithName:EVENT_ON_FINAL_RESULT
-                               body:@{
-                                 @"requestId" : requestId,
-                                 @"text" : @"",
-                                 @"finalText" : finalText,
-                               }];
-    };
-
-    [self.amaryllis generateAsyncWithParams:params
-                                      error:&error
-                                   response:progress
-                                 completion:completion];
-
-    if (error) {
-      [self.requestTracker clear:requestId];
-      reject(ERROR_CODE_INFER, @"unable to generate response", error);
+  @synchronized(self) {
+    if (![self.requestTracker tryStart:requestId]) {
+      reject(ERROR_CODE_IN_PROGRESS, @"generation already in progress", nil);
       return;
     }
 
-    resolve(nil);
-  } @catch (NSException *exception) {
-    [self.requestTracker clear:requestId];
-    NSLog(@"Amaryllis: error generating inference (%@)", exception.description);
-    [self sendEventWithName:EVENT_ON_ERROR
-                       body:@{
-                         @"requestId" : requestId,
-                         @"message" : @"unable to generate response",
-                         @"code" : ERROR_CODE_INFER,
-                       }];
-    reject(ERROR_CODE_INFER, @"unable to generate response", nil);
+    @try {
+      NSError *error = nil;
+      NSMutableString *accumulatedText = [NSMutableString string];
+      __weak AmaryllisModule *weakSelf = self;
+
+      PartialResponseHandler progress = ^(NSString *result, NSError *err) {
+        AmaryllisModule *strongSelf = weakSelf;
+        if (!strongSelf || ![strongSelf.requestTracker owns:requestId]) {
+          return;
+        }
+
+        if (err) {
+          [strongSelf.requestTracker clear:requestId];
+          [strongSelf sendEventWithName:EVENT_ON_ERROR
+                                   body:@{
+                                     @"requestId" : requestId,
+                                     @"message" : err.localizedDescription ?: @"unknown error",
+                                     @"code" : ERROR_CODE_INFER,
+                                   }];
+          return;
+        }
+
+        NSString *partialText = result ?: @"";
+        @synchronized(accumulatedText) {
+          [accumulatedText appendString:partialText];
+        }
+        [strongSelf sendEventWithName:EVENT_ON_PARTIAL_RESULT
+                                 body:@{
+                                   @"requestId" : requestId,
+                                   @"text" : partialText,
+                                 }];
+      };
+
+      CompletionHandler completion = ^{
+        AmaryllisModule *strongSelf = weakSelf;
+        if (!strongSelf || ![strongSelf.requestTracker clear:requestId]) {
+          return;
+        }
+
+        NSString *finalText;
+        @synchronized(accumulatedText) {
+          finalText = [accumulatedText copy];
+        }
+        [strongSelf sendEventWithName:EVENT_ON_FINAL_RESULT
+                                 body:@{
+                                   @"requestId" : requestId,
+                                   @"text" : @"",
+                                   @"finalText" : finalText,
+                                 }];
+      };
+
+      [self.amaryllis generateAsyncWithParams:params
+                                        error:&error
+                                     response:progress
+                                   completion:completion];
+
+      if (error) {
+        [self.requestTracker clear:requestId];
+        reject(ERROR_CODE_INFER, @"unable to generate response", error);
+        return;
+      }
+
+      resolve(nil);
+    } @catch (NSException *exception) {
+      [self.requestTracker clear:requestId];
+      NSLog(@"Amaryllis: error generating inference (%@)", exception.description);
+      [self sendEventWithName:EVENT_ON_ERROR
+                         body:@{
+                           @"requestId" : requestId,
+                           @"message" : @"unable to generate response",
+                           @"code" : ERROR_CODE_INFER,
+                         }];
+      reject(ERROR_CODE_INFER, @"unable to generate response", nil);
+    }
   }
 }
 
 #pragma mark - Close Engine
 
 - (void)close {
-  [self.requestTracker clearAll];
-  [self.amaryllis close];
+  @synchronized(self) {
+    [self.requestTracker clearAll];
+    [self.amaryllis close];
+  }
 }
 
 - (void)cancelAsync:(nonnull NSString *)requestId {
