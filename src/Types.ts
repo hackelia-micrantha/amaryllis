@@ -151,13 +151,16 @@ export type InferenceProps = {
   /**
    * Receives the complete accumulated output produced so far. Replace displayed
    * text rather than appending this value. `isFinal` is true exactly once for a
-   * successful generation and that result contains the complete final output.
+   * successful asynchronous generation and that result contains the complete
+   * final output.
    */
   onResult?: (result: string, isFinal: boolean) => void;
   onError?: (error: Error) => void;
   /**
-   * Terminal lifecycle notification for success, error, or explicit
-   * cancellation. Completion does not by itself imply successful generation.
+   * `useInferenceAsync` invokes this after success, error, or explicit
+   * cancellation. It is a terminal lifecycle notification and does not by
+   * itself imply successful generation. Other hooks may use it only from their
+   * documented cleanup paths.
    */
   onComplete?: () => void;
 };
