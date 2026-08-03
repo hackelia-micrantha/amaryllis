@@ -127,17 +127,23 @@ Use `useInferenceAsync` for streaming generation:
 import { useInferenceAsync } from '@micrantha/react-native-amaryllis';
 
 const generate = useInferenceAsync({
-  onResult: (chunk, isFinal) => {
-    append(chunk);
+  onResult: (text, isFinal) => {
+    // Hook results are cumulative snapshots. Replace displayed text.
+    setOutput(text);
     if (isFinal) finish();
   },
   onError: handleError,
+  onComplete: handleComplete,
 });
 
-await generate({ prompt, images });
+const cancel = await generate({ prompt, images });
 ```
 
-Applications should cancel active work during lifecycle cleanup and bound image count, image size, and token budgets for predictable resource use.
+`await generate(...)` waits for validation and native startup, not for model completion. Use `onComplete` or the final `onResult(..., true)` callback as the terminal boundary. The returned cancellation function targets only that request and is idempotent.
+
+Asynchronous generation is single-flight per native module. An overlapping synchronous or asynchronous request is rejected with `GenerationInProgressError` and code `GENERATION_IN_PROGRESS`; it is not queued and does not cancel the active request.
+
+Applications should cancel active work during lifecycle cleanup and bound image count, image size, and token budgets for predictable resource use. See [Asynchronous inference lifecycle](docs/async-inference.md) and the [sequential generation example](docs/examples/sequential-async-inference.md).
 
 ## Context Engine
 
@@ -241,6 +247,7 @@ These controls improve reviewability and traceability; they do not replace appli
 - [Architecture](docs/architecture.md)
 - [Concepts](docs/concepts.md)
 - [Local AI and MediaPipe](docs/local-ai.md)
+- [Asynchronous inference lifecycle](docs/async-inference.md)
 - [Context Engine](docs/context-engine.md)
 - [AI-enabled components](docs/ai-enabled-components.md)
 - [Runtime personalization](docs/runtime-personalization.md)
