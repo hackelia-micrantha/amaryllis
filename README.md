@@ -139,7 +139,7 @@ const generate = useInferenceAsync({
 const cancel = await generate({ prompt, images });
 ```
 
-`await generate(...)` waits for validation and native startup, not for model completion. Use `onComplete` or the final `onResult(..., true)` callback as the terminal boundary. The returned cancellation function targets only that request and is idempotent.
+`await generate(...)` waits for validation and native startup, not for model completion. The final `onResult(..., true)` callback delivers the complete output, while `onComplete` is the safe boundary for immediately starting another request. The returned cancellation function targets only that request and is idempotent.
 
 Asynchronous generation is single-flight per native module. An overlapping synchronous or asynchronous request is rejected with `GenerationInProgressError` and code `GENERATION_IN_PROGRESS`; it is not queued and does not cancel the active request.
 
