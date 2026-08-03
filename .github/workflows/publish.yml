@@ -16,7 +16,7 @@ jobs:
     environment: production
     steps:
       - name: Wait for required workflows
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           TARGET_SHA: ${{ github.sha }}
           REQUIRED_WORKFLOWS: '["CI","Dependency Audit","Security - CodeQL"]'
@@ -90,7 +90,7 @@ jobs:
             }
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup
         uses: ./.github/actions/setup
