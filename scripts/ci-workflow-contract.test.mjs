@@ -109,7 +109,7 @@ test('native jobs remain controlled by the native dimension', () => {
   }
 });
 
-test('first-party JavaScript actions use Node 24-native majors', () => {
+test('workflow actions use Node 24-compatible releases', () => {
   const obsoleteActions = [
     ['actions/checkout', /actions\/checkout@(?:v[1-6]\b|[0-9a-f]{40}\s+# v[1-6](?:\.\d+\.\d+)?\b)/],
     ['actions/setup-node', /actions\/setup-node@v[1-6]\b/],
@@ -118,6 +118,8 @@ test('first-party JavaScript actions use Node 24-native majors', () => {
     ['actions/upload-artifact', /actions\/upload-artifact@(?:v[1-6]\b|[0-9a-f]{40}\s+# v[1-6](?:\.\d+\.\d+)?\b)/],
     ['actions/github-script', /actions\/github-script@v[1-8]\b/],
     ['github/codeql-action', /github\/codeql-action\/(?:init|autobuild|analyze)@v[1-3]\b/],
+    ['android-actions/setup-android', /android-actions\/setup-android@v[1-3]\b/],
+    ['marocchino/sticky-pull-request-comment', /marocchino\/sticky-pull-request-comment@/],
   ];
 
   for (const [path, source] of actionSources) {
@@ -129,6 +131,10 @@ test('first-party JavaScript actions use Node 24-native majors', () => {
   const setup = actionSources.get('.github/actions/setup/action.yml');
   assert.ok(setup, 'missing composite setup action');
   assert.match(setup, /actions\/setup-node@v7\b/);
+
+  const coverage = actionSources.get('.github/workflows/coverage-gate.yml');
+  assert.ok(coverage, 'missing coverage workflow');
+  assert.match(coverage, /actions\/github-script@v9\b/);
 
   const sbom = actionSources.get('.github/workflows/sbom.yml');
   assert.ok(sbom, 'missing SBOM workflow');
