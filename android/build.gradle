@@ -17,10 +17,8 @@ buildscript {
   }
 }
 
-
 apply plugin: "com.android.library"
 apply plugin: "kotlin-android"
-
 apply plugin: "com.facebook.react"
 
 def getExtOrIntegerDefault(name) {
@@ -29,7 +27,6 @@ def getExtOrIntegerDefault(name) {
 
 android {
   namespace "com.micrantha.amaryllis"
-
   compileSdkVersion getExtOrIntegerDefault("compileSdkVersion")
 
   defaultConfig {
@@ -78,4 +75,7 @@ dependencies {
   implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
   implementation 'com.google.mediapipe:tasks-core:latest.release'
   implementation 'com.google.mediapipe:tasks-genai:latest.release'
+
+  testImplementation "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
+  testImplementation 'junit:junit:4.13.2'
 }
