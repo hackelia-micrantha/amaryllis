@@ -119,6 +119,8 @@ export function SequentialInferenceExample() {
 
 The hook's returned `generate` function starts one request and returns its cancellation function. Completion is reported through callbacks. The `runOne` helper turns those callbacks into a promise without changing Amaryllis ownership rules.
 
+The wrapper resolves from `onComplete`, not directly from the final `onResult`, because `onComplete` runs after the hook releases its local active-generation guard. The final result callback supplies the complete text, but synchronous re-entry from inside that callback would still be rejected.
+
 The example also demonstrates these requirements:
 
 - one mounted hook performs multiple sequential generations;
