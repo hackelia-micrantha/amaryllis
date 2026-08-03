@@ -265,16 +265,24 @@
             <pre><code>import { useInferenceAsync } from '@micrantha/react-native-amaryllis';
 
 const generate = useInferenceAsync({
-  onResult: (chunk, isFinal) =&gt; {
-    append(chunk);
+  onResult: (text, isFinal) =&gt; {
+    setOutput(text);
     if (isFinal) finish();
   },
   onError: handleError,
+  onComplete: handleComplete,
 });
 
-await generate({ prompt, images });</code></pre>
+const cancel = await generate({ prompt, images });</code></pre>
           </div>
         </div>
+        <p>
+          Hook results are cumulative snapshots, so replace displayed text rather than
+          appending it. Awaiting <code>generate</code> waits for startup, not final model
+          output. Review the
+          <a href="https://github.com/hackelia-micrantha/amaryllis/blob/main/docs/async-inference.md">asynchronous inference lifecycle</a>
+          for completion, cancellation, and single-flight semantics.
+        </p>
       </section>
 
       <section class="section callout">
