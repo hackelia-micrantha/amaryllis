@@ -3,17 +3,30 @@ import type { Observable } from 'rxjs';
 
 export type LlmNativeEngine = Spec;
 
+/**
+ * Low-level asynchronous engine event.
+ *
+ * Partial and final text values are incremental deltas. Consumers that use
+ * `onEvent` directly must accumulate them. `useInferenceAsync` performs that
+ * accumulation and exposes cumulative snapshots through `onResult`.
+ */
 export type LlmEvent =
   | { type: 'partial'; text: string }
   | { type: 'final'; text: string }
   | { type: 'error'; error: Error };
 
 export type LlmCallbacks = {
-  // Async streaming callbacks
+  /**
+   * Low-level request-scoped event callback. Partial and final text values are
+   * deltas; the final delta may be empty.
+   */
   onEvent?: (event: LlmEvent) => void;
-  /** @deprecated Use onEvent instead. */
+  /** @deprecated Use onEvent instead. Receives an incremental text delta. */
   onPartialResult?: (result: string) => void;
-  /** @deprecated Use onEvent instead. */
+  /**
+   * @deprecated Use onEvent or useInferenceAsync instead. Receives the complete
+   * accumulated final output.
+   */
   onFinalResult?: (result: string) => void;
   /** @deprecated Use onEvent instead. */
   onError?: (err: Error) => void;
@@ -73,7 +86,12 @@ export type LlmEngine = {
   generate(params: LlmRequestParams): Promise<string>;
 
   /**
-   * Generate a response asynchronously (streaming).
+   * Start an asynchronous request-scoped generation.
+   *
+   * The promise resolves after validation and native startup, not after the
+   * model reaches a terminal state. Observe callbacks for results and
+   * completion. Only one synchronous or asynchronous generation may own a
+   * native module at a time.
    */
   generateAsync(
     params: LlmRequestParams,
@@ -81,10 +99,15 @@ export type LlmEngine = {
   ): Promise<void>;
 
   /**
-   * Clean up resources.
+   * Clean up resources. Closing may cancel active work owned by this engine.
    */
   close(): void;
 
+  /**
+   * Cancel the asynchronous generation owned by this engine. The operation is
+   * request-scoped and is a no-op after settlement or when no owned request is
+   * active.
+   */
   cancelAsync(): void;
 
   /**
@@ -125,12 +148,22 @@ export interface LLMProviderProps {
 
 export type InferenceProps = {
   onGenerate?: () => void;
+  /**
+   * Receives the complete accumulated output produced so far. Replace displayed
+   * text rather than appending this value. `isFinal` is true exactly once for a
+   * successful generation and that result contains the complete final output.
+   */
   onResult?: (result: string, isFinal: boolean) => void;
   onError?: (error: Error) => void;
+  /**
+   * Terminal lifecycle notification for success, error, or explicit
+   * cancellation. Completion does not by itself imply successful generation.
+   */
   onComplete?: () => void;
 };
 
 export interface LLMResult {
+  /** Complete accumulated output produced so far. */
   text: string;
   isFinal: boolean;
 }
