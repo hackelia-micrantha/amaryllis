@@ -36,6 +36,8 @@ An overlapping call:
 - is not queued;
 - does not cancel or otherwise disturb the active generation.
 
+At the low-level `LlmPipe` API, the overlapping call rejects with `GenerationInProgressError`. `useInferenceAsync` reports the same error through `onError` and returns a no-op cancellation function for the rejected attempt. It does not invoke `onComplete` for that rejected attempt; the already-active generation continues with its original callbacks.
+
 Starting a generation while the native engine is closing is rejected by the same contract.
 
 Sequential calls are supported after the prior operation reaches a terminal state and releases ownership.
