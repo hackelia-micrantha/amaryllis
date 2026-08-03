@@ -21,7 +21,7 @@ const generate = useInferenceAsync({
 const cancel = await generate({ prompt, images });
 ```
 
-`await generate(...)` waits for validation and native startup. It does **not** wait for the model to finish. Use `onComplete`, the final `onResult(..., true)` callback, or an application wrapper to await terminal completion.
+`await generate(...)` waits for validation and native startup. It does **not** wait for the model to finish. The final `onResult(..., true)` callback delivers the complete output, while `onComplete` is the safe boundary for immediately starting another request. Do not start the next request synchronously from inside the final `onResult` callback; hook ownership is released immediately after that callback returns.
 
 The returned function cancels only the generation started by that call. Calling it more than once, or after settlement, is a no-op.
 
@@ -86,10 +86,9 @@ A configured protocol sanitizes the accumulated hook output before `onResult` is
 ### Successful completion
 
 - the final result is delivered exactly once;
-- listeners are removed;
-- native and JavaScript ownership are released;
+- after the final callback returns, listeners are removed and ownership is released;
 - `onComplete` is invoked once;
-- the hook can start a later generation.
+- the hook can start a later generation from `onComplete` or afterward.
 
 ### Generation error
 
@@ -120,7 +119,7 @@ Unmount cancels only the generation owned by that hook instance. Cleanup is sile
 
 ## Sequential generations
 
-Do not use only `await generate(...)` as the sequencing boundary because that promise resolves after startup. Wait for terminal completion before starting the next request.
+Do not use only `await generate(...)` as the sequencing boundary because that promise resolves after startup. Use `onComplete`, or an application promise resolved by the terminal callbacks, before starting the next request. Avoid directly re-entering `generate` from inside the final `onResult` callback.
 
 See [Sequential asynchronous inference](examples/sequential-async-inference.md) for a complete React example that converts the callback lifecycle into an awaitable application helper and runs two requests from the same mounted hook.
 
