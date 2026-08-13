@@ -25,6 +25,43 @@ function isFiniteNumber(value) {
   return typeof value === 'number' && Number.isFinite(value);
 }
 
+function requireNoComparisonMetadata(requirement) {
+  if (
+    requirement.value !== undefined ||
+    requirement.aggregate !== undefined ||
+    requirement.unit !== undefined
+  ) {
+    fail(
+      'requirement.unexpected-comparison-metadata',
+      `operator ${requirement.operator} on requirement ${requirement.id} must not define value, aggregate, or unit`
+    );
+  }
+}
+
+function requireNumericUnit(requirement) {
+  if (typeof requirement.unit !== 'string' || requirement.unit.length === 0) {
+    fail(
+      'requirement.missing-unit',
+      `numeric requirement ${requirement.id} requires an explicit unit`
+    );
+  }
+  return requirement.unit;
+}
+
+function requireMatchingUnit(requirement, evidenceUnit) {
+  const expected = requireNumericUnit(requirement);
+  if (evidenceUnit === undefined) {
+    return false;
+  }
+  if (evidenceUnit !== expected) {
+    fail(
+      'evidence.unit-mismatch',
+      `target ${requirement.target.name} uses unit ${evidenceUnit}; requirement ${requirement.id} expects ${expected}`
+    );
+  }
+  return true;
+}
+
 export function percentileR7(values, probability) {
   if (!Array.isArray(values) || values.length === 0) {
     fail('aggregate.empty-samples', 'percentile requires at least one numeric sample');
@@ -116,9 +153,11 @@ function numericRequirementValue(requirement) {
 
 function evaluateMetric(requirement, measurement) {
   if (requirement.operator === 'present') {
+    requireNoComparisonMetadata(requirement);
     return 'satisfied';
   }
   if (requirement.operator === 'pass') {
+    requireNoComparisonMetadata(requirement);
     fail('requirement.invalid-metric-operator', '`pass` is invalid for metric requirements');
   }
   if (!NUMERIC_AGGREGATES.has(requirement.aggregate)) {
@@ -126,6 +165,9 @@ function evaluateMetric(requirement, measurement) {
       'requirement.invalid-metric-aggregate',
       `requirement ${requirement.id} has invalid metric aggregate ${String(requirement.aggregate)}`
     );
+  }
+  if (!requireMatchingUnit(requirement, measurement.unit)) {
+    return 'unknown';
   }
 
   const actual = aggregateMeasurement(measurement, requirement.aggregate);
@@ -145,9 +187,11 @@ function statusOutcome(status, requirement) {
 
 function evaluateCheck(requirement, check) {
   if (requirement.operator === 'present') {
+    requireNoComparisonMetadata(requirement);
     return 'satisfied';
   }
   if (requirement.operator === 'pass') {
+    requireNoComparisonMetadata(requirement);
     return statusOutcome(check.status, requirement);
   }
   if (check.status === 'unknown') {
@@ -157,6 +201,12 @@ function evaluateCheck(requirement, check) {
     fail(
       'requirement.invalid-check-operator',
       `operator ${requirement.operator} is invalid for check requirements`
+    );
+  }
+  if (requirement.aggregate !== undefined || requirement.unit !== undefined) {
+    fail(
+      'requirement.invalid-check-metadata',
+      `check requirement ${requirement.id} must not define aggregate or unit`
     );
   }
   if (!RESULT_STATUSES.has(requirement.value)) {
@@ -172,9 +222,11 @@ function evaluateCheck(requirement, check) {
 
 function evaluateEvaluation(requirement, evaluation) {
   if (requirement.operator === 'present') {
+    requireNoComparisonMetadata(requirement);
     return 'satisfied';
   }
   if (requirement.operator === 'pass') {
+    requireNoComparisonMetadata(requirement);
     return statusOutcome(evaluation.status, requirement);
   }
   if (evaluation.status === 'unknown') {
@@ -182,7 +234,16 @@ function evaluateEvaluation(requirement, evaluation) {
   }
 
   if (NUMERIC_OPERATORS.has(requirement.operator)) {
+    if (requirement.aggregate !== undefined) {
+      fail(
+        'requirement.invalid-evaluation-aggregate',
+        `evaluation requirement ${requirement.id} must not define an aggregate`
+      );
+    }
     if (!isFiniteNumber(evaluation.score)) {
+      return 'unknown';
+    }
+    if (!requireMatchingUnit(requirement, evaluation.unit)) {
       return 'unknown';
     }
     return compare(
@@ -195,19 +256,37 @@ function evaluateEvaluation(requirement, evaluation) {
   }
 
   if (requirement.operator === 'eq' || requirement.operator === 'neq') {
+    if (requirement.aggregate !== undefined) {
+      fail(
+        'requirement.invalid-evaluation-aggregate',
+        `evaluation requirement ${requirement.id} must not define an aggregate`
+      );
+    }
+
     if (isFiniteNumber(requirement.value)) {
       if (!isFiniteNumber(evaluation.score)) {
+        return 'unknown';
+      }
+      if (!requireMatchingUnit(requirement, evaluation.unit)) {
         return 'unknown';
       }
       return compare(evaluation.score, requirement.operator, requirement.value)
         ? 'satisfied'
         : 'violated';
     }
+
     if (typeof requirement.value === 'string' && RESULT_STATUSES.has(requirement.value)) {
+      if (requirement.unit !== undefined) {
+        fail(
+          'requirement.invalid-evaluation-status-unit',
+          `status comparison ${requirement.id} must not define a unit`
+        );
+      }
       return compare(evaluation.status, requirement.operator, requirement.value)
         ? 'satisfied'
         : 'violated';
     }
+
     fail(
       'requirement.invalid-evaluation-value',
       `evaluation requirement ${requirement.id} must compare a finite score or status`
