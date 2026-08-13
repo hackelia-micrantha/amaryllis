@@ -1,0 +1,155 @@
+{
+  "apiVersion": "amaryllis.dev/verify/v1alpha1",
+  "kind": "VerificationManifest",
+  "metadata": {
+    "name": "android-chat-reference",
+    "labels": {
+      "profile": "reference"
+    }
+  },
+  "subject": {
+    "application": {
+      "id": "com.example.amaryllis-demo",
+      "version": "1.4.0",
+      "buildId": "10400",
+      "digest": {
+        "algorithm": "sha256",
+        "value": "5ab565d71af467eca99a0a976827b2c4bcf66f3d3b15efe71905b245275cad03"
+      }
+    },
+    "runtime": {
+      "package": "@micrantha/react-native-amaryllis",
+      "version": "0.1.7",
+      "digest": {
+        "algorithm": "sha256",
+        "value": "928595919ebb66303eb5a96c0ea1984413451f77f9c7c630d8a6c0e8525d4d87"
+      }
+    },
+    "model": {
+      "id": "gemma3-1b-it-int4",
+      "version": "1",
+      "format": "mediapipe-task",
+      "digest": {
+        "algorithm": "sha256",
+        "value": "af3346c46870e663db46a85fd5a0ee9e60d85df6ae0b0bea6e6e61147ad10889"
+      }
+    }
+  },
+  "target": {
+    "platform": "android",
+    "minOsVersion": "14",
+    "architectures": [
+      "arm64-v8a"
+    ],
+    "requiredCapabilities": [
+      "physical-device"
+    ]
+  },
+  "scenario": {
+    "id": "chat-smoke",
+    "version": "1.0.0",
+    "timeoutMs": 60000,
+    "warmupRuns": 1,
+    "repetitions": 3,
+    "fixtureRefs": [
+      {
+        "id": "chat-basic",
+        "ref": "fixtures/chat-basic.json",
+        "digest": {
+          "algorithm": "sha256",
+          "value": "178ae36531c4999dcdb1a3a349bf2c88e7ed79e32cd76df1cb4f2e098215ae31"
+        },
+        "evidencePolicy": "exclude-content"
+      }
+    ]
+  },
+  "collect": {
+    "metrics": [
+      "timing.initialization.ms",
+      "timing.ttft.ms",
+      "memory.peakRssBytes",
+      "storage.modelBytes",
+      "thermal.maxState"
+    ],
+    "checks": [
+      "lifecycle.cancelRestart"
+    ],
+    "evaluations": [
+      "quality.chatSmoke"
+    ]
+  },
+  "policy": {
+    "profileId": "mobile-chat-reference",
+    "requirements": [
+      {
+        "id": "startup-budget",
+        "severity": "required",
+        "target": {
+          "kind": "metric",
+          "name": "timing.initialization.ms"
+        },
+        "operator": "lte",
+        "value": 2000,
+        "aggregate": "max",
+        "unit": "ms"
+      },
+      {
+        "id": "ttft-budget",
+        "severity": "required",
+        "target": {
+          "kind": "metric",
+          "name": "timing.ttft.ms"
+        },
+        "operator": "lte",
+        "value": 750,
+        "aggregate": "p95",
+        "unit": "ms"
+      },
+      {
+        "id": "memory-budget",
+        "severity": "required",
+        "target": {
+          "kind": "metric",
+          "name": "memory.peakRssBytes"
+        },
+        "operator": "lte",
+        "value": 1610612736,
+        "aggregate": "max",
+        "unit": "bytes"
+      },
+      {
+        "id": "cancel-restart",
+        "severity": "required",
+        "target": {
+          "kind": "check",
+          "name": "lifecycle.cancelRestart"
+        },
+        "operator": "pass"
+      },
+      {
+        "id": "quality-floor",
+        "severity": "required",
+        "target": {
+          "kind": "evaluation",
+          "name": "quality.chatSmoke"
+        },
+        "operator": "gte",
+        "value": 0.85,
+        "unit": "ratio"
+      },
+      {
+        "id": "thermal-observation",
+        "severity": "advisory",
+        "target": {
+          "kind": "metric",
+          "name": "thermal.maxState"
+        },
+        "operator": "present"
+      }
+    ]
+  },
+  "output": {
+    "path": "artifacts/verify/android-chat-reference.json",
+    "humanSummary": true
+  }
+}
