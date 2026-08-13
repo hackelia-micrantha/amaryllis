@@ -10,11 +10,11 @@ import {
 } from './validate-native-dependencies.mjs';
 
 async function createFixture({
-  coreVersion = EXPECTED_MEDIAPIPE_VERSION,
-  genaiVersion = EXPECTED_MEDIAPIPE_VERSION,
+  androidVersion = EXPECTED_MEDIAPIPE_VERSION,
   podspecConstraint = `= ${EXPECTED_MEDIAPIPE_VERSION}`,
   lockedVersion = EXPECTED_MEDIAPIPE_VERSION,
   lockedCVersion = EXPECTED_MEDIAPIPE_VERSION,
+  duplicateAndroidDependency = false,
 } = {}) {
   const rootDir = await mkdtemp(
     path.join(os.tmpdir(), 'amaryllis-native-deps-')
@@ -22,9 +22,11 @@ async function createFixture({
   await mkdir(path.join(rootDir, 'android'), { recursive: true });
   await mkdir(path.join(rootDir, 'example/ios'), { recursive: true });
 
+  const androidDependency =
+    `  implementation 'com.google.mediapipe:tasks-genai:${androidVersion}'\n`;
   await writeFile(
     path.join(rootDir, 'android/build.gradle'),
-    `dependencies {\n  implementation 'com.google.mediapipe:tasks-core:${coreVersion}'\n  implementation 'com.google.mediapipe:tasks-genai:${genaiVersion}'\n}\n`
+    `dependencies {\n${androidDependency}${duplicateAndroidDependency ? androidDependency : ''}}\n`
   );
   await writeFile(
     path.join(rootDir, 'Amaryllis.podspec'),
@@ -48,10 +50,7 @@ async function withFixture(options, callback) {
 }
 
 test('repository declarations use the reviewed MediaPipe baseline', async () => {
-  assert.equal(
-    await validateNativeDependencies(),
-    EXPECTED_MEDIAPIPE_VERSION
-  );
+  assert.equal(await validateNativeDependencies(), EXPECTED_MEDIAPIPE_VERSION);
 });
 
 test('accepts the reviewed cross-platform MediaPipe baseline', async () => {
@@ -64,10 +63,19 @@ test('accepts the reviewed cross-platform MediaPipe baseline', async () => {
 });
 
 test('rejects floating Android MediaPipe versions', async () => {
-  await withFixture({ genaiVersion: 'latest.release' }, async (rootDir) => {
+  await withFixture({ androidVersion: 'latest.release' }, async (rootDir) => {
     await assert.rejects(
       validateNativeDependencies({ rootDir }),
-      /tasks-genai must be pinned to 0\.10\.24/
+      /Android tasks-genai must be pinned to 0\.10\.24/
+    );
+  });
+});
+
+test('rejects duplicate Android MediaPipe declarations', async () => {
+  await withFixture({ duplicateAndroidDependency: true }, async (rootDir) => {
+    await assert.rejects(
+      validateNativeDependencies({ rootDir }),
+      /expected exactly one Android tasks-genai dependency; found 2/
     );
   });
 });
