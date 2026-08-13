@@ -3,8 +3,6 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import test from 'node:test';
 
-import './validate-native-dependencies.test.mjs';
-
 const workflow = readFileSync('.github/workflows/primary-ci.yml', 'utf8');
 const lines = workflow.split('\n');
 const jobsStart = lines.findIndex(line => line === 'jobs:');
