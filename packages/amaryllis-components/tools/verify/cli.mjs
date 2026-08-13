@@ -2,7 +2,7 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { Command, CommanderError } from 'commander';
 
@@ -24,7 +24,7 @@ const EXIT = {
 };
 
 function repositoryRootFromTool() {
-  return path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../../..');
+  return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 }
 
 function defaultValidator() {
@@ -50,7 +50,16 @@ function resolveLocalPath(value, baseDirectory = process.cwd()) {
 }
 
 async function readJsonFile(filePath) {
-  const source = await fs.readFile(filePath, 'utf8');
+  let source;
+  try {
+    source = await fs.readFile(filePath, 'utf8');
+  } catch (error) {
+    throw new VerifyRunnerError(
+      'cli.input-read-failed',
+      `could not read ${filePath}`,
+      { cause: error }
+    );
+  }
   return JSON.parse(source);
 }
 
@@ -138,7 +147,17 @@ function runnerErrorExitCode(error) {
   return EXIT.internalFailure;
 }
 
-function createProgram({ validator, stdout, stderr, adapterFactory, run = runVerification }) {
+function actionOptions(args) {
+  const command = args.at(-1);
+  return command.opts();
+}
+
+function createProgram({ validator, stdout, stderr, adapterFactory, run }) {
+  let resultCode = EXIT.ok;
+  const setResult = (code) => {
+    resultCode = code;
+  };
+
   const program = new Command();
   program
     .name('amaryllis-verify')
@@ -152,41 +171,43 @@ function createProgram({ validator, stdout, stderr, adapterFactory, run = runVer
   program
     .command('validate')
     .requiredOption('--evidence <path>', 'VerificationEvidence JSON file')
-    .action(async ({ evidence: evidencePath }) => {
+    .action(async (...args) => {
+      const { evidence: evidencePath } = actionOptions(args);
       const absolute = resolveLocalPath(evidencePath);
       const evidence = await readJsonFile(absolute);
       const result = validator.validateEvidence(evidence);
       if (!result.valid) {
         stderr(`${validationText(result)}\n`);
-        program.setOptionValueWithSource('__result', EXIT.invalidInput, 'implied');
+        setResult(EXIT.invalidInput);
         return;
       }
       stdout('valid\n');
-      program.setOptionValueWithSource('__result', EXIT.ok, 'implied');
+      setResult(EXIT.ok);
     });
 
   program
     .command('check')
     .requiredOption('--evidence <path>', 'VerificationEvidence JSON file')
-    .action(async ({ evidence: evidencePath }) => {
+    .action(async (...args) => {
+      const { evidence: evidencePath } = actionOptions(args);
       const absolute = resolveLocalPath(evidencePath);
       const evidence = await readJsonFile(absolute);
       const result = validator.validateEvidence(evidence);
       if (!result.valid) {
         stderr(`${validationText(result)}\n`);
-        program.setOptionValueWithSource('__result', EXIT.invalidInput, 'implied');
+        setResult(EXIT.invalidInput);
         return;
       }
 
       const derived = evaluateCompatibility(evidence);
       if (!sameDecision(evidence.decision, derived)) {
         stderr('embedded compatibility decision does not match validated evidence and policy\n');
-        program.setOptionValueWithSource('__result', EXIT.invalidInput, 'implied');
+        setResult(EXIT.invalidInput);
         return;
       }
 
       stdout(`${renderSummary(evidence)}\n`);
-      program.setOptionValueWithSource('__result', checkExitCode(evidence), 'implied');
+      setResult(checkExitCode(evidence));
     });
 
   program
@@ -194,7 +215,12 @@ function createProgram({ validator, stdout, stderr, adapterFactory, run = runVer
     .requiredOption('--manifest <path>', 'VerificationManifest JSON file')
     .requiredOption('--output <path>', 'output VerificationEvidence JSON file')
     .requiredOption('--adapter-script <path>', 'local deterministic adapter script JSON')
-    .action(async ({ manifest: manifestPath, output, adapterScript }) => {
+    .action(async (...args) => {
+      const {
+        manifest: manifestPath,
+        output,
+        adapterScript,
+      } = actionOptions(args);
       const absoluteManifest = resolveLocalPath(manifestPath);
       const absoluteAdapter = resolveLocalPath(adapterScript);
       const absoluteOutput = resolveLocalPath(output);
@@ -210,10 +236,13 @@ function createProgram({ validator, stdout, stderr, adapterFactory, run = runVer
       });
       await writeJsonAtomically(absoluteOutput, evidence);
       stdout(`${renderSummary(evidence)}\n`);
-      program.setOptionValueWithSource('__result', EXIT.ok, 'implied');
+      setResult(EXIT.ok);
     });
 
-  return program;
+  return {
+    program,
+    getResultCode: () => resultCode,
+  };
 }
 
 export async function runCli(
@@ -226,11 +255,17 @@ export async function runCli(
     run = runVerification,
   } = {}
 ) {
-  const program = createProgram({ validator, stdout, stderr, adapterFactory, run });
+  const { program, getResultCode } = createProgram({
+    validator,
+    stdout,
+    stderr,
+    adapterFactory,
+    run,
+  });
 
   try {
     await program.parseAsync(argv, { from: 'user' });
-    return program.getOptionValue('__result') ?? EXIT.ok;
+    return getResultCode();
   } catch (error) {
     if (error instanceof CommanderError) {
       if (error.code === 'commander.helpDisplayed') {
