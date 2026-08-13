@@ -212,6 +212,7 @@
       "additionalProperties": false,
       "required": [
         "runner",
+        "scenario",
         "manifestDigest",
         "collectors"
       ],
@@ -287,6 +288,25 @@
               "digest": {
                 "$ref": "common.schema.json#/$defs/digest"
               }
+            }
+          }
+        },
+        "scenario": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "version"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
             }
           }
         }
@@ -566,6 +586,49 @@
               },
               "message": {
                 "$ref": "common.schema.json#/$defs/sanitizedMessage"
+              }
+            }
+          }
+        }
+      }
+    },
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonicalization",
+        "payloadDigest"
+      ],
+      "properties": {
+        "canonicalization": {
+          "const": "RFC8785"
+        },
+        "payloadDigest": {
+          "$ref": "common.schema.json#/$defs/digest"
+        },
+        "attestationRefs": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "ref"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              "digest": {
+                "$ref": "common.schema.json#/$defs/digest"
               }
             }
           }
