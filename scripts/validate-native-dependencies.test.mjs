@@ -47,6 +47,13 @@ async function withFixture(options, callback) {
   }
 }
 
+test('repository declarations use the reviewed MediaPipe baseline', async () => {
+  assert.equal(
+    await validateNativeDependencies(),
+    EXPECTED_MEDIAPIPE_VERSION
+  );
+});
+
 test('accepts the reviewed cross-platform MediaPipe baseline', async () => {
   await withFixture({}, async (rootDir) => {
     assert.equal(
