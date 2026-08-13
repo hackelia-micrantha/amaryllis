@@ -1,0 +1,180 @@
+{
+  "apiVersion": "amaryllis.dev/verify/v1alpha1",
+  "kind": "VerificationEvidence",
+  "metadata": {
+    "id": "verify-ios-20260813-001",
+    "createdAt": "2026-08-13T08:12:00Z"
+  },
+  "execution": {
+    "status": "completed",
+    "startedAt": "2026-08-13T08:11:00Z",
+    "endedAt": "2026-08-13T08:12:00Z",
+    "durationMs": 60000,
+    "repetitions": {
+      "requested": 2,
+      "completed": 2
+    }
+  },
+  "subject": {
+    "application": {
+      "id": "com.example.amaryllis-demo",
+      "version": "1.4.0",
+      "buildId": "10400",
+      "digest": {
+        "algorithm": "sha256",
+        "value": "a04ac7d67177712aab81e8fb0ad5d128b684652be36bf8ca686239ead4bcc20d"
+      }
+    },
+    "runtime": {
+      "package": "@micrantha/react-native-amaryllis",
+      "version": "0.1.7",
+      "digest": {
+        "algorithm": "sha256",
+        "value": "928595919ebb66303eb5a96c0ea1984413451f77f9c7c630d8a6c0e8525d4d87"
+      }
+    },
+    "model": {
+      "id": "gemma3-1b-it-int4",
+      "version": "1",
+      "format": "mediapipe-task",
+      "digest": {
+        "algorithm": "sha256",
+        "value": "af3346c46870e663db46a85fd5a0ee9e60d85df6ae0b0bea6e6e61147ad10889"
+      }
+    }
+  },
+  "environment": {
+    "platform": "ios",
+    "os": {
+      "name": "iOS",
+      "version": "18.6",
+      "build": "22G86"
+    },
+    "device": {
+      "manufacturer": "Apple",
+      "model": "iPhone 15 Pro",
+      "modelCode": "iPhone16,1",
+      "architecture": "arm64",
+      "capabilities": [
+        "physical-device"
+      ],
+      "correlation": {
+        "scope": "run",
+        "id": "run-device-1"
+      }
+    }
+  },
+  "provenance": {
+    "runner": {
+      "name": "amaryllis-verify",
+      "version": "0.1.0-alpha.1"
+    },
+    "scenario": {
+      "id": "chat-smoke",
+      "version": "1.0.0"
+    },
+    "manifestDigest": {
+      "algorithm": "sha256",
+      "value": "9d906bd096aef41411ae25f5158ecb3014b9124b964f8a1b65501ef259ff8ac8"
+    },
+    "collectors": [
+      {
+        "name": "timing",
+        "version": "v1alpha1"
+      },
+      {
+        "name": "lifecycle",
+        "version": "v1alpha1"
+      }
+    ]
+  },
+  "measurements": [
+    {
+      "name": "timing.initialization.ms",
+      "unit": "ms",
+      "samples": [
+        {
+          "iteration": 1,
+          "value": 1260
+        },
+        {
+          "iteration": 2,
+          "value": 1225
+        }
+      ],
+      "summary": {
+        "count": 2,
+        "min": 1225,
+        "max": 1260,
+        "mean": 1242.5,
+        "p50": 1242.5,
+        "p95": 1258.25
+      }
+    }
+  ],
+  "checks": [
+    {
+      "name": "lifecycle.cancelRestart",
+      "status": "pass",
+      "code": "completed"
+    }
+  ],
+  "evaluations": [],
+  "unavailable": [
+    {
+      "kind": "metric",
+      "name": "energy.averageMilliwatts",
+      "reason": "unsupported",
+      "message": "No calibrated energy collector is available for this runner."
+    }
+  ],
+  "errors": [],
+  "policy": {
+    "profileId": "ios-reference",
+    "requirements": [
+      {
+        "id": "startup-budget",
+        "severity": "required",
+        "target": {
+          "kind": "metric",
+          "name": "timing.initialization.ms"
+        },
+        "operator": "lte",
+        "value": 2200,
+        "aggregate": "max",
+        "unit": "ms"
+      },
+      {
+        "id": "energy-budget",
+        "severity": "required",
+        "target": {
+          "kind": "metric",
+          "name": "energy.averageMilliwatts"
+        },
+        "operator": "lte",
+        "value": 2500,
+        "aggregate": "mean",
+        "unit": "mW"
+      },
+      {
+        "id": "cancel-restart",
+        "severity": "required",
+        "target": {
+          "kind": "check",
+          "name": "lifecycle.cancelRestart"
+        },
+        "operator": "pass"
+      }
+    ]
+  },
+  "decision": {
+    "status": "unknown",
+    "reasons": [
+      {
+        "requirementId": "energy-budget",
+        "code": "required-evidence-unavailable",
+        "message": "Required energy evidence was unavailable."
+      }
+    ]
+  }
+}

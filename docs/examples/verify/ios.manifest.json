@@ -1,0 +1,104 @@
+{
+  "apiVersion": "amaryllis.dev/verify/v1alpha1",
+  "kind": "VerificationManifest",
+  "metadata": {
+    "name": "ios-chat-reference"
+  },
+  "subject": {
+    "application": {
+      "id": "com.example.amaryllis-demo",
+      "version": "1.4.0",
+      "buildId": "10400",
+      "digest": {
+        "algorithm": "sha256",
+        "value": "a04ac7d67177712aab81e8fb0ad5d128b684652be36bf8ca686239ead4bcc20d"
+      }
+    },
+    "runtime": {
+      "package": "@micrantha/react-native-amaryllis",
+      "version": "0.1.7",
+      "digest": {
+        "algorithm": "sha256",
+        "value": "928595919ebb66303eb5a96c0ea1984413451f77f9c7c630d8a6c0e8525d4d87"
+      }
+    },
+    "model": {
+      "id": "gemma3-1b-it-int4",
+      "version": "1",
+      "format": "mediapipe-task",
+      "digest": {
+        "algorithm": "sha256",
+        "value": "af3346c46870e663db46a85fd5a0ee9e60d85df6ae0b0bea6e6e61147ad10889"
+      }
+    }
+  },
+  "target": {
+    "platform": "ios",
+    "minOsVersion": "18.0",
+    "architectures": [
+      "arm64"
+    ],
+    "requiredCapabilities": [
+      "physical-device"
+    ]
+  },
+  "scenario": {
+    "id": "chat-smoke",
+    "version": "1.0.0",
+    "timeoutMs": 60000,
+    "warmupRuns": 1,
+    "repetitions": 2
+  },
+  "collect": {
+    "metrics": [
+      "timing.initialization.ms",
+      "energy.averageMilliwatts"
+    ],
+    "checks": [
+      "lifecycle.cancelRestart"
+    ],
+    "evaluations": []
+  },
+  "policy": {
+    "profileId": "ios-reference",
+    "requirements": [
+      {
+        "id": "startup-budget",
+        "severity": "required",
+        "target": {
+          "kind": "metric",
+          "name": "timing.initialization.ms"
+        },
+        "operator": "lte",
+        "value": 2200,
+        "aggregate": "max",
+        "unit": "ms"
+      },
+      {
+        "id": "energy-budget",
+        "severity": "required",
+        "target": {
+          "kind": "metric",
+          "name": "energy.averageMilliwatts"
+        },
+        "operator": "lte",
+        "value": 2500,
+        "aggregate": "mean",
+        "unit": "mW"
+      },
+      {
+        "id": "cancel-restart",
+        "severity": "required",
+        "target": {
+          "kind": "check",
+          "name": "lifecycle.cancelRestart"
+        },
+        "operator": "pass"
+      }
+    ]
+  },
+  "output": {
+    "path": "artifacts/verify/ios-chat-reference.json",
+    "humanSummary": true
+  }
+}

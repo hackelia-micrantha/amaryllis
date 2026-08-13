@@ -1,0 +1,639 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Amaryllis Verification Evidence v1alpha1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "execution",
+    "subject",
+    "environment",
+    "provenance",
+    "measurements",
+    "checks",
+    "evaluations",
+    "unavailable",
+    "errors",
+    "policy",
+    "decision"
+  ],
+  "properties": {
+    "apiVersion": {
+      "const": "amaryllis.dev/verify/v1alpha1"
+    },
+    "kind": {
+      "const": "VerificationEvidence"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "createdAt"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "startedAt",
+        "endedAt",
+        "durationMs",
+        "repetitions"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "completed",
+            "partial",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "startedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "endedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "repetitions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "requested",
+            "completed"
+          ],
+          "properties": {
+            "requested": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "completed": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "subject": {
+      "$ref": "common.schema.json#/$defs/subject"
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "platform",
+        "os",
+        "device"
+      ],
+      "properties": {
+        "platform": {
+          "enum": [
+            "android",
+            "ios"
+          ]
+        },
+        "os": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "version"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "build": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        },
+        "device": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "manufacturer",
+            "model",
+            "architecture"
+          ],
+          "properties": {
+            "manufacturer": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "model": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            "modelCode": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            "architecture": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 50
+            },
+            "memoryClassBytes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "capabilities": {
+              "type": "array",
+              "uniqueItems": true,
+              "maxItems": 64,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              }
+            },
+            "correlation": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "scope",
+                "id"
+              ],
+              "properties": {
+                "scope": {
+                  "enum": [
+                    "run",
+                    "project"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runner",
+        "scenario",
+        "manifestDigest",
+        "collectors"
+      ],
+      "properties": {
+        "runner": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "version"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        },
+        "manifestDigest": {
+          "$ref": "common.schema.json#/$defs/digest"
+        },
+        "collectors": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "version"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "version": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              }
+            }
+          }
+        },
+        "evaluationSuites": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "version"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "version": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "digest": {
+                "$ref": "common.schema.json#/$defs/digest"
+              }
+            }
+          }
+        },
+        "scenario": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "version"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        }
+      }
+    },
+    "measurements": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "unit",
+          "samples",
+          "summary"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "samples": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1000,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "iteration",
+                "value"
+              ],
+              "properties": {
+                "iteration": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "value": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "summary": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "count",
+              "min",
+              "max",
+              "mean"
+            ],
+            "properties": {
+              "count": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              },
+              "mean": {
+                "type": "number"
+              },
+              "p50": {
+                "type": "number"
+              },
+              "p95": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      }
+    },
+    "checks": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "status"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+          },
+          "status": {
+            "enum": [
+              "pass",
+              "fail",
+              "unknown"
+            ]
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+          },
+          "message": {
+            "$ref": "common.schema.json#/$defs/sanitizedMessage"
+          }
+        }
+      }
+    },
+    "evaluations": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "status"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+          },
+          "status": {
+            "enum": [
+              "pass",
+              "fail",
+              "unknown"
+            ]
+          },
+          "score": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+          }
+        }
+      }
+    },
+    "unavailable": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "name",
+          "reason"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "metric",
+              "check",
+              "evaluation"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+          },
+          "reason": {
+            "enum": [
+              "unsupported",
+              "collector-failed",
+              "not-run",
+              "cancelled",
+              "insufficient-samples"
+            ]
+          },
+          "message": {
+            "$ref": "common.schema.json#/$defs/sanitizedMessage"
+          }
+        }
+      }
+    },
+    "errors": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "phase",
+          "code"
+        ],
+        "properties": {
+          "phase": {
+            "enum": [
+              "setup",
+              "launch",
+              "warmup",
+              "execute",
+              "collect",
+              "evaluate",
+              "cleanup"
+            ]
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+          },
+          "message": {
+            "$ref": "common.schema.json#/$defs/sanitizedMessage"
+          }
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requirements"
+      ],
+      "properties": {
+        "profileId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "requirements": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "common.schema.json#/$defs/requirement"
+          }
+        }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "reasons"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "pass",
+            "warn",
+            "fail",
+            "unknown"
+          ]
+        },
+        "reasons": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "code"
+            ],
+            "properties": {
+              "requirementId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+              },
+              "code": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+              },
+              "message": {
+                "$ref": "common.schema.json#/$defs/sanitizedMessage"
+              }
+            }
+          }
+        }
+      }
+    },
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonicalization",
+        "payloadDigest"
+      ],
+      "properties": {
+        "canonicalization": {
+          "const": "RFC8785"
+        },
+        "payloadDigest": {
+          "$ref": "common.schema.json#/$defs/digest"
+        },
+        "attestationRefs": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "ref"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              "digest": {
+                "$ref": "common.schema.json#/$defs/digest"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
