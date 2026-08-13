@@ -4,8 +4,6 @@ import { fileURLToPath } from 'node:url';
 
 export const EXPECTED_MEDIAPIPE_VERSION = '0.10.24';
 
-const ANDROID_ARTIFACTS = ['tasks-core', 'tasks-genai'];
-
 function requireMatch(value, message) {
   if (!value) {
     throw new Error(message);
@@ -13,27 +11,18 @@ function requireMatch(value, message) {
   return value;
 }
 
-function extractAndroidVersions(contents) {
-  const versions = new Map();
-  const dependencyPattern =
-    /implementation\s+['"]com\.google\.mediapipe:(tasks-core|tasks-genai):([^'"]+)['"]/g;
-
-  for (const match of contents.matchAll(dependencyPattern)) {
-    const [, artifact, version] = match;
-    if (versions.has(artifact)) {
-      throw new Error(`duplicate Android MediaPipe dependency: ${artifact}`);
-    }
-    versions.set(artifact, version);
-  }
-
-  for (const artifact of ANDROID_ARTIFACTS) {
-    requireMatch(
-      versions.get(artifact),
-      `missing Android MediaPipe dependency: ${artifact}`
+function extractAndroidVersion(contents) {
+  const matches = [
+    ...contents.matchAll(
+      /implementation\s+['"]com\.google\.mediapipe:tasks-genai:([^'"]+)['"]/g
+    ),
+  ];
+  if (matches.length !== 1) {
+    throw new Error(
+      `expected exactly one Android tasks-genai dependency; found ${matches.length}`
     );
   }
-
-  return versions;
+  return matches[0][1];
 }
 
 function extractIosVersion(contents) {
@@ -48,11 +37,9 @@ function extractIosVersion(contents) {
 
 function extractLockedVersion(contents, podName) {
   const escapedPodName = podName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const pattern = new RegExp(
-    `^  - ${escapedPodName} \\(([^)]+)\\):?\\s*$`,
-    'm'
+  const match = contents.match(
+    new RegExp(`^  - ${escapedPodName} \\(([^)]+)\\):?\\s*$`, 'm')
   );
-  const match = contents.match(pattern);
   return requireMatch(match?.[1], `missing locked iOS pod: ${podName}`);
 }
 
@@ -71,22 +58,19 @@ export async function validateNativeDependencies({ rootDir = process.cwd() } = {
     readFile(path.join(rootDir, 'example/ios/Podfile.lock'), 'utf8'),
   ]);
 
-  const androidVersions = extractAndroidVersions(gradle);
-  const coreVersion = androidVersions.get('tasks-core');
-  const genaiVersion = androidVersions.get('tasks-genai');
+  const androidVersion = extractAndroidVersion(gradle);
   const iosVersion = extractIosVersion(podspec);
   const iosLockedVersion = extractLockedVersion(lockfile, 'MediaPipeTasksGenAI');
   const iosCLockedVersion = extractLockedVersion(lockfile, 'MediaPipeTasksGenAIC');
 
-  assertExpectedVersion(coreVersion, 'Android tasks-core');
-  assertExpectedVersion(genaiVersion, 'Android tasks-genai');
+  assertExpectedVersion(androidVersion, 'Android tasks-genai');
   assertExpectedVersion(iosVersion, 'iOS MediaPipeTasksGenAI podspec');
   assertExpectedVersion(iosLockedVersion, 'iOS MediaPipeTasksGenAI lockfile');
   assertExpectedVersion(iosCLockedVersion, 'iOS MediaPipeTasksGenAIC lockfile');
 
-  if (coreVersion !== genaiVersion || genaiVersion !== iosVersion) {
+  if (androidVersion !== iosVersion) {
     throw new Error(
-      `MediaPipe versions must match across native declarations; found tasks-core=${coreVersion}, tasks-genai=${genaiVersion}, iOS=${iosVersion}`
+      `MediaPipe versions must match across native declarations; found Android=${androidVersion}, iOS=${iosVersion}`
     );
   }
 
