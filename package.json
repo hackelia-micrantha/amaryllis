@@ -1,7 +1,7 @@
 {
   "name": "@micrantha/react-native-amaryllis",
   "version": "0.1.7",
-  "description": "A generative AI module for native mobile",
+  "description": "React Native foundation for on-device multimodal AI with offline context and governed AI-enabled UI",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
   "exports": {
@@ -49,6 +49,10 @@
   },
   "keywords": [
     "react-native",
+    "on-device-ai",
+    "local-ai",
+    "multimodal",
+    "llm",
     "ios",
     "android"
   ],

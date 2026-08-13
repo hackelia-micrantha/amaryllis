@@ -1,4 +1,4 @@
-name: Compatibility Matrix
+name: Node.js Compatibility Matrix
 
 on:
   pull_request:
