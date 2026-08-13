@@ -261,6 +261,82 @@ test('numeric comparator on a check fails closed', () => {
   );
 });
 
+test('present requirements reject comparison metadata', () => {
+  const evidence = clone(androidEvidence);
+  const requirement = requirementById(evidence, 'thermal-observation');
+  requirement.unit = 'state';
+
+  evidence.unavailable = [];
+  evidence.measurements.push({
+    name: 'thermal.maxState',
+    unit: 'state',
+    samples: [{ iteration: 1, value: 1 }],
+    summary: { count: 1, min: 1, max: 1, mean: 1 },
+  });
+
+  assertPolicyError(
+    () => evaluateCompatibility(evidence),
+    'requirement.unexpected-comparison-metadata'
+  );
+});
+
+test('pass requirements reject comparison metadata', () => {
+  const evidence = clone(androidEvidence);
+  const requirement = requirementById(evidence, 'cancel-restart');
+  requirement.unit = 'status';
+
+  assertPolicyError(
+    () => evaluateCompatibility(evidence),
+    'requirement.unexpected-comparison-metadata'
+  );
+});
+
+test('numeric evaluation comparison requires an explicit policy unit', () => {
+  const evidence = clone(androidEvidence);
+  const requirement = requirementById(evidence, 'quality-floor');
+  delete requirement.unit;
+
+  assertPolicyError(() => evaluateCompatibility(evidence), 'requirement.missing-unit');
+});
+
+test('missing evaluation score unit becomes unknown rather than dimensionless pass', () => {
+  const evidence = clone(androidEvidence);
+  const evaluation = evidence.evaluations.find(({ name }) => name === 'quality.chatSmoke');
+  delete evaluation.unit;
+
+  const result = evaluateCompatibility(evidence);
+  assert.equal(result.status, 'unknown');
+  assert.ok(
+    result.reasons.some(
+      ({ requirementId, code }) =>
+        requirementId === 'quality-floor' && code === 'required-evidence-unavailable'
+    )
+  );
+});
+
+test('mismatched metric units fail closed during direct evaluation', () => {
+  const evidence = clone(androidEvidence);
+  const measurement = evidence.measurements.find(
+    ({ name }) => name === 'timing.initialization.ms'
+  );
+  measurement.unit = 'seconds';
+
+  assertPolicyError(() => evaluateCompatibility(evidence), 'evidence.unit-mismatch');
+});
+
+test('status equality on evaluations rejects units', () => {
+  const evidence = clone(androidEvidence);
+  const requirement = requirementById(evidence, 'quality-floor');
+  requirement.operator = 'eq';
+  requirement.value = 'pass';
+  requirement.unit = 'ratio';
+
+  assertPolicyError(
+    () => evaluateCompatibility(evidence),
+    'requirement.invalid-evaluation-status-unit'
+  );
+});
+
 test('empty policy fails closed', () => {
   const evidence = clone(androidEvidence);
   evidence.policy.requirements = [];
