@@ -21,6 +21,24 @@ const ALLOWED_CHECK_KEYS = new Set(['name', 'status', 'code', 'message']);
 const ALLOWED_EVALUATION_KEYS = new Set(['name', 'status', 'score', 'unit', 'code']);
 const ALLOWED_UNAVAILABLE_KEYS = new Set(['kind', 'name', 'reason', 'message']);
 const ALLOWED_ERROR_KEYS = new Set(['phase', 'code', 'message']);
+const RESULT_STATUSES = new Set(['pass', 'fail', 'unknown']);
+const UNAVAILABLE_REASONS = new Set([
+  'unsupported',
+  'collector-failed',
+  'not-run',
+  'cancelled',
+  'insufficient-samples',
+]);
+const ERROR_PHASES = new Set([
+  'setup',
+  'launch',
+  'warmup',
+  'execute',
+  'collect',
+  'evaluate',
+  'cleanup',
+]);
+const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 
 export class VerifyRunnerError extends Error {
   constructor(code, message, options = {}) {
@@ -43,10 +61,25 @@ function runnerError(code, message, cause) {
 }
 
 function assertKnownKeys(value, allowed, context) {
-  for (const key of Object.keys(value ?? {})) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    runnerError('adapter.invalid-object', `${context} must be an object`);
+  }
+  for (const key of Object.keys(value)) {
     if (!allowed.has(key)) {
       runnerError('adapter.unknown-field', `${context} contains undeclared field ${key}`);
     }
+  }
+}
+
+function assertOptionalArray(value, context) {
+  if (value !== undefined && !Array.isArray(value)) {
+    runnerError('adapter.invalid-array', `${context} must be an array when provided`);
+  }
+}
+
+function assertIdentifier(value, context) {
+  if (typeof value !== 'string' || !IDENTIFIER.test(value)) {
+    runnerError('adapter.invalid-identifier', `${context} must be a bounded identifier`);
   }
 }
 
@@ -288,17 +321,39 @@ function assertRequestedTarget(requested, kind, name) {
   }
 }
 
-function recordIterationResult(state, result, iteration) {
+function hasAvailableTarget(state, kind, name) {
+  if (kind === 'metric') return state.measurements.has(name);
+  if (kind === 'check') return state.checks.has(name);
+  return state.evaluations.has(name);
+}
+
+function prevalidateIterationResult(state, result, iteration) {
   assertKnownKeys(result, ALLOWED_ITERATION_RESULT_KEYS, `iteration ${iteration} result`);
 
+  for (const key of ['measurements', 'checks', 'evaluations', 'unavailable', 'errors']) {
+    assertOptionalArray(result[key], `iteration ${iteration} ${key}`);
+  }
+
+  const resultTargets = new Set();
+
   for (const measurement of result.measurements ?? []) {
-    assertKnownKeys(measurement, ALLOWED_MEASUREMENT_KEYS, `measurement ${measurement.name ?? '<unknown>'}`);
+    assertKnownKeys(measurement, ALLOWED_MEASUREMENT_KEYS, `measurement ${measurement?.name ?? '<unknown>'}`);
+    assertIdentifier(measurement.name, 'measurement name');
     assertRequestedTarget(state.requested, 'metric', measurement.name);
     assertFiniteNumber(measurement.value, `measurement ${measurement.name}`);
-    if (typeof measurement.unit !== 'string' || measurement.unit.length === 0) {
-      runnerError('adapter.metric-unit-missing', `measurement ${measurement.name} must define a unit`);
+    if (typeof measurement.unit !== 'string' || measurement.unit.length === 0 || measurement.unit.length > 32) {
+      runnerError('adapter.metric-unit-invalid', `measurement ${measurement.name} must define a bounded unit`);
     }
 
+    const key = `metric:${measurement.name}`;
+    if (resultTargets.has(key)) {
+      runnerError('adapter.duplicate-target', `iteration ${iteration} emitted ${key} more than once`);
+    }
+    resultTargets.add(key);
+
+    if (state.unavailable.has(key)) {
+      runnerError('adapter.available-after-unavailable', `${key} was previously marked unavailable`);
+    }
     const existing = state.measurements.get(measurement.name);
     if (existing && existing.unit !== measurement.unit) {
       runnerError(
@@ -306,23 +361,119 @@ function recordIterationResult(state, result, iteration) {
         `measurement ${measurement.name} changed unit from ${existing.unit} to ${measurement.unit}`
       );
     }
-    const entry = existing ?? { name: measurement.name, unit: measurement.unit, samples: [] };
-    if (entry.samples.some((sample) => sample.iteration === iteration)) {
+    if (existing?.samples.some((sample) => sample.iteration === iteration)) {
       runnerError(
         'adapter.duplicate-metric-sample',
         `measurement ${measurement.name} emitted more than once for iteration ${iteration}`
       );
     }
+  }
+
+  for (const check of result.checks ?? []) {
+    assertKnownKeys(check, ALLOWED_CHECK_KEYS, `check ${check?.name ?? '<unknown>'}`);
+    assertIdentifier(check.name, 'check name');
+    assertRequestedTarget(state.requested, 'check', check.name);
+    if (!RESULT_STATUSES.has(check.status)) {
+      runnerError('adapter.check-status-invalid', `check ${check.name} has invalid status ${String(check.status)}`);
+    }
+    if (check.code !== undefined) assertIdentifier(check.code, `check ${check.name} code`);
+
+    const key = `check:${check.name}`;
+    if (resultTargets.has(key) || state.checks.has(check.name)) {
+      runnerError('adapter.duplicate-check', `check ${check.name} is run-scoped and may be emitted once`);
+    }
+    if (state.unavailable.has(key)) {
+      runnerError('adapter.available-after-unavailable', `${key} was previously marked unavailable`);
+    }
+    resultTargets.add(key);
+  }
+
+  for (const evaluation of result.evaluations ?? []) {
+    assertKnownKeys(
+      evaluation,
+      ALLOWED_EVALUATION_KEYS,
+      `evaluation ${evaluation?.name ?? '<unknown>'}`
+    );
+    assertIdentifier(evaluation.name, 'evaluation name');
+    assertRequestedTarget(state.requested, 'evaluation', evaluation.name);
+    if (!RESULT_STATUSES.has(evaluation.status)) {
+      runnerError(
+        'adapter.evaluation-status-invalid',
+        `evaluation ${evaluation.name} has invalid status ${String(evaluation.status)}`
+      );
+    }
+    if (evaluation.score !== undefined) {
+      assertFiniteNumber(evaluation.score, `evaluation ${evaluation.name} score`);
+    }
+    if (evaluation.unit !== undefined && (typeof evaluation.unit !== 'string' || evaluation.unit.length === 0 || evaluation.unit.length > 32)) {
+      runnerError('adapter.evaluation-unit-invalid', `evaluation ${evaluation.name} has invalid unit`);
+    }
+    if (evaluation.code !== undefined) {
+      assertIdentifier(evaluation.code, `evaluation ${evaluation.name} code`);
+    }
+
+    const key = `evaluation:${evaluation.name}`;
+    if (resultTargets.has(key) || state.evaluations.has(evaluation.name)) {
+      runnerError(
+        'adapter.duplicate-evaluation',
+        `evaluation ${evaluation.name} is run-scoped and may be emitted once`
+      );
+    }
+    if (state.unavailable.has(key)) {
+      runnerError('adapter.available-after-unavailable', `${key} was previously marked unavailable`);
+    }
+    resultTargets.add(key);
+  }
+
+  const unavailableTargets = new Set();
+  for (const unavailable of result.unavailable ?? []) {
+    assertKnownKeys(
+      unavailable,
+      ALLOWED_UNAVAILABLE_KEYS,
+      `unavailable ${unavailable?.name ?? '<unknown>'}`
+    );
+    if (!['metric', 'check', 'evaluation'].includes(unavailable.kind)) {
+      runnerError('adapter.unavailable-kind-invalid', `invalid unavailable kind ${String(unavailable.kind)}`);
+    }
+    assertIdentifier(unavailable.name, 'unavailable target name');
+    assertRequestedTarget(state.requested, unavailable.kind, unavailable.name);
+    if (!UNAVAILABLE_REASONS.has(unavailable.reason)) {
+      runnerError(
+        'adapter.unavailable-reason-invalid',
+        `target ${unavailable.kind}:${unavailable.name} has invalid unavailable reason`
+      );
+    }
+
+    const key = `${unavailable.kind}:${unavailable.name}`;
+    if (unavailableTargets.has(key) || state.unavailable.has(key)) {
+      runnerError('adapter.duplicate-unavailable', `target ${key} was marked unavailable more than once`);
+    }
+    if (resultTargets.has(key) || hasAvailableTarget(state, unavailable.kind, unavailable.name)) {
+      runnerError('adapter.available-and-unavailable', `${key} cannot be both available and unavailable`);
+    }
+    unavailableTargets.add(key);
+  }
+
+  for (const error of result.errors ?? []) {
+    assertKnownKeys(error, ALLOWED_ERROR_KEYS, `adapter error ${error?.code ?? '<unknown>'}`);
+    if (!ERROR_PHASES.has(error.phase)) {
+      runnerError('adapter.error-phase-invalid', `adapter error has invalid phase ${String(error.phase)}`);
+    }
+    assertIdentifier(error.code, 'adapter error code');
+  }
+}
+
+function recordIterationResult(state, result, iteration) {
+  prevalidateIterationResult(state, result, iteration);
+
+  for (const measurement of result.measurements ?? []) {
+    const existing = state.measurements.get(measurement.name);
+    const entry = existing ?? { name: measurement.name, unit: measurement.unit, samples: [] };
     entry.samples.push({ iteration, value: measurement.value });
     state.measurements.set(measurement.name, entry);
   }
 
   for (const check of result.checks ?? []) {
-    assertKnownKeys(check, ALLOWED_CHECK_KEYS, `check ${check.name ?? '<unknown>'}`);
-    assertRequestedTarget(state.requested, 'check', check.name);
-    if (state.checks.has(check.name)) {
-      runnerError('adapter.duplicate-check', `check ${check.name} is run-scoped and may be emitted once`);
-    }
     state.checks.set(check.name, {
       name: check.name,
       status: check.status,
@@ -334,21 +485,6 @@ function recordIterationResult(state, result, iteration) {
   }
 
   for (const evaluation of result.evaluations ?? []) {
-    assertKnownKeys(
-      evaluation,
-      ALLOWED_EVALUATION_KEYS,
-      `evaluation ${evaluation.name ?? '<unknown>'}`
-    );
-    assertRequestedTarget(state.requested, 'evaluation', evaluation.name);
-    if (state.evaluations.has(evaluation.name)) {
-      runnerError(
-        'adapter.duplicate-evaluation',
-        `evaluation ${evaluation.name} is run-scoped and may be emitted once`
-      );
-    }
-    if (evaluation.score !== undefined) {
-      assertFiniteNumber(evaluation.score, `evaluation ${evaluation.name} score`);
-    }
     state.evaluations.set(evaluation.name, {
       name: evaluation.name,
       status: evaluation.status,
@@ -359,16 +495,7 @@ function recordIterationResult(state, result, iteration) {
   }
 
   for (const unavailable of result.unavailable ?? []) {
-    assertKnownKeys(
-      unavailable,
-      ALLOWED_UNAVAILABLE_KEYS,
-      `unavailable ${unavailable.name ?? '<unknown>'}`
-    );
-    assertRequestedTarget(state.requested, unavailable.kind, unavailable.name);
     const key = `${unavailable.kind}:${unavailable.name}`;
-    if (state.unavailable.has(key)) {
-      runnerError('adapter.duplicate-unavailable', `target ${key} was marked unavailable more than once`);
-    }
     state.unavailable.set(key, {
       kind: unavailable.kind,
       name: unavailable.name,
@@ -380,7 +507,6 @@ function recordIterationResult(state, result, iteration) {
   }
 
   for (const error of result.errors ?? []) {
-    assertKnownKeys(error, ALLOWED_ERROR_KEYS, `adapter error ${error.code ?? '<unknown>'}`);
     state.errors.push({
       phase: error.phase,
       code: error.code,
@@ -408,12 +534,6 @@ function summarizeMeasurement(measurement) {
       p95: percentileR7(values, 0.95),
     },
   };
-}
-
-function hasAvailableTarget(state, kind, name) {
-  if (kind === 'metric') return state.measurements.has(name);
-  if (kind === 'check') return state.checks.has(name);
-  return state.evaluations.has(name);
 }
 
 function fillMissingTargets(state, reason) {
