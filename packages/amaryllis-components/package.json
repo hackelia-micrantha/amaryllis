@@ -15,9 +15,9 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "jest && node --test tools/verify/validator.test.mjs",
+    "test": "jest && node --test tools/verify/*.test.mjs",
     "verify:examples": "node ../../scripts/verify-component-examples.mjs",
-    "verify:contract": "node --test tools/verify/validator.test.mjs",
+    "verify:contract": "node --test tools/verify/*.test.mjs",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "prepare": "npm run build"
   },
