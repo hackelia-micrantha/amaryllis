@@ -17,7 +17,7 @@ Pod::Spec.new do |s|
   s.exclude_files = "ios/tests/**/*"
   s.private_header_files = "ios/**/*.h"
 
-  s.dependency "MediaPipeTasksGenAI"
+  s.dependency "MediaPipeTasksGenAI", "= 0.10.24"
 
   install_modules_dependencies(s)
 end
