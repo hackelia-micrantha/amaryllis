@@ -20,13 +20,17 @@ async function delay(milliseconds, signal) {
   }
 
   await new Promise((resolve, reject) => {
-    const timer = setTimeout(resolve, milliseconds);
+    let timer;
     const onAbort = () => {
       clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
       reject(signal.reason instanceof Error ? signal.reason : new Error('operation aborted'));
     };
+    timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, milliseconds);
     signal?.addEventListener('abort', onAbort, { once: true });
-    timer.unref?.();
   });
 }
 
