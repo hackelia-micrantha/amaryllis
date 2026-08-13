@@ -69,6 +69,10 @@
       "name": "amaryllis-verify",
       "version": "0.1.0-alpha.1"
     },
+    "scenario": {
+      "id": "chat-smoke",
+      "version": "1.0.0"
+    },
     "manifestDigest": {
       "algorithm": "sha256",
       "value": "9d906bd096aef41411ae25f5158ecb3014b9124b964f8a1b65501ef259ff8ac8"
