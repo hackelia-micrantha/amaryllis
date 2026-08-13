@@ -31,7 +31,8 @@ Important assets include:
 - policy definitions;
 - registry entries and implementation identities;
 - application secrets, network credentials, and local storage;
-- build, review, provenance, and release evidence.
+- build, review, provenance, and release evidence;
+- production-verification evidence, compatibility decisions, and their subject identities.
 
 ## Trust Boundaries
 
@@ -70,6 +71,14 @@ Risks include spec or implementation mismatch, stale identities, unauthorized re
 Application-selected model files cross into the mobile trust boundary.
 
 Risks include model substitution, tampering, incompatible artifacts, licensing failures, resource abuse, and parser or runtime vulnerabilities.
+
+### B7: Runtime and device observations to operational evidence
+
+Runtime, application, model, and device observations cross into a structured verification or diagnostics artifact that may later be retained, compared, exported, or ingested by another system.
+
+Risks include sensitive-content over-collection, secret leakage, persistent device tracking, untrusted output entering logs/evidence, misleading partial evidence, and future ingestion expanding the collection boundary without application consent.
+
+Operational evidence must be data-minimized and structured. It must not require prompts, generated output, retrieved context, or application/user content by default.
 
 ## Threat Categories
 
@@ -240,6 +249,98 @@ Risks include model substitution, tampering, incompatible artifacts, licensing f
 - generate SBOMs and release attestations;
 - distinguish provenance from correctness or safety claims.
 
+### T13: Operational evidence over-collection or poisoning
+
+**Description:** Verification, diagnostics, or future observability captures content outside the minimum operational evidence boundary, or untrusted model/application output is allowed to contaminate structured evidence and logs.
+
+**Examples:**
+
+- a benchmark artifact embeds the full prompt and generated response when only latency was required;
+- a model emits control characters or attacker-chosen strings that are copied into logs or report fields;
+- a device identifier is made globally persistent even though a device class would be sufficient;
+- collector failure falls back to retaining raw runtime logs containing secrets or user content;
+- a future remote ingestion path starts collecting additional content without an application-level policy change.
+
+**Controls:**
+
+- define structured evidence fields rather than retaining arbitrary logs;
+- exclude prompts, generated output, retrieved context, media, application payloads, and secrets by default;
+- require explicit application policy for content-bearing evidence;
+- bound and sanitize untrusted strings included in evidence;
+- represent unsupported/unavailable measurements explicitly instead of collecting broader fallback data;
+- minimize device identity to the granularity needed for reproducibility and compatibility;
+- make any network export or hosted ingestion explicit and application-controlled;
+- keep local evidence useful without network access.
+
+## Operational Evidence Data Boundary
+
+Production verification and diagnostics should use this default data flow:
+
+```text
+application/runtime/model/device
+  -> bounded collectors and evaluators
+  -> structured operational measurements
+  -> versioned evidence
+  -> local file / CI artifact / explicit application-selected sink
+```
+
+The boundary is intentionally different from application content flow:
+
+```text
+prompt / generated output / retrieved context / user media
+  -X-> default operational evidence
+```
+
+### Allowed by default
+
+Operational evidence may include the minimum metadata required to explain and reproduce a compatibility decision, for example:
+
+- application/build identity supplied by the application;
+- Amaryllis/runtime version;
+- model identity and cryptographic digest;
+- OS/platform/device capability metadata needed for the decision;
+- timing and performance measurements;
+- memory, storage, and resource measurements;
+- lifecycle, cancellation, error, crash, and OOM classifications;
+- verification/evaluation suite identity;
+- declared budgets and resulting compatibility decision;
+- runner/collector provenance.
+
+### Excluded by default
+
+The following data classes are outside the default operational evidence boundary:
+
+- prompts;
+- generated model output;
+- retrieved context and persisted memory contents;
+- embeddings derived from application/user content;
+- user documents, images, audio, or other media;
+- application payloads unrelated to the declared measurement;
+- authentication tokens, keys, credentials, or other secrets;
+- arbitrary raw logs that may contain any of the above.
+
+Content-bearing evidence must be explicitly enabled by application policy. Enabling it for one scenario or sink must not silently enable it globally.
+
+### Device identity
+
+Verification needs enough device information to reproduce or group compatibility evidence, but that does not justify a new cross-application tracking identifier.
+
+Prefer, in order:
+
+1. hardware/device class and capability metadata sufficient for the compatibility decision;
+2. an application- or evidence-scope pseudonymous identifier when run-to-run correlation is actually required;
+3. a persistent device identifier only when the application has an explicit requirement and policy for it.
+
+### Evidence integrity and interpretation
+
+Operational evidence is evidence about an execution, not authoritative application data and not a safety certification.
+
+- model/application output remains untrusted even if represented in an explicitly opted-in evidence extension;
+- partial or failed collection must be visible as partial/unavailable evidence;
+- missing required evidence must not be interpreted as a successful check;
+- human-readable reports should be rendered from structured evidence rather than treating raw logs as the canonical artifact;
+- future retention or ingestion systems must preserve the same default data boundary rather than broadening it implicitly.
+
 ## Security Assumptions
 
 The current design assumes:
@@ -250,7 +351,8 @@ The current design assumes:
 - policy enforcement occurs outside the model;
 - registry identity and validation remain authoritative;
 - the mobile operating system and application sandbox are not perfect isolation boundaries;
-- network fallback is explicit rather than implicit.
+- network fallback is explicit rather than implicit;
+- operational verification evidence excludes application/user content unless the application explicitly opts into a bounded content-bearing extension.
 
 Changing any of these assumptions requires revisiting the threat model.
 
@@ -260,10 +362,11 @@ Changing any of these assumptions requires revisiting the threat model.
 2. make overlay semantics and failure behavior fully explicit;
 3. expand generated-source and package validation;
 4. improve runtime validation observability and recovery;
-5. define privacy, logging, retention, and fallback expectations;
+5. define privacy, logging, retention, evidence, and fallback expectations;
 6. make accessibility and design constraints machine-checkable;
 7. add adversarial multimodal and resource-exhaustion test coverage;
-8. improve replayable evidence for personalization and generation.
+8. improve replayable evidence for personalization and generation;
+9. encode operational-evidence privacy invariants into the Verify schema/tests once that contract exists.
 
 ## Summary
 
@@ -279,4 +382,4 @@ and:
 authoritative application behavior
 ```
 
-Amaryllis is designed to preserve that separation across inference, context retrieval, component generation, personalization, registry resolution, and release workflows.
+Amaryllis is designed to preserve that separation across inference, context retrieval, component generation, personalization, registry resolution, verification evidence, and release workflows.
