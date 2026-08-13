@@ -18,14 +18,7 @@ const ALLOWED_ITERATION_RESULT_KEYS = new Set([
 ]);
 const ALLOWED_MEASUREMENT_KEYS = new Set(['name', 'unit', 'value']);
 const ALLOWED_CHECK_KEYS = new Set(['name', 'status', 'code', 'message']);
-const ALLOWED_EVALUATION_KEYS = new Set([
-  'name',
-  'status',
-  'score',
-  'unit',
-  'code',
-  'message',
-]);
+const ALLOWED_EVALUATION_KEYS = new Set(['name', 'status', 'score', 'unit', 'code']);
 const ALLOWED_UNAVAILABLE_KEYS = new Set(['kind', 'name', 'reason', 'message']);
 const ALLOWED_ERROR_KEYS = new Set(['phase', 'code', 'message']);
 
@@ -509,7 +502,6 @@ export async function runVerification({
   let completed = 0;
   let failed = false;
   let interruption = null;
-  let failurePhase = null;
 
   const executePhase = async (phase, operation) => {
     try {
@@ -520,15 +512,17 @@ export async function runVerification({
       } else {
         failed = true;
       }
-      failurePhase = phase;
+      const errorCode =
+        error instanceof RunInterruptedError
+          ? error.kind === 'timeout'
+            ? 'run-timeout'
+            : 'run-cancelled'
+          : error instanceof VerifyRunnerError
+            ? error.code
+            : 'adapter-error';
       state.errors.push({
         phase,
-        code:
-          error instanceof RunInterruptedError
-            ? error.kind === 'timeout'
-              ? 'run-timeout'
-              : 'run-cancelled'
-            : 'adapter-error',
+        code: errorCode,
         ...(sanitizeEvidenceMessage(error.message) !== undefined
           ? { message: sanitizeEvidenceMessage(error.message) }
           : {}),
@@ -537,10 +531,9 @@ export async function runVerification({
     }
   };
 
-  const prepared = await executePhase('setup', () => adapter.prepare(context, runSignal.signal));
-  const prepareSucceeded = !failed && !interruption && failurePhase === null;
+  await executePhase('setup', () => adapter.prepare(context, runSignal.signal));
 
-  if (prepareSucceeded) {
+  if (!failed && !interruption) {
     for (let iteration = 1; iteration <= (manifest.scenario.warmupRuns ?? 0); iteration += 1) {
       await executePhase('warmup', () => adapter.warmup(context, iteration, runSignal.signal));
       if (failed || interruption) break;
@@ -549,11 +542,11 @@ export async function runVerification({
 
   if (!failed && !interruption) {
     for (let iteration = 1; iteration <= manifest.scenario.repetitions; iteration += 1) {
-      const result = await executePhase('execute', () =>
-        adapter.execute(context, iteration, runSignal.signal)
-      );
+      await executePhase('execute', async () => {
+        const result = await adapter.execute(context, iteration, runSignal.signal);
+        recordIterationResult(state, result ?? {}, iteration);
+      });
       if (failed || interruption) break;
-      recordIterationResult(state, result ?? {}, iteration);
       completed += 1;
     }
   }
@@ -569,7 +562,6 @@ export async function runVerification({
     });
     if (!failed && !interruption) {
       failed = true;
-      failurePhase = 'cleanup';
     }
   }
 
