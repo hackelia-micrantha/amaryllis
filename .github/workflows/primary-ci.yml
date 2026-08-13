@@ -40,7 +40,8 @@ jobs:
           node --test \
             scripts/ci-workflow-contract.test.mjs \
             scripts/classify-ci-changes.test.mjs \
-            scripts/detect-ci-changes.test.mjs
+            scripts/detect-ci-changes.test.mjs \
+            scripts/validate-native-dependencies.test.mjs
 
       - name: Classify changed paths
         id: classify
