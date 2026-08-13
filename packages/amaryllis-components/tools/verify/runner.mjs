@@ -454,6 +454,7 @@ export async function runVerification({
   cleanupTimeoutMs = DEFAULT_CLEANUP_TIMEOUT_MS,
   maxFixtureBytes = DEFAULT_MAX_FIXTURE_BYTES,
   allowAbsoluteFixturePaths = false,
+  fixtureLoader = loadDeclaredFixtures,
 } = {}) {
   if (!validator || !adapter || !manifest) {
     runnerError('runner.invalid-arguments', 'manifest, validator, and adapter are required');
@@ -470,10 +471,14 @@ export async function runVerification({
   let fixtures;
 
   try {
-    fixtures = await loadDeclaredFixtures(manifest, baseDirectory, {
-      maxFixtureBytes,
-      allowAbsoluteFixturePaths,
-    });
+    fixtures = await runAbortable(
+      () =>
+        fixtureLoader(manifest, baseDirectory, {
+          maxFixtureBytes,
+          allowAbsoluteFixturePaths,
+        }),
+      runSignal.signal
+    );
     capabilities = await runAbortable(() => adapter.capabilities(runSignal.signal), runSignal.signal);
     validateTarget(manifest, capabilities.environment);
   } catch (error) {
