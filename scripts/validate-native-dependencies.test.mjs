@@ -15,6 +15,7 @@ async function createFixture({
   lockedVersion = EXPECTED_MEDIAPIPE_VERSION,
   lockedCVersion = EXPECTED_MEDIAPIPE_VERSION,
   duplicateAndroidDependency = false,
+  extraAndroidDeclaration = '',
 } = {}) {
   const rootDir = await mkdtemp(
     path.join(os.tmpdir(), 'amaryllis-native-deps-')
@@ -26,7 +27,7 @@ async function createFixture({
     `  implementation 'com.google.mediapipe:tasks-genai:${androidVersion}'\n`;
   await writeFile(
     path.join(rootDir, 'android/build.gradle'),
-    `dependencies {\n${androidDependency}${duplicateAndroidDependency ? androidDependency : ''}}\n`
+    `dependencies {\n${androidDependency}${duplicateAndroidDependency ? androidDependency : ''}${extraAndroidDeclaration}}\n`
   );
   await writeFile(
     path.join(rootDir, 'Amaryllis.podspec'),
@@ -78,6 +79,51 @@ test('rejects duplicate Android MediaPipe declarations', async () => {
       /expected exactly one Android tasks-genai dependency; found 2/
     );
   });
+});
+
+test('rejects a floating api shadow declaration', async () => {
+  await withFixture(
+    {
+      extraAndroidDeclaration:
+        "  api 'com.google.mediapipe:tasks-genai:latest.release'\n",
+    },
+    async (rootDir) => {
+      await assert.rejects(
+        validateNativeDependencies({ rootDir }),
+        /expected exactly one Android tasks-genai dependency; found 2/
+      );
+    }
+  );
+});
+
+test('rejects a runtimeOnly shadow declaration', async () => {
+  await withFixture(
+    {
+      extraAndroidDeclaration:
+        `  runtimeOnly 'com.google.mediapipe:tasks-genai:${EXPECTED_MEDIAPIPE_VERSION}'\n`,
+    },
+    async (rootDir) => {
+      await assert.rejects(
+        validateNativeDependencies({ rootDir }),
+        /expected exactly one Android tasks-genai dependency; found 2/
+      );
+    }
+  );
+});
+
+test('rejects alternate tasks-genai notation outside the single implementation authority', async () => {
+  await withFixture(
+    {
+      extraAndroidDeclaration:
+        "  api group: 'com.google.mediapipe', name: 'tasks-genai', version: '0.10.24'\n",
+    },
+    async (rootDir) => {
+      await assert.rejects(
+        validateNativeDependencies({ rootDir }),
+        /must use one literal com\.google\.mediapipe:tasks-genai:<version> coordinate/
+      );
+    }
+  );
 });
 
 test('rejects unconstrained iOS MediaPipe dependency', async () => {
