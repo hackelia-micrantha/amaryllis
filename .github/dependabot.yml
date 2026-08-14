@@ -4,8 +4,5 @@ updates:
     directory: /
     schedule:
       interval: weekly
-    labels:
-      - dependencies
-      - github-actions
     commit-message:
       prefix: "ci"
