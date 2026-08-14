@@ -11,18 +11,47 @@ function requireMatch(value, message) {
   return value;
 }
 
+function stripGradleComments(contents) {
+  return contents
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n')
+    .map((line) => line.replace(/\/\/.*$/, ''))
+    .join('\n');
+}
+
 function extractAndroidVersion(contents) {
-  const matches = [
-    ...contents.matchAll(
-      /implementation\s+['"]com\.google\.mediapipe:tasks-genai:([^'"]+)['"]/g
+  const source = stripGradleComments(contents);
+  const coordinateMatches = [
+    ...source.matchAll(
+      /['"]com\.google\.mediapipe:tasks-genai:([^'"]+)['"]/g
     ),
   ];
-  if (matches.length !== 1) {
+  const taskReferences = [...source.matchAll(/\btasks-genai\b/g)];
+
+  if (taskReferences.length !== coordinateMatches.length) {
     throw new Error(
-      `expected exactly one Android tasks-genai dependency; found ${matches.length}`
+      'Android tasks-genai dependencies must use one literal com.google.mediapipe:tasks-genai:<version> coordinate'
     );
   }
-  return matches[0][1];
+
+  if (coordinateMatches.length !== 1) {
+    throw new Error(
+      `expected exactly one Android tasks-genai dependency; found ${coordinateMatches.length}`
+    );
+  }
+
+  const implementationMatches = [
+    ...source.matchAll(
+      /^\s*implementation\s*(?:\(\s*)?['"]com\.google\.mediapipe:tasks-genai:([^'"]+)['"]\s*\)?\s*;?\s*$/gm
+    ),
+  ];
+  if (implementationMatches.length !== 1) {
+    throw new Error(
+      'Android tasks-genai must have exactly one implementation declaration and no alternate dependency configuration'
+    );
+  }
+
+  return coordinateMatches[0][1];
 }
 
 function extractIosVersion(contents) {
