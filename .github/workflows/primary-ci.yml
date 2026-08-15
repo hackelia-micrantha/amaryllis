@@ -21,7 +21,7 @@ permissions:
 
 jobs:
   changes:
-    runs-on: ubuntu-latest
+    runs-on: runner-amaryllis
     timeout-minutes: 5
     outputs:
       run_root: ${{ steps.classify.outputs.run_root }}
@@ -75,7 +75,7 @@ jobs:
 
   lint:
     needs: changes
-    runs-on: ubuntu-latest
+    runs-on: runner-amaryllis
     timeout-minutes: 15
     steps:
       - name: Root validation not required for this change
@@ -101,7 +101,7 @@ jobs:
 
   test:
     needs: changes
-    runs-on: ubuntu-latest
+    runs-on: runner-amaryllis
     timeout-minutes: 15
     steps:
       - name: Root tests not required for this change
@@ -123,7 +123,7 @@ jobs:
 
   components-package:
     needs: changes
-    runs-on: ubuntu-latest
+    runs-on: runner-amaryllis
     timeout-minutes: 20
     steps:
       - name: Components validation not required for this change
@@ -200,7 +200,7 @@ jobs:
 
   build-library:
     needs: [changes, components-package]
-    runs-on: ubuntu-latest
+    runs-on: runner-amaryllis
     timeout-minutes: 15
     steps:
       - name: Root library build not required for this change
@@ -231,7 +231,7 @@ jobs:
   build-android:
     needs: changes
     if: needs.changes.outputs.run_native == 'true'
-    runs-on: ubuntu-latest
+    runs-on: runner-amaryllis
     timeout-minutes: 30
     env:
       TURBO_CACHE_DIR: .turbo/android
