@@ -26,7 +26,7 @@ permissions:
 jobs:
   codeql:
     name: Analyze
-    runs-on: ubuntu-latest
+    runs-on: runner-amaryllis
     timeout-minutes: 20
 
     steps:
