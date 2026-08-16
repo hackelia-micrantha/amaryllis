@@ -6,9 +6,9 @@ import android.util.Log
 import androidx.core.graphics.scale
 import androidx.core.net.toFile
 import androidx.core.net.toUri
-import java.io.File as JavaFile
 import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.ReadableMap
+import com.google.common.util.concurrent.ListenableFuture
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.framework.image.MPImage
 import com.google.mediapipe.tasks.genai.llminference.GraphOptions
@@ -32,21 +32,33 @@ import com.micrantha.amaryllis.AmaryllisModule.Companion.PARAM_TOP_P
 import com.micrantha.amaryllis.AmaryllisModule.Companion.PARAM_VISION_ADAPTER
 import com.micrantha.amaryllis.AmaryllisModule.Companion.PARAM_VISION_ENCODER
 import java.io.File
-import java.io.FileOutputStream
-import java.io.IOException
-import java.net.URI
-import java.net.URISyntaxException
-import android.os.Build
+import java.util.concurrent.CancellationException
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.Executor
+import java.util.concurrent.atomic.AtomicBoolean
 
+internal typealias AsyncTerminalHandler = (Throwable?) -> Unit
 
 class Amaryllis {
 
+    private class ActiveAsyncGeneration(
+        val session: LlmInferenceSession,
+        val ownsSession: Boolean,
+    ) {
+        val settled = AtomicBoolean(false)
+
+        @Volatile
+        var future: ListenableFuture<String>? = null
+    }
+
     private var llmInference: LlmInference? = null
     private var session: LlmInferenceSession? = null
+    private val asyncLock = Any()
+    private var activeAsyncGeneration: ActiveAsyncGeneration? = null
 
     fun init(context: Context, config: ReadableMap) {
         val modelPath = config.getString(PARAM_MODEL_PATH) ?: throw InvalidModelPathException()
-        
+
         if (!isValidFilePath(modelPath)) {
             throw InvalidModelPathException()
         }
@@ -122,21 +134,110 @@ class Amaryllis {
         }
     }
 
-    fun generateAsync(params: ReadableMap, listener: ProgressListener<String>) {
+    fun generateAsync(
+        params: ReadableMap,
+        listener: ProgressListener<String>,
+        terminalHandler: AsyncTerminalHandler,
+    ) {
         val llm = llmInference ?: throw NotInitializedException()
-
         val prompt = params.validateAndGetPrompt()
 
-        if (session == null) {
+        val persistentSession = session
+        val asyncSession: LlmInferenceSession
+        val ownsSession: Boolean
+        if (persistentSession == null) {
             params.validateNoSession()
-            llm.generateResponseAsync(prompt, listener)
+            asyncSession = LlmInferenceSession.createFromOptions(
+                llm,
+                LlmInferenceSession.LlmInferenceSessionOptions.builder().build(),
+            )
+            ownsSession = true
+            asyncSession.addQueryChunk(prompt)
         } else {
-            this.session?.updateQueryFromParams(params)
-            this.session?.generateResponseAsync(listener)
+            persistentSession.updateQueryFromParams(params)
+            asyncSession = persistentSession
+            ownsSession = false
+        }
+
+        val active = ActiveAsyncGeneration(asyncSession, ownsSession)
+        synchronized(asyncLock) {
+            check(activeAsyncGeneration == null) { "asynchronous generation already active" }
+            activeAsyncGeneration = active
+        }
+
+        fun settle(error: Throwable?) {
+            if (!active.settled.compareAndSet(false, true)) {
+                return
+            }
+            synchronized(asyncLock) {
+                if (activeAsyncGeneration === active) {
+                    activeAsyncGeneration = null
+                }
+            }
+            var terminalError = error
+            if (active.ownsSession) {
+                try {
+                    active.session.close()
+                } catch (closeError: Throwable) {
+                    if (terminalError == null) {
+                        terminalError = closeError
+                    } else {
+                        terminalError.addSuppressed(closeError)
+                    }
+                }
+            }
+            terminalHandler(terminalError)
+        }
+
+        try {
+            val future = asyncSession.generateResponseAsync { partialResult, done ->
+                listener.run(partialResult, done)
+                if (done) {
+                    settle(null)
+                }
+            }
+            active.future = future
+            future.addListener(
+                {
+                    try {
+                        future.get()
+                    } catch (error: ExecutionException) {
+                        settle(error.cause ?: error)
+                    } catch (error: CancellationException) {
+                        settle(error)
+                    } catch (error: Throwable) {
+                        settle(error)
+                    }
+                },
+                Executor { command -> command.run() },
+            )
+        } catch (error: Throwable) {
+            active.settled.set(true)
+            synchronized(asyncLock) {
+                if (activeAsyncGeneration === active) {
+                    activeAsyncGeneration = null
+                }
+            }
+            if (active.ownsSession) {
+                try {
+                    active.session.close()
+                } catch (closeError: Throwable) {
+                    error.addSuppressed(closeError)
+                }
+            }
+            throw error
         }
     }
 
     fun close() {
+        val active = synchronized(asyncLock) {
+            activeAsyncGeneration.also { activeAsyncGeneration = null }
+        }
+        if (active != null && active.settled.compareAndSet(false, true)) {
+            if (active.ownsSession) {
+                active.session.close()
+            }
+        }
         session?.close()
         llmInference?.close()
         session = null
@@ -144,7 +245,8 @@ class Amaryllis {
     }
 
     fun cancelAsync() {
-        session?.cancelGenerateResponseAsync()
+        val active = synchronized(asyncLock) { activeAsyncGeneration }
+        active?.session?.cancelGenerateResponseAsync()
     }
 
     private fun LlmInferenceSession.updateQueryFromParams(params: ReadableMap): LlmInferenceSession {
@@ -212,26 +314,26 @@ class Amaryllis {
         val options = BitmapFactory.Options().apply {
             inJustDecodeBounds = true
         }
-        
+
         BitmapFactory.decodeFile(file.absolutePath, options)
-        
+
         // Calculate sample size to reduce memory usage if image is too large
         val maxSize = 2048
         var sampleSize = 1
         while (options.outWidth / sampleSize > maxSize || options.outHeight / sampleSize > maxSize) {
             sampleSize *= 2
         }
-        
+
         options.inJustDecodeBounds = false
         options.inSampleSize = sampleSize
-        
+
         val bitmap = BitmapFactory.decodeFile(file.absolutePath, options)
             ?: return null
 
         try {
             // Resize bitmap
             val resized = bitmap.scale(targetWidth, targetHeight)
-            
+
             // Clean up original bitmap
             if (resized != bitmap) {
                 bitmap.recycle()
@@ -257,14 +359,14 @@ class Amaryllis {
 
     private fun isValidFilePath(path: String): Boolean {
         if (path.isBlank()) return false
-        
+
         // Check for path traversal attempts
         if (path.contains("..") || path.contains("~")) return false
-        
+
         // Check for invalid characters
         val invalidChars = setOf('|', '<', '>', '"', '?', '*')
         if (invalidChars.any { char -> path.contains(char) }) return false
-        
+
         return true
     }
 
