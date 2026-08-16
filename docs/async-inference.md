@@ -23,7 +23,7 @@ const cancel = await generate({ prompt, images });
 
 `await generate(...)` waits for validation and native startup. It does **not** wait for the model to finish. The final `onResult(..., true)` callback delivers the complete output, while `onComplete` is the safe boundary for immediately starting another request. Do not start the next request synchronously from inside the final `onResult` callback; hook ownership is released immediately after that callback returns.
 
-The returned function cancels only the generation started by that call. Calling it more than once, or after settlement, is a no-op.
+The returned function requests cancellation only for the generation started by that call. Calling it more than once, or after settlement, is a no-op. Cancellation is not terminal until the native request reaches a terminal state.
 
 ## Single-flight contract
 
@@ -38,13 +38,13 @@ An overlapping call:
 
 At the low-level `LlmPipe` API, the overlapping call rejects with `GenerationInProgressError`. `useInferenceAsync` reports the same error through `onError` and returns a no-op cancellation function for the rejected attempt. It does not invoke `onComplete` for that rejected attempt; the already-active generation continues with its original callbacks.
 
-Starting a generation while the native engine is closing is rejected by the same contract.
+Starting a generation while the native engine is closing or while a prior request is cancelling is rejected by the same contract.
 
 Sequential calls are supported after the prior operation reaches a terminal state and releases ownership.
 
 ## Request isolation
 
-Every accepted asynchronous generation receives an internal request ID. Android and iOS include that ID in structured partial, final, and error events. JavaScript ignores events that do not match the active request.
+Every accepted asynchronous generation receives an internal request ID. Android and iOS include that ID in structured partial, final, error, and cancellation events. JavaScript ignores events that do not match the active request.
 
 This prevents:
 
@@ -102,20 +102,28 @@ A configured protocol sanitizes the accumulated hook output before `onResult` is
 Calling the cancellation function returned by `generate(...)`:
 
 - targets only that generation;
-- releases listeners and ownership;
-- invokes `onComplete` by default;
+- transitions the request from generating to cancelling;
+- asks native inference to cancel but does **not** treat the request as terminal yet;
+- suppresses later partial/final/error delivery for the cancelling request;
+- retains listeners and native ownership, so overlapping work remains rejected;
+- releases ownership only after native emits request-scoped `onCancelled { requestId }`;
+- invokes `onComplete` once after that terminal cancellation event;
 - does not emit a final result;
-- is idempotent.
+- is idempotent while cancellation is pending.
+
+If the synchronous native cancellation request itself throws, the request returns to the generating state and remains owned; no false cancellation completion is emitted.
+
+Android MediaPipe 0.10.24 supports physical cancellation on `LlmInferenceSession`. Amaryllis therefore runs asynchronous Android inference through an explicit session even for requests that did not create a persistent session, retaining the active session and future until terminal settlement. On iOS, when the pinned MediaPipe runtime does not expose a cancellation selector, Amaryllis uses cooperative cancellation: output is suppressed, ownership remains held, and the eventual native completion or error is translated into the same request-scoped `onCancelled` terminal event.
 
 `onComplete` means that the operation ended; it does not mean that generation succeeded. Applications that distinguish success, error, and cancellation should track that state explicitly.
 
 ### Component unmount
 
-Unmount cancels only the generation owned by that hook instance. Cleanup is silent: it does not invoke `onComplete` after the component has unmounted.
+Unmount requests cancellation only for the generation owned by that hook instance. Cleanup is silent: it does not invoke `onComplete` after the component has unmounted. Native ownership is still retained until cancellation reaches a terminal state or the owning engine is closed.
 
 ### Engine close
 
-`close()` owns the engine lifecycle. It may cancel active work, removes listeners, and releases native resources. Generation startup and close are serialized on Android and iOS so a new request cannot enter MediaPipe during teardown.
+`close()` owns the engine lifecycle. For active asynchronous work it requests cancellation first, closes the native engine, and only after native close returns releases JavaScript ownership and listeners. A failed native close therefore cannot falsely advertise an idle engine. Later request callbacks from a successfully closed engine are ignored.
 
 ## Sequential generations
 

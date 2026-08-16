@@ -23,6 +23,7 @@ const nativeMock = {
   EVENT_ON_PARTIAL_RESULT: 'onPartialResult',
   EVENT_ON_FINAL_RESULT: 'onFinalResult',
   EVENT_ON_ERROR: 'onError',
+  EVENT_ON_CANCELLED: 'onCancelled',
 };
 
 const emitterMock = {
@@ -55,11 +56,17 @@ const getLastRequestId = (): string => {
   return call[1];
 };
 
+const emitCancelled = (requestId: string) => {
+  listeners[nativeMock.EVENT_ON_CANCELLED]?.({ requestId });
+};
+
 describe('LlmPipe', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     nativeMock.generate.mockResolvedValue('result');
     nativeMock.generateAsync.mockResolvedValue(undefined);
+    nativeMock.cancelAsync.mockImplementation(() => {});
+    nativeMock.close.mockImplementation(() => {});
     listeners = {};
     pipe = new LlmPipe({
       nativeModule: nativeMock,
@@ -68,7 +75,11 @@ describe('LlmPipe', () => {
   });
 
   afterEach(() => {
-    pipe.cancelAsync();
+    try {
+      pipe.close();
+    } catch {
+      // Individual close-failure tests intentionally leave the native mock throwing.
+    }
   });
 
   it('calls native init', async () => {
@@ -98,6 +109,7 @@ describe('LlmPipe', () => {
     expect(listeners[nativeMock.EVENT_ON_PARTIAL_RESULT]).toBeDefined();
     expect(listeners[nativeMock.EVENT_ON_FINAL_RESULT]).toBeDefined();
     expect(listeners[nativeMock.EVENT_ON_ERROR]).toBeDefined();
+    expect(listeners[nativeMock.EVENT_ON_CANCELLED]).toBeDefined();
 
     listeners[nativeMock.EVENT_ON_PARTIAL_RESULT]?.('partial');
     expect(onEvent).toHaveBeenCalledWith({ type: 'partial', text: 'partial' });
@@ -294,7 +306,7 @@ describe('LlmPipe', () => {
     });
   });
 
-  it('notifies lifecycle observers when active work is cancelled externally', async () => {
+  it('keeps cancellation non-terminal until native confirms it', async () => {
     const lifecycleListener = jest.fn();
     pipe.subscribeAsyncLifecycle(lifecycleListener);
     await pipe.generateAsync(requestParams, { onEvent: jest.fn() });
@@ -303,32 +315,106 @@ describe('LlmPipe', () => {
     pipe.cancelAsync();
 
     expect(nativeMock.cancelAsync).toHaveBeenCalledWith(requestId);
+    expect(lifecycleListener).not.toHaveBeenCalled();
+    expect(listeners[nativeMock.EVENT_ON_CANCELLED]).toBeDefined();
+    await expect(
+      pipe.generateAsync({ prompt: 'blocked' }, { onEvent: jest.fn() })
+    ).rejects.toMatchObject({ code: GENERATION_IN_PROGRESS_CODE });
+
+    emitCancelled(requestId);
+
+    expect(lifecycleListener).toHaveBeenCalledTimes(1);
     expect(lifecycleListener).toHaveBeenCalledWith({ type: 'cancelled' });
+    expect(listeners).toEqual({});
+    await expect(pipe.generateAsync({ prompt: 'next' })).resolves.toBeUndefined();
   });
 
-  it('cancels only the active generation and ignores its late events', async () => {
+  it('makes repeated cancellation requests idempotent while cancelling', async () => {
+    await pipe.generateAsync(requestParams);
+    const requestId = getLastRequestId();
+
+    pipe.cancelAsync();
+    pipe.cancelAsync();
+
+    expect(nativeMock.cancelAsync).toHaveBeenCalledTimes(1);
+    expect(nativeMock.cancelAsync).toHaveBeenCalledWith(requestId);
+    emitCancelled(requestId);
+  });
+
+  it('restores generation ownership when native cancellation throws synchronously', async () => {
+    const cancelError = new Error('cancel failed');
+    const lifecycleListener = jest.fn();
+    const onEvent = jest.fn();
+    pipe.subscribeAsyncLifecycle(lifecycleListener);
+    nativeMock.cancelAsync.mockImplementationOnce(() => {
+      throw cancelError;
+    });
+    await pipe.generateAsync(requestParams, { onEvent });
+
+    expect(() => pipe.cancelAsync()).toThrow(cancelError);
+    expect(lifecycleListener).not.toHaveBeenCalled();
+
+    listeners[nativeMock.EVENT_ON_PARTIAL_RESULT]?.('still-running');
+    listeners[nativeMock.EVENT_ON_FINAL_RESULT]?.('done');
+    expect(onEvent).toHaveBeenCalledWith({
+      type: 'partial',
+      text: 'still-running',
+    });
+    expect(onEvent).toHaveBeenCalledWith({ type: 'final', text: 'done' });
+    await expect(pipe.generateAsync({ prompt: 'next' })).resolves.toBeUndefined();
+  });
+
+  it('ignores final and error events while cancellation is pending', async () => {
+    const onEvent = jest.fn();
+    await pipe.generateAsync(requestParams, { onEvent });
+    const requestId = getLastRequestId();
+
+    pipe.cancelAsync();
+    listeners[nativeMock.EVENT_ON_FINAL_RESULT]?.({ requestId, text: 'late' });
+    listeners[nativeMock.EVENT_ON_ERROR]?.({
+      requestId,
+      message: 'late error',
+    });
+
+    expect(onEvent).not.toHaveBeenCalled();
+    await expect(pipe.generateAsync({ prompt: 'blocked' })).rejects.toMatchObject({
+      code: GENERATION_IN_PROGRESS_CODE,
+    });
+
+    emitCancelled(requestId);
+    await expect(pipe.generateAsync({ prompt: 'next' })).resolves.toBeUndefined();
+  });
+
+  it('does not let a stale cancellation settle a newer request', async () => {
     const firstOnEvent = jest.fn();
     const secondOnEvent = jest.fn();
 
     await pipe.generateAsync(requestParams, { onEvent: firstOnEvent });
     const firstRequestId = getLastRequestId();
-    const staleFinalListener = listeners[nativeMock.EVENT_ON_FINAL_RESULT];
-
+    const staleCancelledListener = listeners[nativeMock.EVENT_ON_CANCELLED];
     pipe.cancelAsync();
-
-    expect(nativeMock.cancelAsync).toHaveBeenCalledWith(firstRequestId);
-    expect(listeners).toEqual({});
+    emitCancelled(firstRequestId);
 
     await pipe.generateAsync({ prompt: 'second' }, { onEvent: secondOnEvent });
-    staleFinalListener?.('late-first');
+    const secondRequestId = getLastRequestId();
+    staleCancelledListener?.({ requestId: firstRequestId });
 
-    expect(firstOnEvent).not.toHaveBeenCalled();
-    expect(secondOnEvent).not.toHaveBeenCalled();
+    listeners[nativeMock.EVENT_ON_PARTIAL_RESULT]?.({
+      requestId: secondRequestId,
+      text: 'second-partial',
+    });
+    expect(secondOnEvent).toHaveBeenCalledWith({
+      type: 'partial',
+      text: 'second-partial',
+    });
 
-    listeners[nativeMock.EVENT_ON_FINAL_RESULT]?.('second');
+    listeners[nativeMock.EVENT_ON_FINAL_RESULT]?.({
+      requestId: secondRequestId,
+      text: 'second-final',
+    });
     expect(secondOnEvent).toHaveBeenCalledWith({
       type: 'final',
-      text: 'second',
+      text: 'second-final',
     });
   });
 
@@ -337,6 +423,7 @@ describe('LlmPipe', () => {
 
     expect(listeners[nativeMock.EVENT_ON_FINAL_RESULT]).toBeDefined();
     expect(listeners[nativeMock.EVENT_ON_ERROR]).toBeDefined();
+    expect(listeners[nativeMock.EVENT_ON_CANCELLED]).toBeDefined();
 
     listeners[nativeMock.EVENT_ON_FINAL_RESULT]?.('done');
     await expect(pipe.generateAsync(requestParams)).resolves.toBeUndefined();
