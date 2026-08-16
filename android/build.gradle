@@ -73,8 +73,7 @@ def kotlin_version = getExtOrDefault("kotlinVersion")
 dependencies {
   implementation "com.facebook.react:react-android"
   implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
-  implementation 'com.google.mediapipe:tasks-core:latest.release'
-  implementation 'com.google.mediapipe:tasks-genai:latest.release'
+  implementation 'com.google.mediapipe:tasks-genai:0.10.24'
 
   testImplementation "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
   testImplementation 'junit:junit:4.13.2'
