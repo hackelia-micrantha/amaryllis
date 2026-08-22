@@ -76,6 +76,8 @@ The v1alpha1 local runner intentionally has no remote fixture-fetch capability.
 - fixture size is bounded before reading;
 - fixture bytes remain in adapter context and are not copied into normal evidence.
 
+These checks validate a stable local fixture tree; they are not a filesystem-isolation boundary against another actor concurrently mutating the fixture directory during a run. Callers that require protection from hostile concurrent mutation must provide an isolated or otherwise immutable workspace/fixture tree.
+
 The fake adapter script and CLI input/output arguments are also explicit local files. The runner does not perform network fallback.
 
 ## Adapter trust boundary
