@@ -5,12 +5,16 @@ on:
     paths:
       - '.github/workflows/**'
       - '.github/actions/**'
+      - 'flake.nix'
+      - 'flake.lock'
   push:
     branches:
       - main
     paths:
       - '.github/workflows/**'
       - '.github/actions/**'
+      - 'flake.nix'
+      - 'flake.lock'
 
 permissions:
   contents: read
@@ -24,6 +28,4 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Lint workflow files
-        uses: reviewdog/action-actionlint@v1
-        with:
-          fail_level: error
+        run: nix develop .#ci --command actionlint
