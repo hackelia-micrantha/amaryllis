@@ -39,3 +39,13 @@ runs:
     - name: Install dependencies
       run: yarn install --immutable
       shell: bash
+
+    - name: Repair generated package executables
+      if: runner.os == 'Linux'
+      run: |
+        set -euo pipefail
+        while IFS= read -r -d '' bin; do
+          target="$(readlink -f "$bin" 2>/dev/null || printf '%s' "$bin")"
+          chmod u+x "$target"
+        done < <(find . -path '*/node_modules/.bin/*' -print0)
+      shell: bash
