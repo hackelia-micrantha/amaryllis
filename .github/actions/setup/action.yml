@@ -14,17 +14,13 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Activate Nix Node toolchain
+    - name: Install dependencies with Nix Node toolchain
       if: runner.os == 'Linux'
       env:
         NIX_SHELL: ${{ inputs.nix-shell }}
       run: |
         set -euo pipefail
-        nix develop ".#${NIX_SHELL}" --command bash -euo pipefail -c '
-          for tool in node npm npx corepack yarn; do
-            dirname "$(command -v "$tool")"
-          done
-        ' | sort -u >> "$GITHUB_PATH"
+        nix develop ".#${NIX_SHELL}" --command corepack yarn install --immutable
       shell: bash
 
     - name: Setup Node.js
@@ -37,6 +33,7 @@ runs:
         cache-dependency-path: yarn.lock
 
     - name: Install dependencies
+      if: runner.os != 'Linux'
       run: yarn install --immutable
       shell: bash
 
