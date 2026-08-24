@@ -34,14 +34,20 @@ jobs:
           nix-shell: ${{ matrix.nix-shell }}
 
       - name: Verify Node version
+        env:
+          NIX_SHELL: ${{ matrix.nix-shell }}
         run: |
-          actual_major="$(node --version | sed -E 's/^v([0-9]+).*/\1/')"
+          actual_major="$(nix develop ".#${NIX_SHELL}" --command node --version | sed -E 's/^v([0-9]+).*/\1/')"
           expected_major="${{ matrix.node-version }}"
           expected_major="${expected_major%%.*}"
           test "$actual_major" = "$expected_major"
 
       - name: Run tests
-        run: yarn test --maxWorkers=2
+        env:
+          NIX_SHELL: ${{ matrix.nix-shell }}
+        run: nix develop ".#${NIX_SHELL}" --command corepack yarn test --maxWorkers=2
 
       - name: Run typecheck
-        run: yarn typecheck
+        env:
+          NIX_SHELL: ${{ matrix.nix-shell }}
+        run: nix develop ".#${NIX_SHELL}" --command corepack yarn typecheck
