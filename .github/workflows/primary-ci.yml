@@ -37,7 +37,7 @@ jobs:
 
       - name: Test change classification
         run: |
-          node --test \
+          nix develop .#ci --command node --test \
             scripts/ci-workflow-contract.test.mjs \
             scripts/classify-ci-changes.test.mjs \
             scripts/detect-ci-changes.test.mjs \
@@ -72,7 +72,7 @@ jobs:
             exit 0
           fi
 
-          node scripts/detect-ci-changes.mjs "$BASE_SHA" "$HEAD_SHA" >> "$GITHUB_OUTPUT"
+          nix develop .#ci --command node scripts/detect-ci-changes.mjs "$BASE_SHA" "$HEAD_SHA" >> "$GITHUB_OUTPUT"
 
   lint:
     needs: changes
