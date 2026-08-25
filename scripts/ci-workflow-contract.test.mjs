@@ -109,6 +109,30 @@ test('native jobs remain controlled by the native dimension', () => {
   }
 });
 
+test('Linux Node toolchains are owned by the repository flake', () => {
+  const setup = actionSources.get('.github/actions/setup/action.yml');
+  assert.ok(setup, 'missing composite setup action');
+  assert.match(
+    setup,
+    /nix develop "\$GITHUB_WORKSPACE#\$\{NIX_SHELL\}" --command corepack yarn install --immutable/,
+  );
+  assert.match(
+    setup,
+    /exec nix develop "\$GITHUB_WORKSPACE#\$\{NIX_SHELL\}" --command \$tool/,
+  );
+
+  const compatibility = actionSources.get('.github/workflows/compat-matrix.yml');
+  assert.ok(compatibility, 'missing Node compatibility workflow');
+  assertContainsAll(compatibility, [
+    'nix-shell: node20',
+    'nix-shell: node22',
+    'nix-shell: node24',
+    'nix develop ".#${NIX_SHELL}" --command node --version',
+    'nix develop ".#${NIX_SHELL}" --command corepack yarn test --maxWorkers=2',
+    'nix develop ".#${NIX_SHELL}" --command corepack yarn typecheck',
+  ]);
+});
+
 test('workflow actions use Node 24-compatible releases', () => {
   const obsoleteActions = [
     ['actions/checkout', /actions\/checkout@(?:v[1-6]\b|[0-9a-f]{40}\s+# v[1-6](?:\.\d+\.\d+)?\b)/],
