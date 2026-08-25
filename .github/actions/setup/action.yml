@@ -20,7 +20,29 @@ runs:
         NIX_SHELL: ${{ inputs.nix-shell }}
       run: |
         set -euo pipefail
-        nix develop ".#${NIX_SHELL}" --command corepack yarn install --immutable
+        nix develop "$GITHUB_WORKSPACE#${NIX_SHELL}" --command corepack yarn install --immutable
+      shell: bash
+
+    - name: Route Node commands through Nix
+      if: runner.os == 'Linux'
+      env:
+        NIX_SHELL: ${{ inputs.nix-shell }}
+      run: |
+        set -euo pipefail
+        wrapper_dir="$RUNNER_TEMP/amaryllis-nix-bin"
+        rm -rf "$wrapper_dir"
+        mkdir -p "$wrapper_dir"
+
+        for tool in node npm npx corepack yarn; do
+          cat > "$wrapper_dir/$tool" <<EOF
+        #!/usr/bin/env bash
+        set -euo pipefail
+        exec nix develop "$GITHUB_WORKSPACE#${NIX_SHELL}" --command $tool "\$@"
+        EOF
+          chmod +x "$wrapper_dir/$tool"
+        done
+
+        echo "$wrapper_dir" >> "$GITHUB_PATH"
       shell: bash
 
     - name: Setup Node.js
