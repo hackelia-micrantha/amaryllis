@@ -33,7 +33,7 @@ jobs:
 
       - name: Run tests with coverage summary
         run: |
-          yarn test --maxWorkers=2 --coverage \
+          nix develop .#ci --command corepack yarn test --maxWorkers=2 --coverage \
             --coverageReporters=json-summary \
             --coverageReporters=text-summary \
             --collectCoverageFrom='src/**/*.{ts,tsx}' \
@@ -44,7 +44,7 @@ jobs:
       - name: Validate coverage thresholds
         id: validate_coverage
         run: |
-          node <<'NODE'
+          nix develop .#ci --command node <<'NODE'
           const fs = require('node:fs');
 
           const summary = JSON.parse(fs.readFileSync('coverage/coverage-summary.json', 'utf8')).total;
