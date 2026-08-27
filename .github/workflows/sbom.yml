@@ -51,7 +51,7 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Test package SBOM derivation
-        run: node --test scripts/package-sbom-lib.test.mjs
+        run: nix develop .#ci --command node --test scripts/package-sbom-lib.test.mjs
 
       - name: Prepare artifact directory
         run: mkdir -p artifacts
@@ -67,7 +67,7 @@ jobs:
           upload-release-assets: false
 
       - name: Derive package-scoped SBOMs
-        run: node scripts/derive-package-sboms.mjs
+        run: nix develop .#ci --command node scripts/derive-package-sboms.mjs
 
       - name: Validate CycloneDX schemas
         run: |
@@ -136,7 +136,7 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Test package SBOM derivation
-        run: node --test scripts/package-sbom-lib.test.mjs
+        run: nix develop .#ci --command node --test scripts/package-sbom-lib.test.mjs
 
       - name: Prepare artifact directory
         run: mkdir -p artifacts
@@ -154,7 +154,7 @@ jobs:
       - name: Derive versioned package SBOMs
         run: |
           set -euo pipefail
-          node scripts/derive-package-sboms.mjs \
+          nix develop .#ci --command node scripts/derive-package-sboms.mjs \
             "artifacts/amaryllis-${GITHUB_REF_NAME}.cdx.json" \
             artifacts/packages
           mv artifacts/packages/react-native-amaryllis.cdx.json \
