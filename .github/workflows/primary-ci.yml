@@ -94,11 +94,11 @@ jobs:
 
       - name: Lint root package
         if: needs.changes.outputs.run_root == 'true'
-        run: yarn lint --ignore-pattern 'packages/amaryllis-components/**'
+        run: nix develop .#ci --command corepack yarn lint --ignore-pattern 'packages/amaryllis-components/**'
 
       - name: Typecheck files
         if: needs.changes.outputs.run_root == 'true'
-        run: yarn typecheck
+        run: nix develop .#ci --command corepack yarn typecheck
 
   test:
     needs: changes
@@ -120,7 +120,7 @@ jobs:
 
       - name: Run unit tests
         if: needs.changes.outputs.run_root == 'true'
-        run: yarn test --maxWorkers=2
+        run: nix develop .#ci --command corepack yarn test --maxWorkers=2
 
   components-package:
     needs: changes
@@ -144,7 +144,7 @@ jobs:
         if: needs.changes.outputs.run_components == 'true'
         run: |
           set -o pipefail
-          yarn workspace @micrantha/amaryllis-components test --runInBand 2>&1 | tee components-test.log
+          nix develop .#ci --command corepack yarn workspace @micrantha/amaryllis-components test --runInBand 2>&1 | tee components-test.log
 
       - name: Upload components test log
         if: failure()
@@ -159,7 +159,7 @@ jobs:
         if: needs.changes.outputs.run_components == 'true'
         run: |
           set -o pipefail
-          yarn eslint "packages/amaryllis-components/src/**/*.{ts,tsx}" 2>&1 | tee components-lint.log
+          nix develop .#ci --command corepack yarn eslint "packages/amaryllis-components/src/**/*.{ts,tsx}" 2>&1 | tee components-lint.log
 
       - name: Upload components lint log
         if: failure()
@@ -172,32 +172,32 @@ jobs:
 
       - name: Typecheck components package
         if: needs.changes.outputs.run_components == 'true'
-        run: yarn workspace @micrantha/amaryllis-components typecheck
+        run: nix develop .#ci --command corepack yarn workspace @micrantha/amaryllis-components typecheck
 
       - name: Build components package
         if: needs.changes.outputs.run_components == 'true'
-        run: yarn workspace @micrantha/amaryllis-components build
+        run: nix develop .#ci --command corepack yarn workspace @micrantha/amaryllis-components build
 
       - name: Verify AI component examples
         if: needs.changes.outputs.run_components == 'true'
-        run: yarn workspace @micrantha/amaryllis-components verify:examples
+        run: nix develop .#ci --command corepack yarn workspace @micrantha/amaryllis-components verify:examples
 
       - name: Build main package for package validation
         if: needs.changes.outputs.run_components == 'true'
-        run: yarn prepare
+        run: nix develop .#ci --command corepack yarn prepare
 
       - name: Validate package metadata and outputs
         if: needs.changes.outputs.run_components == 'true'
-        run: node scripts/validate-packages.mjs
+        run: nix develop .#ci --command node scripts/validate-packages.mjs
 
       - name: Dry-run components package archive
         if: needs.changes.outputs.run_components == 'true'
-        run: npm pack --dry-run
+        run: nix develop ../..#ci --command npm pack --dry-run
         working-directory: packages/amaryllis-components
 
       - name: Dry-run main package archive
         if: needs.changes.outputs.run_components == 'true'
-        run: npm pack --dry-run
+        run: nix develop .#ci --command npm pack --dry-run
 
   build-library:
     needs: [changes, components-package]
@@ -219,15 +219,15 @@ jobs:
 
       - name: Build main package
         if: needs.changes.outputs.run_root == 'true'
-        run: yarn prepare
+        run: nix develop .#ci --command corepack yarn prepare
 
       - name: Validate package metadata and outputs
         if: needs.changes.outputs.run_root == 'true'
-        run: node scripts/validate-packages.mjs
+        run: nix develop .#ci --command node scripts/validate-packages.mjs
 
       - name: Dry-run main package archive
         if: needs.changes.outputs.run_root == 'true'
-        run: npm pack --dry-run
+        run: nix develop .#ci --command npm pack --dry-run
 
   build-android:
     needs: changes
@@ -261,7 +261,7 @@ jobs:
         env:
           JAVA_OPTS: '-XX:MaxHeapSize=6g'
         run: |
-          yarn turbo run build:android --cache-dir="${{ env.TURBO_CACHE_DIR }}"
+          nix develop .#ci --command corepack yarn turbo run build:android --cache-dir="${{ env.TURBO_CACHE_DIR }}"
 
   build-ios:
     needs: changes
