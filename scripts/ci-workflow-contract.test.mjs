@@ -57,6 +57,8 @@ test('change classifier exposes every CI dimension', () => {
     'run_root: ${{ steps.classify.outputs.run_root }}',
     'run_components: ${{ steps.classify.outputs.run_components }}',
     'run_native: ${{ steps.classify.outputs.run_native }}',
+    'nix develop .#ci --command node --test',
+    'nix develop .#ci --command node scripts/detect-ci-changes.mjs',
   ]);
 });
 
@@ -86,16 +88,16 @@ test('components job retains stable acknowledgement and validation paths', () =>
   ]);
 });
 
-test('root library job independently validates package outputs', () => {
+test('root library job independently validates package outputs through the flake', () => {
   const block = jobBlock('build-library');
 
   assertContainsAll(block, [
     'needs: [changes, components-package]',
     "if: needs.changes.outputs.run_root != 'true'",
     "if: needs.changes.outputs.run_root == 'true'",
-    'run: yarn prepare',
-    'run: node scripts/validate-packages.mjs',
-    'run: npm pack --dry-run',
+    'run: nix develop .#ci --command corepack yarn prepare',
+    'run: nix develop .#ci --command node scripts/validate-packages.mjs',
+    'run: nix develop .#ci --command npm pack --dry-run',
   ]);
 });
 
