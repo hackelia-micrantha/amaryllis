@@ -57,6 +57,8 @@ test('change classifier exposes every CI dimension', () => {
     'run_root: ${{ steps.classify.outputs.run_root }}',
     'run_components: ${{ steps.classify.outputs.run_components }}',
     'run_native: ${{ steps.classify.outputs.run_native }}',
+    'nix develop .#ci --command node --test',
+    'nix develop .#ci --command node scripts/detect-ci-changes.mjs',
   ]);
 });
 
@@ -86,16 +88,16 @@ test('components job retains stable acknowledgement and validation paths', () =>
   ]);
 });
 
-test('root library job independently validates package outputs', () => {
+test('root library job independently validates package outputs through the flake', () => {
   const block = jobBlock('build-library');
 
   assertContainsAll(block, [
     'needs: [changes, components-package]',
     "if: needs.changes.outputs.run_root != 'true'",
     "if: needs.changes.outputs.run_root == 'true'",
-    'run: yarn prepare',
-    'run: node scripts/validate-packages.mjs',
-    'run: npm pack --dry-run',
+    'run: nix develop .#ci --command corepack yarn prepare',
+    'run: nix develop .#ci --command node scripts/validate-packages.mjs',
+    'run: nix develop .#ci --command npm pack --dry-run',
   ]);
 });
 
@@ -107,6 +109,30 @@ test('native jobs remain controlled by the native dimension', () => {
       "if: needs.changes.outputs.run_native == 'true'",
     ]);
   }
+});
+
+test('Linux Node toolchains are owned by the repository flake', () => {
+  const setup = actionSources.get('.github/actions/setup/action.yml');
+  assert.ok(setup, 'missing composite setup action');
+  assert.match(
+    setup,
+    /nix develop "\$GITHUB_WORKSPACE#\$\{NIX_SHELL\}" --command corepack yarn install --immutable/,
+  );
+  assert.match(
+    setup,
+    /exec nix develop "\$GITHUB_WORKSPACE#\$\{NIX_SHELL\}" --command \$tool/,
+  );
+
+  const compatibility = actionSources.get('.github/workflows/compat-matrix.yml');
+  assert.ok(compatibility, 'missing Node compatibility workflow');
+  assertContainsAll(compatibility, [
+    'nix-shell: node20',
+    'nix-shell: node22',
+    'nix-shell: node24',
+    'nix develop ".#${NIX_SHELL}" --command node --version',
+    'nix develop ".#${NIX_SHELL}" --command corepack yarn test --maxWorkers=2',
+    'nix develop ".#${NIX_SHELL}" --command corepack yarn typecheck',
+  ]);
 });
 
 test('workflow actions use Node 24-compatible releases', () => {
