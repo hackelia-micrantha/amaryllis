@@ -60,6 +60,23 @@ test('change classifier exposes every CI dimension', () => {
   ]);
 });
 
+test('change classifier activates the project toolchain before Node entrypoints', () => {
+  const changes = jobBlock('changes');
+
+  assertContainsAll(changes, [
+    'nix flake check',
+    'nix build --no-link --print-out-paths .#ci-toolchain',
+    'printf \'%s\\n\' "$toolchain/bin" >> "$GITHUB_PATH"',
+    'node --test',
+    'node scripts/detect-ci-changes.mjs',
+  ]);
+  assert.ok(
+    changes.indexOf('nix build --no-link --print-out-paths .#ci-toolchain') <
+      changes.indexOf('node --test'),
+    'change classifier must activate the project toolchain before invoking Node',
+  );
+});
+
 test('stable root jobs retain lightweight and expensive paths', () => {
   for (const name of ['lint', 'test']) {
     const block = jobBlock(name);
@@ -109,7 +126,7 @@ test('native jobs remain controlled by the native dimension', () => {
   }
 });
 
-test('workflow actions use Node 24-compatible releases', () => {
+test('workflow actions use current releases and repository tooling uses Nix', () => {
   const obsoleteActions = [
     ['actions/checkout', /actions\/checkout@(?:v[1-6]\b|[0-9a-f]{40}\s+# v[1-6](?:\.\d+\.\d+)?\b)/],
     ['actions/setup-node', /actions\/setup-node@v[1-6]\b/],
@@ -130,7 +147,10 @@ test('workflow actions use Node 24-compatible releases', () => {
 
   const setup = actionSources.get('.github/actions/setup/action.yml');
   assert.ok(setup, 'missing composite setup action');
-  assert.match(setup, /actions\/setup-node@v7\b/);
+  assert.doesNotMatch(setup, /actions\/setup-node@/);
+  assert.match(setup, /nix flake check/);
+  assert.match(setup, /nix build --no-link --print-out-paths \.#ci-toolchain/);
+  assert.match(setup, /yarn install --immutable/);
 
   const coverage = actionSources.get('.github/workflows/coverage-gate.yml');
   assert.ok(coverage, 'missing coverage workflow');
