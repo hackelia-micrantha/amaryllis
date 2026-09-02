@@ -35,6 +35,17 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Validate project toolchain
+        run: nix flake check
+
+      - name: Activate project toolchain
+        run: |
+          set -euo pipefail
+          toolchain="$(nix build --no-link --print-out-paths .#ci-toolchain)"
+          test -x "$toolchain/bin/node"
+          test -x "$toolchain/bin/yarn"
+          printf '%s\n' "$toolchain/bin" >> "$GITHUB_PATH"
+
       - name: Test change classification
         run: |
           node --test \
