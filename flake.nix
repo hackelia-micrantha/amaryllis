@@ -14,15 +14,14 @@
       forAllSystems = nixpkgs.lib.genAttrs systems;
     in
     {
-      devShells = forAllSystems (
+      packages = forAllSystems (
         system:
         let
           pkgs = import nixpkgs { inherit system; };
           nodejs = pkgs.nodejs_22;
-        in
-        {
-          default = pkgs.mkShell {
-            packages = [
+          ciToolchain = pkgs.symlinkJoin {
+            name = "amaryllis-ci-toolchain";
+            paths = [
               nodejs
               pkgs.yarn
               pkgs.git
@@ -30,6 +29,22 @@
               pkgs.pkg-config
               pkgs.python3
             ];
+          };
+        in
+        {
+          ci-toolchain = ciToolchain;
+          default = ciToolchain;
+        }
+      );
+
+      devShells = forAllSystems (
+        system:
+        let
+          pkgs = import nixpkgs { inherit system; };
+        in
+        {
+          default = pkgs.mkShell {
+            packages = [ self.packages.${system}.ci-toolchain ];
           };
         }
       );
@@ -41,8 +56,8 @@
           nodejs = pkgs.nodejs_22;
         in
         {
-          toolchain = pkgs.runCommand "amaryllis-toolchain" {
-            nativeBuildInputs = [ nodejs pkgs.yarn ];
+          toolchain = pkgs.runCommand "amaryllis-toolchain-check" {
+            nativeBuildInputs = [ self.packages.${system}.ci-toolchain ];
           } ''
             test "${nodejs.version}" = "$(node --version | sed 's/^v//')"
             test -f ${./.yarn/releases/yarn-3.6.1.cjs}
