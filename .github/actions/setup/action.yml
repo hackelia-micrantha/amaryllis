@@ -6,15 +6,21 @@ inputs:
     description: Optional npm registry URL retained for caller compatibility
     required: false
     default: https://registry.npmjs.org/
+  activate-nix-toolchain:
+    description: Activate the repository Nix toolchain; disable only after an explicit hosted-native Node bootstrap
+    required: false
+    default: 'true'
 
 runs:
   using: composite
   steps:
     - name: Validate project toolchain
+      if: inputs.activate-nix-toolchain == 'true'
       run: nix flake check
       shell: bash
 
     - name: Activate project toolchain
+      if: inputs.activate-nix-toolchain == 'true'
       run: |
         set -euo pipefail
         toolchain="$(nix build --no-link --print-out-paths .#ci-toolchain)"
@@ -23,6 +29,12 @@ runs:
         printf '%s\n' "$toolchain/bin" >> "$GITHUB_PATH"
       shell: bash
 
-    - name: Install dependencies
+    - name: Install dependencies with project toolchain
+      if: inputs.activate-nix-toolchain == 'true'
       run: yarn install --immutable
+      shell: bash
+
+    - name: Install dependencies with hosted native Node
+      if: inputs.activate-nix-toolchain != 'true'
+      run: node .yarn/releases/yarn-3.6.1.cjs install --immutable
       shell: bash
