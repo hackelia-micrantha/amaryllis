@@ -19,11 +19,14 @@
         let
           pkgs = import nixpkgs { inherit system; };
           nodejs = pkgs.nodejs_22;
+          yarnLauncher = pkgs.writeShellScriptBin "yarn" ''
+            exec ${nodejs}/bin/node ${./.yarn/releases/yarn-3.6.1.cjs} "$@"
+          '';
           ciToolchain = pkgs.symlinkJoin {
             name = "amaryllis-ci-toolchain";
             paths = [
               nodejs
-              pkgs.yarn
+              yarnLauncher
               pkgs.git
               pkgs.gnumake
               pkgs.pkg-config
