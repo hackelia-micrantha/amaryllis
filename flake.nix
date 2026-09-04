@@ -18,7 +18,7 @@
         system:
         let
           pkgs = import nixpkgs { inherit system; };
-          nodejs = pkgs.nodejs_22;
+          nodejs = pkgs.nodejs_24;
           yarnLauncher = pkgs.writeShellScriptBin "yarn" ''
             exec ${nodejs}/bin/node ${./.yarn/releases/yarn-3.6.1.cjs} "$@"
           '';
@@ -56,7 +56,7 @@
         system:
         let
           pkgs = import nixpkgs { inherit system; };
-          nodejs = pkgs.nodejs_22;
+          nodejs = pkgs.nodejs_24;
         in
         {
           toolchain = pkgs.runCommand "amaryllis-toolchain-check" {
