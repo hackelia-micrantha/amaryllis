@@ -126,6 +126,39 @@ test('native jobs remain controlled by the native dimension', () => {
   }
 });
 
+test('hosted iOS bootstrap stays separate from the self-hosted Nix boundary', () => {
+  const ios = jobBlock('build-ios');
+  assertContainsAll(ios, [
+    'runs-on: macos-15',
+    'uses: actions/setup-node@v7',
+    'node-version-file: .nvmrc',
+    'uses: ./.github/actions/setup',
+    "activate-nix-toolchain: 'false'",
+    'node .yarn/releases/yarn-3.6.1.cjs turbo run build:ios',
+  ]);
+  assert.doesNotMatch(ios, /nix flake check|nix build/);
+  assert.ok(
+    ios.indexOf('uses: actions/setup-node@v7') < ios.indexOf('uses: ./.github/actions/setup'),
+    'hosted iOS must provision Node before dependency setup',
+  );
+
+  for (const name of ['changes', 'lint', 'test', 'components-package', 'build-library', 'build-android']) {
+    assert.doesNotMatch(
+      jobBlock(name),
+      /actions\/setup-node@/,
+      `${name} must not bypass the self-hosted Nix toolchain`,
+    );
+  }
+});
+
+test('Nix and hosted-native Node contracts retain the same major', () => {
+  const flake = readFileSync('flake.nix', 'utf8');
+  const nvmrc = readFileSync('.nvmrc', 'utf8').trim();
+
+  assert.match(flake, /nodejs_24\b/);
+  assert.match(nvmrc, /^v24(?:\.|$)/);
+});
+
 test('workflow actions use current releases and repository tooling uses Nix', () => {
   const obsoleteActions = [
     ['actions/checkout', /actions\/checkout@(?:v[1-6]\b|[0-9a-f]{40}\s+# v[1-6](?:\.\d+\.\d+)?\b)/],
@@ -151,6 +184,7 @@ test('workflow actions use current releases and repository tooling uses Nix', ()
   assert.match(setup, /nix flake check/);
   assert.match(setup, /nix build --no-link --print-out-paths \.#ci-toolchain/);
   assert.match(setup, /yarn install --immutable/);
+  assert.match(setup, /node \.yarn\/releases\/yarn-3\.6\.1\.cjs install --immutable/);
 
   const coverage = actionSources.get('.github/workflows/coverage-gate.yml');
   assert.ok(coverage, 'missing coverage workflow');
