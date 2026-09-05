@@ -132,15 +132,10 @@ test('hosted iOS bootstrap stays separate from the self-hosted Nix boundary', ()
     'runs-on: macos-15',
     'uses: actions/setup-node@v7',
     'node-version-file: .nvmrc',
-    'uses: ./.github/actions/setup',
-    "activate-nix-toolchain: 'false'",
+    'node .yarn/releases/yarn-3.6.1.cjs install --immutable',
     'node .yarn/releases/yarn-3.6.1.cjs turbo run build:ios',
   ]);
-  assert.doesNotMatch(ios, /nix flake check|nix build/);
-  assert.ok(
-    ios.indexOf('uses: actions/setup-node@v7') < ios.indexOf('uses: ./.github/actions/setup'),
-    'hosted iOS must provision Node before dependency setup',
-  );
+  assert.doesNotMatch(ios, /uses: \.\/\.github\/actions\/setup|nix flake check|nix build/);
 
   for (const name of ['changes', 'lint', 'test', 'components-package', 'build-library', 'build-android']) {
     assert.doesNotMatch(
@@ -157,6 +152,16 @@ test('Nix and hosted-native Node contracts retain the same major', () => {
 
   assert.match(flake, /nodejs_24\b/);
   assert.match(nvmrc, /^v24(?:\.|$)/);
+});
+
+test('shared setup has no hosted or caller-controlled toolchain bypass', () => {
+  const setup = actionSources.get('.github/actions/setup/action.yml');
+  assert.ok(setup, 'missing composite setup action');
+  assert.doesNotMatch(setup, /actions\/setup-node@/);
+  assert.doesNotMatch(setup, /activate-nix-toolchain|hosted native|\.yarn\/releases/);
+  assert.match(setup, /nix flake check/);
+  assert.match(setup, /nix build --no-link --print-out-paths \.#ci-toolchain/);
+  assert.match(setup, /yarn install --immutable/);
 });
 
 test('workflow actions use current releases and repository tooling uses Nix', () => {
@@ -177,14 +182,6 @@ test('workflow actions use current releases and repository tooling uses Nix', ()
       assert.doesNotMatch(source, pattern, `${path} uses an obsolete ${action} release`);
     }
   }
-
-  const setup = actionSources.get('.github/actions/setup/action.yml');
-  assert.ok(setup, 'missing composite setup action');
-  assert.doesNotMatch(setup, /actions\/setup-node@/);
-  assert.match(setup, /nix flake check/);
-  assert.match(setup, /nix build --no-link --print-out-paths \.#ci-toolchain/);
-  assert.match(setup, /yarn install --immutable/);
-  assert.match(setup, /node \.yarn\/releases\/yarn-3\.6\.1\.cjs install --immutable/);
 
   const coverage = actionSources.get('.github/workflows/coverage-gate.yml');
   assert.ok(coverage, 'missing coverage workflow');
