@@ -168,8 +168,17 @@ test('SBOM schema validation uses the pinned flake validator without Docker', ()
   const flake = readFileSync('flake.nix', 'utf8');
   const validator = readFileSync('scripts/validate-cyclonedx-schema.sh', 'utf8');
 
-  assert.match(flake, /pkgs\.cyclonedx-cli\.version == "0\.32\.0"/);
-  assert.match(flake, /cyclonedx-validator = cyclonedxValidator/);
+  assertContainsAll(flake, [
+    'cyclonedxVersion = "0.32.0"',
+    'asset = "cyclonedx-linux-musl-x64"',
+    'hash = "sha256-KROOYGjmzy3GDndtB4wrF8v0V1DEhaoSwo4f71VWoV8="',
+    'cyclonedx-validator = cyclonedxValidator',
+  ]);
+  assert.match(
+    flake,
+    /CycloneDX\/cyclonedx-cli\/releases\/download\/v\$\{cyclonedxVersion\}/,
+  );
+  assert.doesNotMatch(flake, /pkgs\.cyclonedx-cli\b/);
   assert.match(
     validator,
     /nix build --no-link --print-out-paths \.#cyclonedx-validator/,
