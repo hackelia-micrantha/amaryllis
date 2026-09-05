@@ -60,6 +60,23 @@ test('change classifier exposes every CI dimension', () => {
   ]);
 });
 
+test('change classifier activates the project toolchain before Node entrypoints', () => {
+  const changes = jobBlock('changes');
+
+  assertContainsAll(changes, [
+    'nix flake check',
+    'nix build --no-link --print-out-paths .#ci-toolchain',
+    'printf \'%s\\n\' "$toolchain/bin" >> "$GITHUB_PATH"',
+    'node --test',
+    'node scripts/detect-ci-changes.mjs',
+  ]);
+  assert.ok(
+    changes.indexOf('nix build --no-link --print-out-paths .#ci-toolchain') <
+      changes.indexOf('node --test'),
+    'change classifier must activate the project toolchain before invoking Node',
+  );
+});
+
 test('stable root jobs retain lightweight and expensive paths', () => {
   for (const name of ['lint', 'test']) {
     const block = jobBlock(name);
@@ -109,7 +126,68 @@ test('native jobs remain controlled by the native dimension', () => {
   }
 });
 
-test('workflow actions use Node 24-compatible releases', () => {
+test('hosted iOS bootstrap stays separate from the self-hosted Nix boundary', () => {
+  const ios = jobBlock('build-ios');
+  assertContainsAll(ios, [
+    'runs-on: macos-15',
+    'uses: actions/setup-node@v7',
+    'node-version-file: .nvmrc',
+    'node .yarn/releases/yarn-3.6.1.cjs install --immutable',
+    'node .yarn/releases/yarn-3.6.1.cjs turbo run build:ios',
+  ]);
+  assert.doesNotMatch(ios, /uses: \.\/\.github\/actions\/setup|nix flake check|nix build/);
+
+  for (const name of ['changes', 'lint', 'test', 'components-package', 'build-library', 'build-android']) {
+    assert.doesNotMatch(
+      jobBlock(name),
+      /actions\/setup-node@/,
+      `${name} must not bypass the self-hosted Nix toolchain`,
+    );
+  }
+});
+
+test('Nix and hosted-native Node contracts retain the same major', () => {
+  const flake = readFileSync('flake.nix', 'utf8');
+  const nvmrc = readFileSync('.nvmrc', 'utf8').trim();
+
+  assert.match(flake, /nodejs_24\b/);
+  assert.match(nvmrc, /^v24(?:\.|$)/);
+});
+
+test('shared setup has no hosted or caller-controlled toolchain bypass', () => {
+  const setup = actionSources.get('.github/actions/setup/action.yml');
+  assert.ok(setup, 'missing composite setup action');
+  assert.doesNotMatch(setup, /actions\/setup-node@/);
+  assert.doesNotMatch(setup, /activate-nix-toolchain|hosted native|\.yarn\/releases/);
+  assert.match(setup, /nix flake check/);
+  assert.match(setup, /nix build --no-link --print-out-paths \.#ci-toolchain/);
+  assert.match(setup, /yarn install --immutable/);
+});
+
+test('SBOM schema validation uses the pinned flake validator without Docker', () => {
+  const flake = readFileSync('flake.nix', 'utf8');
+  const validator = readFileSync('scripts/validate-cyclonedx-schema.sh', 'utf8');
+
+  assertContainsAll(flake, [
+    'cyclonedxVersion = "0.32.0"',
+    'asset = "cyclonedx-linux-musl-x64"',
+    'hash = "sha256-KROOYGjmzy3GDndtB4wrF8v0V1DEhaoSwo4f71VWoV8="',
+    'cyclonedx-validator = cyclonedxValidator',
+  ]);
+  assert.match(
+    flake,
+    /CycloneDX\/cyclonedx-cli\/releases\/download\/v\$\{cyclonedxVersion\}/,
+  );
+  assert.doesNotMatch(flake, /pkgs\.cyclonedx-cli\b/);
+  assert.match(
+    validator,
+    /nix build --no-link --print-out-paths \.#cyclonedx-validator/,
+  );
+  assert.match(validator, /"\$cyclonedx" validate/);
+  assert.doesNotMatch(validator, /\bdocker\b/i);
+});
+
+test('workflow actions use current releases and repository tooling uses Nix', () => {
   const obsoleteActions = [
     ['actions/checkout', /actions\/checkout@(?:v[1-6]\b|[0-9a-f]{40}\s+# v[1-6](?:\.\d+\.\d+)?\b)/],
     ['actions/setup-node', /actions\/setup-node@v[1-6]\b/],
@@ -127,10 +205,6 @@ test('workflow actions use Node 24-compatible releases', () => {
       assert.doesNotMatch(source, pattern, `${path} uses an obsolete ${action} release`);
     }
   }
-
-  const setup = actionSources.get('.github/actions/setup/action.yml');
-  assert.ok(setup, 'missing composite setup action');
-  assert.match(setup, /actions\/setup-node@v7\b/);
 
   const coverage = actionSources.get('.github/workflows/coverage-gate.yml');
   assert.ok(coverage, 'missing coverage workflow');
