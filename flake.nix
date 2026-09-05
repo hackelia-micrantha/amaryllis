@@ -12,6 +12,25 @@
         "aarch64-darwin"
       ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
+      cyclonedxVersion = "0.32.0";
+      cyclonedxReleases = {
+        x86_64-linux = {
+          asset = "cyclonedx-linux-musl-x64";
+          hash = "sha256-KROOYGjmzy3GDndtB4wrF8v0V1DEhaoSwo4f71VWoV8=";
+        };
+        aarch64-linux = {
+          asset = "cyclonedx-linux-arm64";
+          hash = "sha256-q/C3xWSKWxJ3kdaRytQfAErO6ifHW7QslXL9yWlHcM8=";
+        };
+        x86_64-darwin = {
+          asset = "cyclonedx-osx-x64";
+          hash = "sha256-oTpd4S0Qz8z48iJhS5mvJD/uVJGw7HOFCx1voFDUrUo=";
+        };
+        aarch64-darwin = {
+          asset = "cyclonedx-osx-arm64";
+          hash = "sha256-g76KlZnx3OElIgi9TQuxUwjsoFRoFPtytItyRtNegy4=";
+        };
+      };
     in
     {
       packages = forAllSystems (
@@ -33,9 +52,14 @@
               pkgs.python3
             ];
           };
-          cyclonedxValidator =
-            assert pkgs.cyclonedx-cli.version == "0.32.0";
-            pkgs.cyclonedx-cli;
+          cyclonedxRelease = cyclonedxReleases.${system};
+          cyclonedxSource = pkgs.fetchurl {
+            url = "https://github.com/CycloneDX/cyclonedx-cli/releases/download/v${cyclonedxVersion}/${cyclonedxRelease.asset}";
+            hash = cyclonedxRelease.hash;
+          };
+          cyclonedxValidator = pkgs.runCommand "cyclonedx-cli-${cyclonedxVersion}" { } ''
+            install -Dm755 ${cyclonedxSource} "$out/bin/cyclonedx"
+          '';
         in
         {
           ci-toolchain = ciToolchain;
