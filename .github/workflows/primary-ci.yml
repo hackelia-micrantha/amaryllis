@@ -319,10 +319,8 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Setup
-        uses: ./.github/actions/setup
-        with:
-          activate-nix-toolchain: 'false'
+      - name: Install dependencies with vendored Yarn
+        run: node .yarn/releases/yarn-3.6.1.cjs install --immutable
 
       - name: Cache turborepo for iOS
         uses: actions/cache@v5
