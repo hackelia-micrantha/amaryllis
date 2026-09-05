@@ -33,9 +33,13 @@
               pkgs.python3
             ];
           };
+          cyclonedxValidator =
+            assert pkgs.cyclonedx-cli.version == "0.32.0";
+            pkgs.cyclonedx-cli;
         in
         {
           ci-toolchain = ciToolchain;
+          cyclonedx-validator = cyclonedxValidator;
           default = ciToolchain;
         }
       );
