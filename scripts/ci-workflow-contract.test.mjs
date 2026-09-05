@@ -164,6 +164,20 @@ test('shared setup has no hosted or caller-controlled toolchain bypass', () => {
   assert.match(setup, /yarn install --immutable/);
 });
 
+test('SBOM schema validation uses the pinned flake validator without Docker', () => {
+  const flake = readFileSync('flake.nix', 'utf8');
+  const validator = readFileSync('scripts/validate-cyclonedx-schema.sh', 'utf8');
+
+  assert.match(flake, /pkgs\.cyclonedx-cli\.version == "0\.32\.0"/);
+  assert.match(flake, /cyclonedx-validator = cyclonedxValidator/);
+  assert.match(
+    validator,
+    /nix build --no-link --print-out-paths \.#cyclonedx-validator/,
+  );
+  assert.match(validator, /"\$cyclonedx" validate/);
+  assert.doesNotMatch(validator, /\bdocker\b/i);
+});
+
 test('workflow actions use current releases and repository tooling uses Nix', () => {
   const obsoleteActions = [
     ['actions/checkout', /actions\/checkout@(?:v[1-6]\b|[0-9a-f]{40}\s+# v[1-6](?:\.\d+\.\d+)?\b)/],
