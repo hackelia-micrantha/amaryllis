@@ -76,7 +76,7 @@
                   install -Dm755 ${cyclonedxSource} "$out/libexec/cyclonedx"
                   printf '%s\n' \
                     '#!${pkgs.runtimeShell}' \
-                    "exec ${cyclonedxLinuxLoader} \"$out/libexec/cyclonedx\" \"\$@\"" \
+                    'exec ${cyclonedxLinuxLoader} "$out/libexec/cyclonedx" "$@"' \
                     > "$out/bin/cyclonedx"
                   chmod 755 "$out/bin/cyclonedx"
                 ''
