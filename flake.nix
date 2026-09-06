@@ -57,8 +57,30 @@
             url = "https://github.com/CycloneDX/cyclonedx-cli/releases/download/v${cyclonedxVersion}/${cyclonedxRelease.asset}";
             hash = cyclonedxRelease.hash;
           };
+          cyclonedxLinuxLoader =
+            if system == "x86_64-linux" then
+              "${pkgs.musl}/lib/ld-musl-x86_64.so.1"
+            else if system == "aarch64-linux" then
+              pkgs.stdenv.cc.bintools.dynamicLinker
+            else
+              null;
           cyclonedxValidator = pkgs.runCommand "cyclonedx-cli-${cyclonedxVersion}" { } ''
-            install -Dm755 ${cyclonedxSource} "$out/bin/cyclonedx"
+            mkdir -p "$out/bin"
+            ${
+              if cyclonedxLinuxLoader == null then
+                ''
+                  install -Dm755 ${cyclonedxSource} "$out/bin/cyclonedx"
+                ''
+              else
+                ''
+                  install -Dm755 ${cyclonedxSource} "$out/libexec/cyclonedx"
+                  cat > "$out/bin/cyclonedx" <<EOF
+                  #!${pkgs.runtimeShell}
+                  exec ${cyclonedxLinuxLoader} "$out/libexec/cyclonedx" "\$@"
+                  EOF
+                  chmod 755 "$out/bin/cyclonedx"
+                ''
+            }
           '';
         in
         {
