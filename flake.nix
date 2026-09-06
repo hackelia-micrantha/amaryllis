@@ -64,21 +64,16 @@
               pkgs.stdenv.cc.bintools.dynamicLinker
             else
               null;
-          cyclonedxValidator = pkgs.runCommand "cyclonedx-cli-${cyclonedxVersion}" { } ''
-            mkdir -p "$out/bin"
+          cyclonedxValidator = pkgs.runCommand "cyclonedx-cli-${cyclonedxVersion}" {
+            nativeBuildInputs = pkgs.lib.optional (cyclonedxLinuxLoader != null) pkgs.patchelf;
+          } ''
+            install -Dm755 ${cyclonedxSource} "$out/bin/cyclonedx"
             ${
               if cyclonedxLinuxLoader == null then
-                ''
-                  install -Dm755 ${cyclonedxSource} "$out/bin/cyclonedx"
-                ''
+                ""
               else
                 ''
-                  install -Dm755 ${cyclonedxSource} "$out/libexec/cyclonedx"
-                  printf '%s\n' \
-                    '#!${pkgs.runtimeShell}' \
-                    'exec ${cyclonedxLinuxLoader} "$out/libexec/cyclonedx" "$@"' \
-                    > "$out/bin/cyclonedx"
-                  chmod 755 "$out/bin/cyclonedx"
+                  patchelf --set-interpreter "${cyclonedxLinuxLoader}" "$out/bin/cyclonedx"
                 ''
             }
           '';
