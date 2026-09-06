@@ -174,7 +174,9 @@ test('SBOM schema validation uses the pinned flake validator without Docker', ()
     'hash = "sha256-KROOYGjmzy3GDndtB4wrF8v0V1DEhaoSwo4f71VWoV8="',
     'cyclonedxLinuxLoader =',
     '"${pkgs.musl}/lib/ld-musl-x86_64.so.1"',
-    'install -Dm755 ${cyclonedxSource} "$out/libexec/cyclonedx"',
+    'nativeBuildInputs = pkgs.lib.optional (cyclonedxLinuxLoader != null) pkgs.patchelf',
+    'install -Dm755 ${cyclonedxSource} "$out/bin/cyclonedx"',
+    'patchelf --set-interpreter "${cyclonedxLinuxLoader}" "$out/bin/cyclonedx"',
     'cyclonedx-validator = cyclonedxValidator',
   ]);
   assert.match(
@@ -182,6 +184,7 @@ test('SBOM schema validation uses the pinned flake validator without Docker', ()
     /CycloneDX\/cyclonedx-cli\/releases\/download\/v\$\{cyclonedxVersion\}/,
   );
   assert.doesNotMatch(flake, /pkgs\.cyclonedx-cli\b/);
+  assert.doesNotMatch(flake, /libexec\/cyclonedx|printf '%s\\n'/);
   assert.match(
     validator,
     /nix build --no-link --print-out-paths \.#cyclonedx-validator/,
