@@ -172,6 +172,9 @@ test('SBOM schema validation uses the pinned flake validator without Docker', ()
     'cyclonedxVersion = "0.32.0"',
     'asset = "cyclonedx-linux-musl-x64"',
     'hash = "sha256-KROOYGjmzy3GDndtB4wrF8v0V1DEhaoSwo4f71VWoV8="',
+    'cyclonedxLinuxLoader =',
+    '"${pkgs.musl}/lib/ld-musl-x86_64.so.1"',
+    'install -Dm755 ${cyclonedxSource} "$out/libexec/cyclonedx"',
     'cyclonedx-validator = cyclonedxValidator',
   ]);
   assert.match(
