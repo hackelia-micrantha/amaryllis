@@ -39,6 +39,17 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 internal typealias AsyncTerminalHandler = (Throwable?) -> Unit
 
+internal fun deliverAsyncProgress(
+    listener: ProgressListener<String>,
+    partialResult: String?,
+    done: Boolean,
+): Throwable? = try {
+    listener.run(partialResult, done)
+    null
+} catch (error: Throwable) {
+    error
+}
+
 class Amaryllis {
 
     private class ActiveAsyncGeneration(
@@ -206,16 +217,10 @@ class Amaryllis {
 
         try {
             val future = active.session.generateResponseAsync { partialResult, done ->
-                var deliveryError: Throwable? = null
-                try {
-                    listener.run(partialResult, done)
-                } catch (error: Throwable) {
-                    deliveryError = error
-                    if (!done) {
-                        Log.e(NAME, "async progress listener failed", error)
-                    }
+                val deliveryError = deliverAsyncProgress(listener, partialResult, done)
+                if (deliveryError != null && !done) {
+                    Log.e(NAME, "async progress listener failed", deliveryError)
                 }
-
                 if (done) {
                     settle(deliveryError)
                 }
