@@ -206,9 +206,18 @@ class Amaryllis {
 
         try {
             val future = active.session.generateResponseAsync { partialResult, done ->
-                listener.run(partialResult, done)
+                var deliveryError: Throwable? = null
+                try {
+                    listener.run(partialResult, done)
+                } catch (error: Throwable) {
+                    deliveryError = error
+                    if (!done) {
+                        Log.e(NAME, "async progress listener failed", error)
+                    }
+                }
+
                 if (done) {
-                    settle(null)
+                    settle(deliveryError)
                 }
             }
             active.future = future
