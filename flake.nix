@@ -64,7 +64,10 @@
               null;
           cyclonedxLinuxRPath =
             if pkgs.stdenv.isLinux then
-              pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib ]
+              pkgs.lib.makeLibraryPath [
+                pkgs.stdenv.cc.cc.lib
+                pkgs.stdenv.cc.libc
+              ]
             else
               null;
           cyclonedxValidator = pkgs.runCommand "cyclonedx-cli-${cyclonedxVersion}" {
