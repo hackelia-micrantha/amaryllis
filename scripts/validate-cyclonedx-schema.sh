@@ -11,6 +11,7 @@ readonly validator="$(nix build --no-link --print-out-paths .#cyclonedx-validato
 readonly cyclonedx="$validator/bin/cyclonedx"
 
 test -x "$cyclonedx"
+"$cyclonedx" --version >/dev/null
 
 for sbom_file in "$@"; do
   if [[ -L "$sbom_file" ]]; then
