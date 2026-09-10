@@ -164,26 +164,30 @@ test('shared setup has no hosted or caller-controlled toolchain bypass', () => {
   assert.match(setup, /yarn install --immutable/);
 });
 
-test('SBOM schema validation uses the pinned flake validator without Docker', () => {
+test('SBOM schema validation uses an executable pinned flake validator without Docker', () => {
   const flake = readFileSync('flake.nix', 'utf8');
   const validator = readFileSync('scripts/validate-cyclonedx-schema.sh', 'utf8');
 
   assertContainsAll(flake, [
     'cyclonedxVersion = "0.32.0"',
-    'asset = "cyclonedx-linux-musl-x64"',
-    'hash = "sha256-KROOYGjmzy3GDndtB4wrF8v0V1DEhaoSwo4f71VWoV8="',
+    'asset = "cyclonedx-linux-x64"',
+    'hash = "sha256-RUh55qSkBcihO/9JuJgq3LBZbzAZsmsIEcZuTX8Hg+E="',
     'cyclonedxLinuxLoader =',
-    '"${pkgs.musl}/lib/ld-musl-x86_64.so.1"',
+    'pkgs.stdenv.cc.bintools.dynamicLinker',
+    'cyclonedxLinuxRPath =',
+    'pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib ]',
     'nativeBuildInputs = pkgs.lib.optional (cyclonedxLinuxLoader != null) pkgs.patchelf',
     'install -Dm755 ${cyclonedxSource} "$out/bin/cyclonedx"',
-    'patchelf --set-interpreter "${cyclonedxLinuxLoader}" "$out/bin/cyclonedx"',
+    '--set-interpreter "${cyclonedxLinuxLoader}"',
+    '--set-rpath "${cyclonedxLinuxRPath}"',
     'cyclonedx-validator = cyclonedxValidator',
+    'cyclonedx --version >/dev/null',
   ]);
   assert.match(
     flake,
     /CycloneDX\/cyclonedx-cli\/releases\/download\/v\$\{cyclonedxVersion\}/,
   );
-  assert.doesNotMatch(flake, /pkgs\.cyclonedx-cli\b/);
+  assert.doesNotMatch(flake, /pkgs\.cyclonedx-cli\b|cyclonedx-linux-musl-x64/);
   assert.doesNotMatch(flake, /libexec\/cyclonedx|printf '%s\\n'/);
   assert.match(
     validator,
