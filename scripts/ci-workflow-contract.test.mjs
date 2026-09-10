@@ -183,7 +183,6 @@ test('SBOM schema validation uses an executable pinned flake validator without D
     '--set-interpreter "${cyclonedxLinuxLoader}"',
     '--set-rpath "${cyclonedxLinuxRPath}"',
     'cyclonedx-validator = cyclonedxValidator',
-    'cyclonedx --version >/dev/null',
   ]);
   assert.match(
     flake,
@@ -195,6 +194,7 @@ test('SBOM schema validation uses an executable pinned flake validator without D
     validator,
     /nix build --no-link --print-out-paths \.#cyclonedx-validator/,
   );
+  assert.match(validator, /"\$cyclonedx" --version >\/dev\/null/);
   assert.match(validator, /\[\[ -L "\$sbom_file" \]\]/);
   assert.match(validator, /--input-file "\$absolute_file"/);
   assert.match(validator, /"\$cyclonedx" validate/);
