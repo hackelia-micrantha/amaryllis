@@ -68,6 +68,9 @@
                 pkgs.stdenv.cc.cc.lib
                 pkgs.stdenv.cc.libc
                 pkgs.icu
+                pkgs.krb5
+                pkgs.openssl
+                pkgs.zlib
               ]
             else
               null;
