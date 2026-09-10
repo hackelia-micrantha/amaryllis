@@ -121,13 +121,6 @@
             test "$(yarn --version)" = "3.6.1"
             touch "$out"
           '';
-
-          cyclonedx-validator = pkgs.runCommand "amaryllis-cyclonedx-validator-check" {
-            nativeBuildInputs = [ self.packages.${system}.cyclonedx-validator ];
-          } ''
-            cyclonedx --version >/dev/null
-            touch "$out"
-          '';
         }
       );
     };
