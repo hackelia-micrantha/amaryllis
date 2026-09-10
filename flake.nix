@@ -67,6 +67,7 @@
               pkgs.lib.makeLibraryPath [
                 pkgs.stdenv.cc.cc.lib
                 pkgs.stdenv.cc.libc
+                pkgs.icu
               ]
             else
               null;
