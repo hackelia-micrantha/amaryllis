@@ -142,27 +142,42 @@ class Amaryllis {
         val llm = llmInference ?: throw NotInitializedException()
         val prompt = params.validateAndGetPrompt()
 
-        val persistentSession = session
-        val asyncSession: LlmInferenceSession
-        val ownsSession: Boolean
-        if (persistentSession == null) {
-            params.validateNoSession()
-            asyncSession = LlmInferenceSession.createFromOptions(
-                llm,
-                LlmInferenceSession.LlmInferenceSessionOptions.builder().build(),
-            )
-            ownsSession = true
-            asyncSession.addQueryChunk(prompt)
-        } else {
-            persistentSession.updateQueryFromParams(params)
-            asyncSession = persistentSession
-            ownsSession = false
-        }
+        var ephemeralSession: LlmInferenceSession? = null
+        val active = try {
+            synchronized(asyncLock) {
+                check(activeAsyncGeneration == null) { "asynchronous generation already active" }
 
-        val active = ActiveAsyncGeneration(asyncSession, ownsSession)
-        synchronized(asyncLock) {
-            check(activeAsyncGeneration == null) { "asynchronous generation already active" }
-            activeAsyncGeneration = active
+                val persistentSession = session
+                val asyncSession: LlmInferenceSession
+                val ownsSession: Boolean
+                if (persistentSession == null) {
+                    params.validateNoSession()
+                    asyncSession = LlmInferenceSession.createFromOptions(
+                        llm,
+                        LlmInferenceSession.LlmInferenceSessionOptions.builder().build(),
+                    )
+                    ephemeralSession = asyncSession
+                    ownsSession = true
+                    asyncSession.addQueryChunk(prompt)
+                } else {
+                    persistentSession.updateQueryFromParams(params)
+                    asyncSession = persistentSession
+                    ownsSession = false
+                }
+
+                ActiveAsyncGeneration(asyncSession, ownsSession).also {
+                    activeAsyncGeneration = it
+                }
+            }
+        } catch (error: Throwable) {
+            ephemeralSession?.let { ownedSession ->
+                try {
+                    ownedSession.close()
+                } catch (closeError: Throwable) {
+                    error.addSuppressed(closeError)
+                }
+            }
+            throw error
         }
 
         fun settle(error: Throwable?) {
@@ -190,7 +205,7 @@ class Amaryllis {
         }
 
         try {
-            val future = asyncSession.generateResponseAsync { partialResult, done ->
+            val future = active.session.generateResponseAsync { partialResult, done ->
                 listener.run(partialResult, done)
                 if (done) {
                     settle(null)
