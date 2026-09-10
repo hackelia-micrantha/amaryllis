@@ -15,8 +15,8 @@
       cyclonedxVersion = "0.32.0";
       cyclonedxReleases = {
         x86_64-linux = {
-          asset = "cyclonedx-linux-musl-x64";
-          hash = "sha256-KROOYGjmzy3GDndtB4wrF8v0V1DEhaoSwo4f71VWoV8=";
+          asset = "cyclonedx-linux-x64";
+          hash = "sha256-RUh55qSkBcihO/9JuJgq3LBZbzAZsmsIEcZuTX8Hg+E=";
         };
         aarch64-linux = {
           asset = "cyclonedx-linux-arm64";
@@ -58,10 +58,13 @@
             hash = cyclonedxRelease.hash;
           };
           cyclonedxLinuxLoader =
-            if system == "x86_64-linux" then
-              "${pkgs.musl}/lib/ld-musl-x86_64.so.1"
-            else if system == "aarch64-linux" then
+            if pkgs.stdenv.isLinux then
               pkgs.stdenv.cc.bintools.dynamicLinker
+            else
+              null;
+          cyclonedxLinuxRPath =
+            if pkgs.stdenv.isLinux then
+              pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib ]
             else
               null;
           cyclonedxValidator = pkgs.runCommand "cyclonedx-cli-${cyclonedxVersion}" {
@@ -73,7 +76,10 @@
                 ""
               else
                 ''
-                  patchelf --set-interpreter "${cyclonedxLinuxLoader}" "$out/bin/cyclonedx"
+                  patchelf \
+                    --set-interpreter "${cyclonedxLinuxLoader}" \
+                    --set-rpath "${cyclonedxLinuxRPath}" \
+                    "$out/bin/cyclonedx"
                 ''
             }
           '';
@@ -110,6 +116,13 @@
             test "${nodejs.version}" = "$(node --version | sed 's/^v//')"
             test -f ${./.yarn/releases/yarn-3.6.1.cjs}
             test "$(yarn --version)" = "3.6.1"
+            touch "$out"
+          '';
+
+          cyclonedx-validator = pkgs.runCommand "amaryllis-cyclonedx-validator-check" {
+            nativeBuildInputs = [ self.packages.${system}.cyclonedx-validator ];
+          } ''
+            cyclonedx --version >/dev/null
             touch "$out"
           '';
         }
