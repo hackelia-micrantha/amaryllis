@@ -178,6 +178,7 @@ test('SBOM schema validation uses an executable pinned flake validator without D
     'pkgs.lib.makeLibraryPath [',
     'pkgs.stdenv.cc.cc.lib',
     'pkgs.stdenv.cc.libc',
+    'pkgs.icu',
     'nativeBuildInputs = pkgs.lib.optional (cyclonedxLinuxLoader != null) pkgs.patchelf',
     'install -Dm755 ${cyclonedxSource} "$out/bin/cyclonedx"',
     '--set-interpreter "${cyclonedxLinuxLoader}"',
