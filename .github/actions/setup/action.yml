@@ -1,22 +1,21 @@
 name: Setup
-description: Setup Node.js and install dependencies
-
-inputs:
-  registry-url:
-    description: Optional npm registry URL for setup-node
-    required: false
-    default: https://registry.npmjs.org/
+description: Activate the project-owned Nix toolchain and install dependencies
 
 runs:
   using: composite
   steps:
-    - name: Setup Node.js
-      uses: actions/setup-node@v7
-      with:
-        node-version-file: .nvmrc
-        registry-url: ${{ inputs.registry-url }}
-        cache: yarn
-        cache-dependency-path: yarn.lock
+    - name: Validate project toolchain
+      run: nix flake check
+      shell: bash
+
+    - name: Activate project toolchain
+      run: |
+        set -euo pipefail
+        toolchain="$(nix build --no-link --print-out-paths .#ci-toolchain)"
+        test -x "$toolchain/bin/node"
+        test -x "$toolchain/bin/yarn"
+        printf '%s\n' "$toolchain/bin" >> "$GITHUB_PATH"
+      shell: bash
 
     - name: Install dependencies
       run: yarn install --immutable
