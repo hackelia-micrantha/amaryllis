@@ -13,6 +13,11 @@ readonly cyclonedx="$validator/bin/cyclonedx"
 test -x "$cyclonedx"
 
 for sbom_file in "$@"; do
+  if [[ -L "$sbom_file" ]]; then
+    echo "SBOM file must not be a symlink: $sbom_file" >&2
+    exit 2
+  fi
+
   if [[ ! -f "$sbom_file" ]]; then
     echo "SBOM file does not exist: $sbom_file" >&2
     exit 2
@@ -20,7 +25,7 @@ for sbom_file in "$@"; do
 
   absolute_file="$(cd "$(dirname "$sbom_file")" && pwd -P)/$(basename "$sbom_file")"
   case "$absolute_file" in
-    "$workspace"/*) relative_file="${absolute_file#"$workspace"/}" ;;
+    "$workspace"/*) ;;
     *)
       echo "SBOM file must be inside the current workspace: $sbom_file" >&2
       exit 2
@@ -28,7 +33,7 @@ for sbom_file in "$@"; do
   esac
 
   "$cyclonedx" validate \
-    --input-file "$relative_file" \
+    --input-file "$absolute_file" \
     --input-format json \
     --input-version v1_6 \
     --fail-on-errors
