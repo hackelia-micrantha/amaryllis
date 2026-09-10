@@ -195,6 +195,8 @@ test('SBOM schema validation uses an executable pinned flake validator without D
     validator,
     /nix build --no-link --print-out-paths \.#cyclonedx-validator/,
   );
+  assert.match(validator, /\[\[ -L "\$sbom_file" \]\]/);
+  assert.match(validator, /--input-file "\$absolute_file"/);
   assert.match(validator, /"\$cyclonedx" validate/);
   assert.doesNotMatch(validator, /\bdocker\b/i);
 });
