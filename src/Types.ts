@@ -1,5 +1,4 @@
 import type { Spec } from './NativeAmaryllis';
-import type { Observable } from 'rxjs';
 
 export type LlmNativeEngine = Spec;
 
@@ -169,9 +168,4 @@ export interface LLMResult {
   /** Complete accumulated output produced so far. */
   text: string;
   isFinal: boolean;
-}
-
-export interface LLMObservableResult {
-  callbacks: LlmCallbacks;
-  observable: Observable<LLMResult>;
 }
