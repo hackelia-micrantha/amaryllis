@@ -5,15 +5,15 @@ on:
     tags:
       - 'v*'
 
-permissions:
-  actions: read
-  contents: write
-  id-token: write
+permissions: {}
 
 jobs:
   preflight:
     runs-on: runner-amaryllis
     timeout-minutes: 35
+    permissions:
+      actions: read
+      contents: read
     steps:
       - name: Wait for required workflows
         uses: actions/github-script@v9
@@ -135,6 +135,10 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: write
+      id-token: write
     steps:
       - name: Checkout publish scripts
         uses: actions/checkout@v7
@@ -152,7 +156,7 @@ jobs:
           npm --version
 
       - name: Download exact preflighted artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: release-packages-${{ github.sha }}
           path: release-artifacts
