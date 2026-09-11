@@ -326,7 +326,9 @@ describe('LlmPipe', () => {
     expect(lifecycleListener).toHaveBeenCalledTimes(1);
     expect(lifecycleListener).toHaveBeenCalledWith({ type: 'cancelled' });
     expect(listeners).toEqual({});
-    await expect(pipe.generateAsync({ prompt: 'next' })).resolves.toBeUndefined();
+    await expect(
+      pipe.generateAsync({ prompt: 'next' })
+    ).resolves.toBeUndefined();
   });
 
   it('makes repeated cancellation requests idempotent while cancelling', async () => {
@@ -361,7 +363,9 @@ describe('LlmPipe', () => {
       text: 'still-running',
     });
     expect(onEvent).toHaveBeenCalledWith({ type: 'final', text: 'done' });
-    await expect(pipe.generateAsync({ prompt: 'next' })).resolves.toBeUndefined();
+    await expect(
+      pipe.generateAsync({ prompt: 'next' })
+    ).resolves.toBeUndefined();
   });
 
   it('ignores final and error events while cancellation is pending', async () => {
@@ -377,12 +381,16 @@ describe('LlmPipe', () => {
     });
 
     expect(onEvent).not.toHaveBeenCalled();
-    await expect(pipe.generateAsync({ prompt: 'blocked' })).rejects.toMatchObject({
+    await expect(
+      pipe.generateAsync({ prompt: 'blocked' })
+    ).rejects.toMatchObject({
       code: GENERATION_IN_PROGRESS_CODE,
     });
 
     emitCancelled(requestId);
-    await expect(pipe.generateAsync({ prompt: 'next' })).resolves.toBeUndefined();
+    await expect(
+      pipe.generateAsync({ prompt: 'next' })
+    ).resolves.toBeUndefined();
   });
 
   it('does not let a stale cancellation settle a newer request', async () => {
