@@ -8,6 +8,9 @@ on:
       - 'package.json'
       - 'yarn.lock'
       - 'src/**'
+      - 'packages/amaryllis/**'
+      - 'packages/amaryllis-components/**'
+      - 'scripts/package-*.mjs'
       - 'ios/**'
       - 'android/**'
       - 'cpp/**'
@@ -23,9 +26,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  canary:
+  preflight:
     runs-on: runner-amaryllis
-
+    timeout-minutes: 35
     steps:
       - name: Wait for required workflows
         if: github.event_name != 'workflow_dispatch'
@@ -42,7 +45,6 @@ jobs:
             const timeoutMs = Number(process.env.TIMEOUT_SECONDS) * 1000;
             const intervalMs = Number(process.env.POLL_INTERVAL_SECONDS) * 1000;
             const deadline = Date.now() + timeoutMs;
-
             const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
             while (true) {
@@ -52,52 +54,39 @@ jobs:
                 head_sha: targetSha,
                 per_page: 100,
               });
-
               const failed = [];
               const pending = [];
 
               for (const name of required) {
                 const matches = runs.filter((run) => run.name === name);
                 const successful = matches.find(
-                  (run) => run.status === 'completed' && run.conclusion === 'success',
+                  (run) => run.status === 'completed' && run.conclusion === 'success'
                 );
-
-                if (successful) {
-                  core.info(`${name}: success (${successful.html_url})`);
-                  continue;
-                }
+                if (successful) continue;
 
                 const unsuccessful = matches.find(
                   (run) =>
                     run.status === 'completed' &&
-                    !['success', 'skipped', 'neutral'].includes(run.conclusion ?? ''),
+                    !['success', 'skipped', 'neutral'].includes(run.conclusion ?? '')
                 );
-
                 if (unsuccessful) {
                   failed.push(`${name}: ${unsuccessful.conclusion} (${unsuccessful.html_url})`);
-                  continue;
+                } else {
+                  pending.push(name);
                 }
-
-                pending.push(name);
               }
 
               if (failed.length) {
                 core.setFailed(`Required workflows failed for ${targetSha}:\n${failed.join('\n')}`);
                 return;
               }
-
-              if (!pending.length) {
-                core.info(`Required workflows passed for ${targetSha}.`);
-                return;
-              }
-
+              if (!pending.length) return;
               if (Date.now() >= deadline) {
                 core.setFailed(
-                  `Timed out waiting for required workflows on ${targetSha}: ${pending.join(', ')}`,
+                  `Timed out waiting for required workflows on ${targetSha}: ${pending.join(', ')}`
                 );
                 return;
               }
-
               core.info(`Waiting for workflows on ${targetSha}: ${pending.join(', ')}`);
               await sleep(intervalMs);
             }
@@ -105,32 +94,84 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Setup
+      - name: Setup project toolchain
         uses: ./.github/actions/setup
 
-      - name: Run quality checks
+      - name: Run root quality checks
         run: |
-          yarn lint
+          yarn lint --ignore-pattern 'packages/amaryllis-components/**'
           yarn typecheck
           yarn test --maxWorkers=2
 
-      - name: Build package
+      - name: Test package release contracts
+        run: node --test scripts/package-release.test.mjs
+
+      - name: Typecheck core package
+        run: yarn workspace @micrantha/amaryllis typecheck
+
+      - name: Build core package
+        run: yarn workspace @micrantha/amaryllis build
+
+      - name: Build main package
         run: yarn prepare
+
+      - name: Run components quality checks
+        run: |
+          yarn workspace @micrantha/amaryllis-components test --runInBand
+          yarn eslint "packages/amaryllis-components/src/**/*.{ts,tsx}"
+          yarn workspace @micrantha/amaryllis-components typecheck
+          yarn workspace @micrantha/amaryllis-components build
+
+      - name: Validate package metadata and outputs
+        run: node scripts/validate-packages.mjs
+
+      - name: Pack and verify canary artifacts
+        run: |
+          node scripts/package-preflight.mjs \
+            --output-dir release-artifacts \
+            --version-suffix "canary.${GITHUB_RUN_NUMBER}.${GITHUB_SHA::7}"
+
+      - name: Upload exact canary artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: canary-packages-${{ github.sha }}
+          path: |
+            release-artifacts/*.tgz
+            release-artifacts/package-release.json
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout publish scripts
+        uses: actions/checkout@v7
+
+      - name: Setup hosted Node.js for npm trusted publishing
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org/
+          package-manager-cache: false
 
       - name: Ensure npm supports trusted publishing
         run: |
           npm install -g npm@11.5.1
           npm --version
 
-      - name: Compute canary version
-        run: |
-          BASE_VERSION=$(node -p "require('./package.json').version")
-          CANARY_VERSION="${BASE_VERSION}-canary.${GITHUB_RUN_NUMBER}.${GITHUB_SHA::7}"
-          echo "CANARY_VERSION=${CANARY_VERSION}" >> "$GITHUB_ENV"
-          npm version --no-git-tag-version "$CANARY_VERSION"
+      - name: Download exact canary artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: canary-packages-${{ github.sha }}
+          path: release-artifacts
 
-      - name: Publish canary package
+      - name: Publish exact canary tarballs in dependency order
         env:
           NODE_AUTH_TOKEN: ''
           NPM_TOKEN: ''
-        run: npm publish --tag canary --provenance --access public
+        run: |
+          node scripts/publish-package-artifacts.mjs \
+            --manifest release-artifacts/package-release.json \
+            --tag canary
