@@ -22,6 +22,9 @@ jobs:
         id: target
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
+      - name: Setup project toolchain
+        uses: ./.github/actions/setup
+
       - name: Validate release tag
         run: node scripts/validate-release-tag.mjs "${{ github.ref_name }}"
 
@@ -84,9 +87,6 @@ jobs:
               core.info(`Waiting for workflows on ${targetSha}: ${pending.join(', ')}`);
               await sleep(intervalMs);
             }
-
-      - name: Setup project toolchain
-        uses: ./.github/actions/setup
 
       - name: Run main library tests
         run: yarn test --maxWorkers=2
