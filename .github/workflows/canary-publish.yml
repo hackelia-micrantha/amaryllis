@@ -166,7 +166,7 @@ jobs:
           npm --version
 
       - name: Download exact canary artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v7
         with:
           name: canary-packages-${{ github.sha }}
           path: release-artifacts
