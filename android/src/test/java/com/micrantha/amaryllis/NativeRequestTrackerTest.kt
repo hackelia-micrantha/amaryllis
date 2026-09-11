@@ -3,7 +3,9 @@ package com.micrantha.amaryllis
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class NativeRequestTrackerTest {
@@ -13,20 +15,36 @@ class NativeRequestTrackerTest {
 
     assertTrue(tracker.tryStart("first"))
     assertFalse(tracker.tryStart("second"))
-    assertTrue(tracker.clear("first"))
+    assertEquals(NativeRequestState.GENERATING, tracker.settle("first"))
     assertTrue(tracker.tryStart("second"))
   }
 
   @Test
-  fun cancellationIsRequestScopedAndLateCallbacksAreIgnored() {
+  fun cancellationRetainsOwnershipUntilTerminalSettlement() {
     val tracker = NativeRequestTracker()
 
     assertTrue(tracker.tryStart("first"))
-    assertFalse(tracker.clear("other"))
+    assertFalse(tracker.requestCancellation("other"))
+    assertTrue(tracker.requestCancellation("first"))
     assertTrue(tracker.owns("first"))
-    assertTrue(tracker.clear("first"))
+    assertTrue(tracker.isCancelling("first"))
+    assertFalse(tracker.tryStart("second"))
+    assertFalse(tracker.requestCancellation("first"))
+    assertEquals(NativeRequestState.CANCELLING, tracker.settle("first"))
     assertFalse(tracker.owns("first"))
-    assertFalse(tracker.clear("first"))
+    assertTrue(tracker.tryStart("second"))
+  }
+
+  @Test
+  fun failedCancellationCanRestoreGeneratingState() {
+    val tracker = NativeRequestTracker()
+
+    assertTrue(tracker.tryStart("first"))
+    assertTrue(tracker.requestCancellation("first"))
+    assertTrue(tracker.restoreGenerating("first"))
+    assertFalse(tracker.isCancelling("first"))
+    assertTrue(tracker.owns("first"))
+    assertEquals(NativeRequestState.GENERATING, tracker.settle("first"))
   }
 
   @Test
@@ -34,6 +52,7 @@ class NativeRequestTrackerTest {
     val tracker = NativeRequestTracker()
 
     assertTrue(tracker.tryStart("first"))
+    assertTrue(tracker.requestCancellation("first"))
     tracker.clearAll()
     assertFalse(tracker.owns("first"))
     assertTrue(tracker.tryStart("second"))
@@ -44,9 +63,9 @@ class NativeRequestTrackerTest {
     val tracker = NativeRequestTracker()
 
     assertTrue(tracker.tryStart("first"))
-    assertTrue(tracker.clear("first"))
+    assertEquals(NativeRequestState.GENERATING, tracker.settle("first"))
     assertTrue(tracker.tryStart("second"))
-    assertFalse(tracker.clear("first"))
+    assertNull(tracker.settle("first"))
     assertTrue(tracker.owns("second"))
   }
 

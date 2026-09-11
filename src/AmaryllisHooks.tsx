@@ -145,7 +145,10 @@ export const useInferenceAsync = (props: InferenceProps = {}) => {
           onErrorRef.current?.(
             err instanceof Error ? err : new Error('An unknown error occurred')
           );
-        } finally {
+          return;
+        }
+
+        if (!controller.subscribeAsyncLifecycle) {
           finishGeneration(generation, notifyComplete);
         }
       };
@@ -301,10 +304,11 @@ export const useContextInferenceAsync = (props: ContextInferenceProps = {}) => {
           return;
         }
         cancelled = true;
-        if (activeRequestRef.current === requestId) {
+        if (cancelBase) {
+          cancelBase();
+        } else if (activeRequestRef.current === requestId) {
           activeRequestRef.current = null;
         }
-        cancelBase?.();
       };
 
       try {
