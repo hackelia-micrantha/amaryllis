@@ -274,7 +274,8 @@ export class LlmPipe implements LlmEngine {
           return;
         }
 
-        const activeOperation = this.getActiveAsyncOperation(scopedGenerationId);
+        const activeOperation =
+          this.getActiveAsyncOperation(scopedGenerationId);
         if (!activeOperation || activeOperation.phase !== 'cancelling') {
           return;
         }
