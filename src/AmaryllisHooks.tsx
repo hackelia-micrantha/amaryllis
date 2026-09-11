@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
-import type { InferenceProps, LlmRequestParams } from './Types';
+import type {
+  InferenceProps,
+  LlmCallbacks,
+  LlmRequestParams,
+} from './Types';
 import { useLLMContext } from './AmaryllisContext';
 import { GenerationInProgressError } from './Errors';
 import { useContextEngine } from './ContextEngineContext';
@@ -116,8 +120,8 @@ export const useInferenceAsync = (props: InferenceProps = {}) => {
         notifyCompleteOnCancellation: true,
       };
 
-      const callbacks = {
-        onEvent: (event: Parameters<NonNullable<import('./Types').LlmCallbacks['onEvent']>>[0]) => {
+      const callbacks: LlmCallbacks = {
+        onEvent: (event) => {
           if (generation.settled) {
             return;
           }
