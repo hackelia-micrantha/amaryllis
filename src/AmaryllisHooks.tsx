@@ -78,7 +78,11 @@ export const useInferenceAsync = (props: InferenceProps = {}) => {
         activeGenerationRef.current = null;
       }
       if (notifyComplete) {
-        onCompleteRef.current?.();
+        try {
+          onCompleteRef.current?.();
+        } catch (error) {
+          console.error('Error in onComplete callback:', error);
+        }
       }
     },
     []
@@ -125,6 +129,8 @@ export const useInferenceAsync = (props: InferenceProps = {}) => {
           if (event.type === 'error') {
             try {
               onErrorRef.current?.(event.error);
+            } catch (callbackError) {
+              console.error('Error in onError callback:', callbackError);
             } finally {
               finishGeneration(generation);
             }
@@ -138,6 +144,8 @@ export const useInferenceAsync = (props: InferenceProps = {}) => {
               protocol.sanitizeOutput(generation.text),
               isFinal
             );
+          } catch (callbackError) {
+            console.error('Error in onResult callback:', callbackError);
           } finally {
             if (isFinal) {
               finishGeneration(generation);
