@@ -1,9 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
-import type {
-  InferenceProps,
-  LlmCallbacks,
-  LlmRequestParams,
-} from './Types';
+import type { InferenceProps, LlmCallbacks, LlmRequestParams } from './Types';
 import { useLLMContext } from './AmaryllisContext';
 import { GenerationInProgressError } from './Errors';
 import { useContextEngine } from './ContextEngineContext';
