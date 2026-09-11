@@ -3,12 +3,8 @@ name: Test Publish Workflow
 on:
   workflow_dispatch:
     inputs:
-      dry_run:
-        description: 'Dry run mode (no publishing)'
-        required: false
-        default: 'true'
-      test_version:
-        description: 'Version to test'
+      version_suffix:
+        description: 'Optional prerelease suffix to materialize in staged tarballs'
         required: false
         default: ''
 
@@ -18,61 +14,51 @@ permissions:
 jobs:
   test-publish:
     runs-on: runner-amaryllis
+    timeout-minutes: 35
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Setup
+      - name: Setup project toolchain
         uses: ./.github/actions/setup
-        with:
-          registry-url: https://registry.npmjs.org/
 
-      - name: Run main library tests
-        run: npm test
+      - name: Run root quality checks
+        run: |
+          yarn lint --ignore-pattern 'packages/amaryllis-components/**'
+          yarn typecheck
+          yarn test --maxWorkers=2
 
-      - name: Lint main library
-        run: yarn lint --ignore-pattern 'packages/amaryllis-components/**'
+      - name: Test package release contracts
+        run: node --test scripts/package-release.test.mjs
 
-      - name: Typecheck main library
-        run: npm run typecheck
+      - name: Typecheck core package
+        run: yarn workspace @micrantha/amaryllis typecheck
 
-      - name: Build main library
+      - name: Build core package
+        run: yarn workspace @micrantha/amaryllis build
+
+      - name: Build main package
         run: yarn prepare
 
-      - name: Run components library tests
-        run: npm test -- --runInBand
-        working-directory: packages/amaryllis-components
-
-      - name: Lint components library
-        run: yarn eslint "packages/amaryllis-components/src/**/*.{ts,tsx}"
-
-      - name: Typecheck components library
-        run: npm run typecheck
-        working-directory: packages/amaryllis-components
-
-      - name: Build components library
-        run: npm run build
-        working-directory: packages/amaryllis-components
+      - name: Run components quality checks
+        run: |
+          yarn workspace @micrantha/amaryllis-components test --runInBand
+          yarn eslint "packages/amaryllis-components/src/**/*.{ts,tsx}"
+          yarn workspace @micrantha/amaryllis-components typecheck
+          yarn workspace @micrantha/amaryllis-components build
 
       - name: Validate package metadata and outputs
         run: node scripts/validate-packages.mjs
 
-      - name: Test components library npm pack command (dry run)
-        if: github.event.inputs.dry_run == 'true'
-        run: npm pack --dry-run
-        working-directory: packages/amaryllis-components
-
-      - name: Test main library npm pack command (dry run)
-        if: github.event.inputs.dry_run == 'true'
-        run: npm pack --dry-run
-
-      - name: Test npm publish (simulation)
-        if: github.event.inputs.dry_run == 'true'
+      - name: Pack and verify clean consumer
+        env:
+          VERSION_SUFFIX: ${{ github.event.inputs.version_suffix }}
         run: |
-          echo "Simulating npm publish"
-          echo "Main package: @micrantha/react-native-amaryllis"
-          echo "Components package: @micrantha/amaryllis-components"
-          echo "Registry: https://registry.npmjs.org/"
-          echo "Provenance: Would be generated automatically"
-          echo "GitHub Release: Would upload package tarballs"
-          echo "Publish simulation complete"
+          args=(--output-dir release-artifacts)
+          if [[ -n "$VERSION_SUFFIX" ]]; then
+            args+=(--version-suffix "$VERSION_SUFFIX")
+          fi
+          node scripts/package-preflight.mjs "${args[@]}"
+
+      - name: Show publication order
+        run: node -e "console.log(require('./release-artifacts/package-release.json').publishOrder.join(' -> '))"
