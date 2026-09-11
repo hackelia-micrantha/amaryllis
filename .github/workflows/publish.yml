@@ -15,10 +15,20 @@ jobs:
       actions: read
       contents: read
     steps:
+      - name: Checkout tagged commit
+        uses: actions/checkout@v7
+
+      - name: Resolve tagged commit
+        id: target
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Validate release tag
+        run: node scripts/validate-release-tag.mjs "${{ github.ref_name }}"
+
       - name: Wait for required workflows
         uses: actions/github-script@v9
         env:
-          TARGET_SHA: ${{ github.sha }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
           REQUIRED_WORKFLOWS: '["CI","Dependency Audit","Security - CodeQL"]'
           TIMEOUT_SECONDS: '1800'
           POLL_INTERVAL_SECONDS: '20'
@@ -75,9 +85,6 @@ jobs:
               await sleep(intervalMs);
             }
 
-      - name: Checkout
-        uses: actions/checkout@v7
-
       - name: Setup project toolchain
         uses: ./.github/actions/setup
 
@@ -123,7 +130,7 @@ jobs:
       - name: Upload preflighted release artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: release-packages-${{ github.sha }}
+          name: release-packages-${{ steps.target.outputs.sha }}
           path: |
             release-artifacts/*.tgz
             release-artifacts/package-release.json
@@ -155,10 +162,14 @@ jobs:
           npm install -g npm@11.5.1
           npm --version
 
+      - name: Resolve tagged commit
+        id: target
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Download exact preflighted artifacts
         uses: actions/download-artifact@v7
         with:
-          name: release-packages-${{ github.sha }}
+          name: release-packages-${{ steps.target.outputs.sha }}
           path: release-artifacts
 
       - name: Publish exact tarballs in dependency order
