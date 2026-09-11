@@ -14,9 +14,7 @@ const config: LlmEngineConfig = { modelPath: 'model.task' };
 
 const createLifecyclePipe = () => {
   const callbacks: LlmCallbacks[] = [];
-  const lifecycleListeners = new Set<
-    (event: LlmAsyncLifecycleEvent) => void
-  >();
+  const lifecycleListeners = new Set<(event: LlmAsyncLifecycleEvent) => void>();
   const pipe: LlmEngine = {
     init: jest.fn(() => Promise.resolve()),
     newSession: jest.fn(() => Promise.resolve()),
