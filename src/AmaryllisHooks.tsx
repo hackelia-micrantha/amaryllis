@@ -2,7 +2,6 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import type { InferenceProps, LlmRequestParams } from './Types';
 import { useLLMContext } from './AmaryllisContext';
 import { GenerationInProgressError } from './Errors';
-import { createLLMObservable } from './AmaryllisRx';
 import { useContextEngine } from './ContextEngineContext';
 import type { ContextEngine, ContextQuery } from './ContextTypes';
 import { validateLlmRequestParams } from './TypeConverters';
@@ -18,8 +17,8 @@ export type ContextInferenceProps = InferenceProps & {
 };
 
 type ActiveAsyncGeneration = {
+  text: string;
   settled: boolean;
-  unsubscribe: () => void;
   cancel: (notifyComplete?: boolean) => void;
   notifyCompleteOnCancellation: boolean;
 };
@@ -75,7 +74,6 @@ export const useInferenceAsync = (props: InferenceProps = {}) => {
       }
 
       generation.settled = true;
-      generation.unsubscribe();
       if (activeGenerationRef.current === generation) {
         activeGenerationRef.current = null;
       }
@@ -111,28 +109,43 @@ export const useInferenceAsync = (props: InferenceProps = {}) => {
         return () => {};
       }
 
-      const llm$ = createLLMObservable();
       const generation: ActiveAsyncGeneration = {
+        text: '',
         settled: false,
-        unsubscribe: () => {},
         cancel: () => {},
         notifyCompleteOnCancellation: true,
       };
 
-      const subscription = llm$.observable.subscribe({
-        next: ({ text, isFinal }) => {
-          onResultRef.current?.(protocol.sanitizeOutput(text), isFinal);
-        },
-        complete: () => finishGeneration(generation),
-        error: (err) => {
-          onErrorRef.current?.(
-            err instanceof Error ? err : new Error('An unknown error occurred')
-          );
-          finishGeneration(generation);
-        },
-      });
+      const callbacks = {
+        onEvent: (event: Parameters<NonNullable<import('./Types').LlmCallbacks['onEvent']>>[0]) => {
+          if (generation.settled) {
+            return;
+          }
 
-      generation.unsubscribe = () => subscription.unsubscribe();
+          if (event.type === 'error') {
+            try {
+              onErrorRef.current?.(event.error);
+            } finally {
+              finishGeneration(generation);
+            }
+            return;
+          }
+
+          generation.text += event.text;
+          const isFinal = event.type === 'final';
+          try {
+            onResultRef.current?.(
+              protocol.sanitizeOutput(generation.text),
+              isFinal
+            );
+          } finally {
+            if (isFinal) {
+              finishGeneration(generation);
+            }
+          }
+        },
+      };
+
       generation.cancel = (notifyComplete = true) => {
         if (generation.settled) {
           return;
@@ -156,7 +169,7 @@ export const useInferenceAsync = (props: InferenceProps = {}) => {
 
       try {
         onGenerate?.();
-        await controller.generateAsync(formattedParams, llm$.callbacks);
+        await controller.generateAsync(formattedParams, callbacks);
       } catch (err) {
         if (!generation.settled) {
           onErrorRef.current?.(
