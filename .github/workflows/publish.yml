@@ -156,7 +156,7 @@ jobs:
           npm --version
 
       - name: Download exact preflighted artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v7
         with:
           name: release-packages-${{ github.sha }}
           path: release-artifacts
