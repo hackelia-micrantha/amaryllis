@@ -161,3 +161,22 @@ test('release workflows reserve OIDC authority for hosted publication', () => {
     assert.match(publish, /scripts\/publish-package-artifacts\.mjs/);
   }
 });
+
+test('production release gates the checked-out tagged commit inside the project toolchain', () => {
+  const source = readFileSync('.github/workflows/publish.yml', 'utf8');
+  const preflight = workflowJobBlock(source, 'preflight');
+  const setupIndex = preflight.indexOf('uses: ./.github/actions/setup');
+  const tagValidationIndex = preflight.indexOf(
+    'node scripts/validate-release-tag.mjs'
+  );
+
+  assert.notEqual(setupIndex, -1, 'production preflight must activate the project toolchain');
+  assert.notEqual(tagValidationIndex, -1, 'production preflight must validate the release tag');
+  assert.ok(
+    setupIndex < tagValidationIndex,
+    'release tag validation must not rely on ambient runner Node'
+  );
+  assert.match(preflight, /sha=\$\(git rev-parse HEAD\)/);
+  assert.match(preflight, /TARGET_SHA: \$\{\{ steps\.target\.outputs\.sha \}\}/);
+  assert.doesNotMatch(preflight, /TARGET_SHA: \$\{\{ github\.sha \}\}/);
+});
