@@ -105,6 +105,83 @@ describe('useInferenceAsync lifecycle', () => {
     expect(pipe.generateAsync).toHaveBeenCalledTimes(2);
   });
 
+  it('treats errors as terminal and ignores later callbacks', async () => {
+    const { callbacks, pipe } = createPipe();
+    const results: Array<{ text: string; isFinal: boolean }> = [];
+    const error = new Error('generation failed');
+    const onError = jest.fn();
+    const onComplete = jest.fn();
+    const { result } = renderHook(
+      () =>
+        useInferenceAsync({
+          onResult: (text, isFinal) => results.push({ text, isFinal }),
+          onError,
+          onComplete,
+        }),
+      { wrapper: createWrapper(pipe) }
+    );
+
+    await act(async () => {
+      await result.current({ prompt: 'first' });
+      callbacks[0]?.onEvent?.({ type: 'partial', text: 'kept' });
+      callbacks[0]?.onEvent?.({ type: 'error', error });
+      callbacks[0]?.onEvent?.({ type: 'partial', text: '-late' });
+      callbacks[0]?.onEvent?.({ type: 'final', text: '-late-final' });
+    });
+
+    expect(results).toEqual([{ text: 'kept', isFinal: false }]);
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith(error);
+    expect(onComplete).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await result.current({ prompt: 'second' });
+      callbacks[1]?.onEvent?.({ type: 'final', text: 'fresh' });
+    });
+
+    expect(results).toEqual([
+      { text: 'kept', isFinal: false },
+      { text: 'fresh', isFinal: true },
+    ]);
+    expect(onComplete).toHaveBeenCalledTimes(2);
+  });
+
+  it('ignores late callbacks after terminal cancellation', async () => {
+    const { callbacks, pipe } = createPipe();
+    const results: Array<{ text: string; isFinal: boolean }> = [];
+    const onComplete = jest.fn();
+    const { result } = renderHook(
+      () =>
+        useInferenceAsync({
+          onResult: (text, isFinal) => results.push({ text, isFinal }),
+          onComplete,
+        }),
+      { wrapper: createWrapper(pipe) }
+    );
+
+    let cancel: (() => void) | undefined;
+    await act(async () => {
+      cancel = await result.current({ prompt: 'first' });
+    });
+
+    act(() => {
+      cancel?.();
+      callbacks[0]?.onEvent?.({ type: 'partial', text: 'late' });
+      callbacks[0]?.onEvent?.({ type: 'final', text: 'late-final' });
+    });
+
+    expect(results).toEqual([]);
+    expect(onComplete).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await result.current({ prompt: 'second' });
+      callbacks[1]?.onEvent?.({ type: 'final', text: 'fresh' });
+    });
+
+    expect(results).toEqual([{ text: 'fresh', isFinal: true }]);
+    expect(onComplete).toHaveBeenCalledTimes(2);
+  });
+
   it('rejects an overlapping generation without replacing the active stream', async () => {
     const { callbacks, pipe } = createPipe();
     const onError = jest.fn();
