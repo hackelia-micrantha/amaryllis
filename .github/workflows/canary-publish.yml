@@ -16,10 +16,7 @@ on:
       - 'cpp/**'
   workflow_dispatch:
 
-permissions:
-  actions: read
-  contents: read
-  id-token: write
+permissions: {}
 
 concurrency:
   group: canary-publish
@@ -29,6 +26,9 @@ jobs:
   preflight:
     runs-on: runner-amaryllis
     timeout-minutes: 35
+    permissions:
+      actions: read
+      contents: read
     steps:
       - name: Wait for required workflows
         if: github.event_name != 'workflow_dispatch'
@@ -145,6 +145,10 @@ jobs:
     needs: preflight
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
     steps:
       - name: Checkout publish scripts
         uses: actions/checkout@v7
@@ -162,7 +166,7 @@ jobs:
           npm --version
 
       - name: Download exact canary artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: canary-packages-${{ github.sha }}
           path: release-artifacts
