@@ -6,14 +6,19 @@ if (($# == 0)); then
   exit 2
 fi
 
-readonly cyclonedx_cli_version='0.32.0'
-readonly cyclonedx_cli_digest='sha256:9a858a15e7b0843606efc0ff19d5f7575011a5428d7f3d343b4f6cf09d8f0d4e'
-readonly cyclonedx_cli_image="cyclonedx/cyclonedx-cli:${cyclonedx_cli_version}@${cyclonedx_cli_digest}"
 readonly workspace="$(pwd -P)"
+readonly validator="$(nix build --no-link --print-out-paths .#cyclonedx-validator)"
+readonly cyclonedx="$validator/bin/cyclonedx"
 
-docker pull "$cyclonedx_cli_image" >/dev/null
+test -x "$cyclonedx"
+"$cyclonedx" --version >/dev/null
 
 for sbom_file in "$@"; do
+  if [[ -L "$sbom_file" ]]; then
+    echo "SBOM file must not be a symlink: $sbom_file" >&2
+    exit 2
+  fi
+
   if [[ ! -f "$sbom_file" ]]; then
     echo "SBOM file does not exist: $sbom_file" >&2
     exit 2
@@ -21,19 +26,15 @@ for sbom_file in "$@"; do
 
   absolute_file="$(cd "$(dirname "$sbom_file")" && pwd -P)/$(basename "$sbom_file")"
   case "$absolute_file" in
-    "$workspace"/*) relative_file="${absolute_file#"$workspace"/}" ;;
+    "$workspace"/*) ;;
     *)
       echo "SBOM file must be inside the current workspace: $sbom_file" >&2
       exit 2
       ;;
   esac
 
-  docker run --rm --network none \
-    --volume "$workspace:/workspace:ro" \
-    --workdir /workspace \
-    "$cyclonedx_cli_image" \
-    validate \
-    --input-file "$relative_file" \
+  "$cyclonedx" validate \
+    --input-file "$absolute_file" \
     --input-format json \
     --input-version v1_6 \
     --fail-on-errors
