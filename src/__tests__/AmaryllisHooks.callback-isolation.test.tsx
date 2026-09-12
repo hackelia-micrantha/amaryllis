@@ -32,7 +32,9 @@ describe('useInferenceAsync callback isolation', () => {
 
   it('does not let result-handler exceptions reject a custom engine generation', async () => {
     const callbackError = new Error('result observer failed');
-    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
     const onResult = jest.fn(() => {
       throw callbackError;
     });
@@ -65,7 +67,9 @@ describe('useInferenceAsync callback isolation', () => {
   it('does not let error-handler exceptions escape a custom engine callback', async () => {
     const generationError = new Error('generation failed');
     const callbackError = new Error('error observer failed');
-    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
     const onError = jest.fn(() => {
       throw callbackError;
     });
