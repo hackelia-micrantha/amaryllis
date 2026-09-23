@@ -193,23 +193,6 @@ jobs:
         if: needs.changes.outputs.run_components == 'true'
         run: yarn workspace @micrantha/amaryllis-components verify:examples
 
-      - name: Build main package for package validation
-        if: needs.changes.outputs.run_components == 'true'
-        run: yarn prepare
-
-      - name: Validate package metadata and outputs
-        if: needs.changes.outputs.run_components == 'true'
-        run: node scripts/validate-packages.mjs
-
-      - name: Dry-run components package archive
-        if: needs.changes.outputs.run_components == 'true'
-        run: npm pack --dry-run
-        working-directory: packages/amaryllis-components
-
-      - name: Dry-run main package archive
-        if: needs.changes.outputs.run_components == 'true'
-        run: npm pack --dry-run
-
   build-library:
     needs: [changes, components-package]
     runs-on: runner-amaryllis
@@ -232,13 +215,38 @@ jobs:
         if: needs.changes.outputs.run_root == 'true'
         run: yarn prepare
 
+  package-preflight:
+    needs: [changes, lint, test, components-package]
+    if: needs.changes.outputs.run_root == 'true' || needs.changes.outputs.run_components == 'true'
+    runs-on: runner-amaryllis
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Test package release contracts
+        run: node --test scripts/package-release.test.mjs
+
+      - name: Typecheck core package
+        run: yarn workspace @micrantha/amaryllis typecheck
+
+      - name: Build core package
+        run: yarn workspace @micrantha/amaryllis build
+
+      - name: Build main package
+        run: yarn prepare
+
+      - name: Build components package
+        run: yarn workspace @micrantha/amaryllis-components build
+
       - name: Validate package metadata and outputs
-        if: needs.changes.outputs.run_root == 'true'
         run: node scripts/validate-packages.mjs
 
-      - name: Dry-run main package archive
-        if: needs.changes.outputs.run_root == 'true'
-        run: npm pack --dry-run
+      - name: Pack and verify clean consumer
+        run: node scripts/package-preflight.mjs --output-dir package-artifacts
 
   build-android:
     needs: changes
