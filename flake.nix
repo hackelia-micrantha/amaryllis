@@ -79,7 +79,7 @@
             includeSystemImages = false;
           };
           androidBuildTools = androidComposition.deployAndroidPackage {
-            package = androidComposition.all.build-tools.v35_0_0;
+            package = androidComposition.all."build-tools".v35_0_0;
             nativeBuildInputs = [ androidPkgs.autoPatchelfHook ];
             buildInputs = [
               androidPkgs.glibc
