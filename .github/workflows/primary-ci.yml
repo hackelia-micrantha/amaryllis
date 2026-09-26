@@ -258,7 +258,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ${{ env.TURBO_CACHE_DIR }}
-          key: ${{ runner.os }}-turborepo-android-${{ hashFiles('yarn.lock') }}
+          key: ${{ runner.os }}-turborepo-android-${{ hashFiles('yarn.lock', 'flake.nix', 'flake.lock', 'android/gradle.properties', 'example/android/build.gradle', 'example/android/gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: |
             ${{ runner.os }}-turborepo-android-
 
