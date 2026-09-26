@@ -137,6 +137,7 @@ test('Android bootstrap is owned by the repository flake', () => {
     'android-sdk/platforms/android-35',
     'android-sdk/build-tools/35.0.0',
     'android-sdk/ndk/27.1.12297006',
+    "hashFiles('yarn.lock', 'flake.nix', 'flake.lock'",
   ]);
   assert.doesNotMatch(android, /actions\/setup-java@|android-actions\/setup-android@/);
 
