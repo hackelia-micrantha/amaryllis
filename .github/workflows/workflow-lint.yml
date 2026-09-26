@@ -31,4 +31,7 @@ jobs:
           echo "$toolchain/bin" >> "$GITHUB_PATH"
 
       - name: Lint workflow files
-        run: actionlint
+        run: |
+          actionlint \
+            -ignore 'label "runner-amaryllis" is unknown' \
+            -ignore 'unknown permission scope "artifact-metadata"'
