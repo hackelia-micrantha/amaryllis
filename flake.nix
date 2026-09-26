@@ -61,29 +61,45 @@
               android_sdk.accept_license = true;
             };
           };
-          # Keep the main SDK composition free of Build Tools so it does not
-      # retain Nixpkgs' legacy i686 compatibility closure. A second composition
-      # resolves the exact upstream Build Tools derivation, then replaces only
-      # its host build inputs with the 64-bit libraries used by modern tools.
-      androidBuildToolsComposition = androidPkgs.androidenv.composeAndroidPackages {
-        toolsVersion = null;
-        platformVersions = [ "35" ];
-        buildToolsVersions = [ "35.0.0" ];
-        includeCmake = false;
-        includeNDK = false;
-        includeEmulator = false;
-        includeSystemImages = false;
-      };
-      androidBuildTools = (builtins.head androidBuildToolsComposition."build-tools").overrideAttrs (_: {
-        buildInputs = [
-          androidPkgs.glibc
-          androidPkgs.zlib
-          androidPkgs.ncurses5
-          androidPkgs.libcxx
-        ];
-      });
 
-      androidSdk = pkgs.symlinkJoin {
+          # Keep the main SDK composition free of Build Tools so it does not
+          # retain Nixpkgs' legacy i686 compatibility closure.
+          androidComposition = androidPkgs.androidenv.composeAndroidPackages {
+            toolsVersion = null;
+            platformVersions = [ "35" ];
+            buildToolsVersions = [ ];
+            includeCmake = true;
+            cmakeVersions = [ "3.22.1" ];
+            includeNDK = true;
+            ndkVersions = [ "27.1.12297006" ];
+            includeEmulator = false;
+            includeSystemImages = false;
+          };
+
+          # Resolve the exact upstream Build Tools derivation separately, then
+          # replace only its host build inputs with the 64-bit libraries used
+          # by Build Tools 35. This preserves upstream fetch/patch logic without
+          # requiring the rootless worker to build pkgsi686Linux closures.
+          androidBuildToolsComposition = androidPkgs.androidenv.composeAndroidPackages {
+            toolsVersion = null;
+            platformVersions = [ "35" ];
+            buildToolsVersions = [ "35.0.0" ];
+            includeCmake = false;
+            includeNDK = false;
+            includeEmulator = false;
+            includeSystemImages = false;
+          };
+          androidBuildTools =
+            (builtins.head androidBuildToolsComposition."build-tools").overrideAttrs (_: {
+              buildInputs = [
+                androidPkgs.glibc
+                androidPkgs.zlib
+                androidPkgs.ncurses5
+                androidPkgs.libcxx
+              ];
+            });
+
+          androidSdk = pkgs.symlinkJoin {
             name = "amaryllis-android-sdk";
             paths = [
               androidComposition.androidsdk
