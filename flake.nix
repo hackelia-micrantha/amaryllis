@@ -51,6 +51,7 @@
               pkgs.pkg-config
               pkgs.python3
               pkgs.gh
+              pkgs.actionlint
             ];
           };
           androidPkgs = import nixpkgs {
@@ -60,10 +61,16 @@
               android_sdk.accept_license = true;
             };
           };
+          # Nixpkgs' stock x86_64 Android Build Tools derivation also
+          # materializes legacy i686 host libraries. Rootless JIT workers
+          # intentionally deny the personality(2) transition needed to build
+          # those libraries. Build Tools 35 uses the 64-bit host tools here, so
+          # retain upstream fetching/patching while excluding the unused i686
+          # compatibility closure.
           androidComposition = androidPkgs.androidenv.composeAndroidPackages {
             toolsVersion = null;
             platformVersions = [ "35" ];
-            buildToolsVersions = [ "35.0.0" ];
+            buildToolsVersions = [ ];
             includeCmake = true;
             cmakeVersions = [ "3.22.1" ];
             includeNDK = true;
@@ -71,7 +78,33 @@
             includeEmulator = false;
             includeSystemImages = false;
           };
-          androidSdk = androidComposition.androidsdk;
+          androidBuildTools = androidComposition.deployAndroidPackage {
+            package = androidComposition.all.build-tools.v35_0_0;
+            nativeBuildInputs = [ androidPkgs.autoPatchelfHook ];
+            buildInputs = [
+              androidPkgs.glibc
+              androidPkgs.zlib
+              androidPkgs.ncurses5
+              androidPkgs.libcxx
+            ];
+            autoPatchelfIgnoreMissingDeps = [ "*" ];
+            patchInstructions = ''
+              addAutoPatchelfSearchPath "$packageBaseDir/lib"
+              if [[ -d "$packageBaseDir/lib64" ]]; then
+                addAutoPatchelfSearchPath "$packageBaseDir/lib64"
+                autoPatchelf --no-recurse "$packageBaseDir/lib64"
+              fi
+              autoPatchelf --no-recurse "$packageBaseDir"
+              cd "$out/libexec/android-sdk"
+            '';
+          };
+          androidSdk = pkgs.symlinkJoin {
+            name = "amaryllis-android-sdk";
+            paths = [
+              androidComposition.androidsdk
+              androidBuildTools
+            ];
+          };
           androidCiToolchain = pkgs.runCommand "amaryllis-android-ci-toolchain" { } ''
             mkdir -p "$out/bin"
             ln -s ${androidPkgs.jdk17} "$out/jdk"
@@ -167,6 +200,7 @@
             test -f ${./.yarn/releases/yarn-3.6.1.cjs}
             test "$(yarn --version)" = "3.6.1"
             gh --version >/dev/null
+            actionlint -version >/dev/null
             touch "$out"
           '';
         }
