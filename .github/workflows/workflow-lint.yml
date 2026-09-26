@@ -23,7 +23,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Activate project toolchain
+        run: |
+          set -euo pipefail
+          toolchain="$(nix build --no-link --print-out-paths .#ci-toolchain)"
+          test -x "$toolchain/bin/actionlint"
+          echo "$toolchain/bin" >> "$GITHUB_PATH"
+
       - name: Lint workflow files
-        uses: reviewdog/action-actionlint@v1
-        with:
-          fail_level: error
+        run: |
+          actionlint \
+            -ignore 'label "runner-amaryllis" is unknown' \
+            -ignore 'unknown permission scope "artifact-metadata"'

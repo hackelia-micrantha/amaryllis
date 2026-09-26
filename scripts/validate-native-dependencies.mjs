@@ -54,6 +54,34 @@ function extractAndroidVersion(contents) {
   return coordinateMatches[0][1];
 }
 
+function extractAndroidCoreVersion(contents) {
+  const source = stripGradleComments(contents);
+  const coordinateMatches = [
+    ...source.matchAll(
+      /['"]com\.google\.mediapipe:tasks-core:([^'"]+)['"]/g
+    ),
+  ];
+
+  if (coordinateMatches.length !== 1) {
+    throw new Error(
+      `expected exactly one Android tasks-core dependency; found ${coordinateMatches.length}`
+    );
+  }
+
+  const implementationMatches = [
+    ...source.matchAll(
+      /^\s*implementation\s*(?:\(\s*)?['"]com\.google\.mediapipe:tasks-core:([^'"]+)['"]\s*\)?\s*;?\s*$/gm
+    ),
+  ];
+  if (implementationMatches.length !== 1) {
+    throw new Error(
+      'Android tasks-core must have exactly one implementation declaration'
+    );
+  }
+
+  return coordinateMatches[0][1];
+}
+
 function extractIosVersion(contents) {
   const match = contents.match(
     /s\.dependency\s+['"]MediaPipeTasksGenAI['"]\s*,\s*['"]\s*=\s*([^'"]+)['"]/m
@@ -88,14 +116,22 @@ export async function validateNativeDependencies({ rootDir = process.cwd() } = {
   ]);
 
   const androidVersion = extractAndroidVersion(gradle);
+  const androidCoreVersion = extractAndroidCoreVersion(gradle);
   const iosVersion = extractIosVersion(podspec);
   const iosLockedVersion = extractLockedVersion(lockfile, 'MediaPipeTasksGenAI');
   const iosCLockedVersion = extractLockedVersion(lockfile, 'MediaPipeTasksGenAIC');
 
   assertExpectedVersion(androidVersion, 'Android tasks-genai');
+  assertExpectedVersion(androidCoreVersion, 'Android tasks-core');
   assertExpectedVersion(iosVersion, 'iOS MediaPipeTasksGenAI podspec');
   assertExpectedVersion(iosLockedVersion, 'iOS MediaPipeTasksGenAI lockfile');
   assertExpectedVersion(iosCLockedVersion, 'iOS MediaPipeTasksGenAIC lockfile');
+
+  if (androidCoreVersion !== androidVersion) {
+    throw new Error(
+      `Android MediaPipe versions must match; found tasks-genai=${androidVersion}, tasks-core=${androidCoreVersion}`
+    );
+  }
 
   if (androidVersion !== iosVersion) {
     throw new Error(

@@ -74,6 +74,7 @@ dependencies {
   implementation "com.facebook.react:react-android"
   implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
   implementation 'com.google.mediapipe:tasks-genai:0.10.24'
+  implementation 'com.google.mediapipe:tasks-core:0.10.24'
 
   testImplementation "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
   testImplementation 'junit:junit:4.13.2'
