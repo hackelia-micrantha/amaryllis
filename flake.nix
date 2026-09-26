@@ -50,8 +50,35 @@
               pkgs.gnumake
               pkgs.pkg-config
               pkgs.python3
+              pkgs.gh
             ];
           };
+          androidPkgs = import nixpkgs {
+            inherit system;
+            config = {
+              allowUnfree = true;
+              android_sdk.accept_license = true;
+            };
+          };
+          androidComposition = androidPkgs.androidenv.composeAndroidPackages {
+            platformVersions = [ "35" ];
+            buildToolsVersions = [ "35.0.0" ];
+            cmakeVersions = [ "3.22.1" ];
+            includeNDK = true;
+            ndkVersions = [ "27.1.12297006" ];
+            includeEmulator = false;
+            includeSystemImages = false;
+          };
+          androidSdk = androidComposition.androidsdk;
+          androidCiToolchain = pkgs.runCommand "amaryllis-android-ci-toolchain" { } ''
+            mkdir -p "$out/bin"
+            ln -s ${androidPkgs.jdk17} "$out/jdk"
+            ln -s ${androidSdk}/libexec/android-sdk "$out/android-sdk"
+            ln -s ${pkgs.unzip}/bin/unzip "$out/bin/unzip"
+            for tool in java javac jar keytool; do
+              ln -s "${androidPkgs.jdk17}/bin/$tool" "$out/bin/$tool"
+            done
+          '';
           cyclonedxRelease = cyclonedxReleases.${system};
           cyclonedxSource = pkgs.fetchurl {
             url = "https://github.com/CycloneDX/cyclonedx-cli/releases/download/v${cyclonedxVersion}/${cyclonedxRelease.asset}";
@@ -96,6 +123,9 @@
           cyclonedx-validator = cyclonedxValidator;
           default = ciToolchain;
         }
+        // pkgs.lib.optionalAttrs (system == "x86_64-linux") {
+          android-ci-toolchain = androidCiToolchain;
+        }
       );
 
       devShells = forAllSystems (
@@ -106,6 +136,17 @@
         {
           default = pkgs.mkShell {
             packages = [ self.packages.${system}.ci-toolchain ];
+          };
+        }
+        // pkgs.lib.optionalAttrs (system == "x86_64-linux") {
+          android-ci = pkgs.mkShell {
+            packages = [
+              self.packages.${system}.ci-toolchain
+              self.packages.${system}.android-ci-toolchain
+            ];
+            JAVA_HOME = "${self.packages.${system}.android-ci-toolchain}/jdk";
+            ANDROID_HOME = "${self.packages.${system}.android-ci-toolchain}/android-sdk";
+            ANDROID_SDK_ROOT = "${self.packages.${system}.android-ci-toolchain}/android-sdk";
           };
         }
       );
@@ -123,6 +164,7 @@
             test "${nodejs.version}" = "$(node --version | sed 's/^v//')"
             test -f ${./.yarn/releases/yarn-3.6.1.cjs}
             test "$(yarn --version)" = "3.6.1"
+            gh --version >/dev/null
             touch "$out"
           '';
         }
