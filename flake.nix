@@ -61,44 +61,29 @@
               android_sdk.accept_license = true;
             };
           };
-          # Nixpkgs' stock x86_64 Android Build Tools derivation also
-          # materializes legacy i686 host libraries. Rootless JIT workers
-          # intentionally deny the personality(2) transition needed to build
-          # those libraries. Build Tools 35 uses the 64-bit host tools here, so
-          # retain upstream fetching/patching while excluding the unused i686
-          # compatibility closure.
-          androidComposition = androidPkgs.androidenv.composeAndroidPackages {
-            toolsVersion = null;
-            platformVersions = [ "35" ];
-            buildToolsVersions = [ ];
-            includeCmake = true;
-            cmakeVersions = [ "3.22.1" ];
-            includeNDK = true;
-            ndkVersions = [ "27.1.12297006" ];
-            includeEmulator = false;
-            includeSystemImages = false;
-          };
-          androidBuildTools = androidComposition.deployAndroidPackage {
-            package = androidComposition.all."build-tools".v35_0_0;
-            nativeBuildInputs = [ androidPkgs.autoPatchelfHook ];
-            buildInputs = [
-              androidPkgs.glibc
-              androidPkgs.zlib
-              androidPkgs.ncurses5
-              androidPkgs.libcxx
-            ];
-            autoPatchelfIgnoreMissingDeps = [ "*" ];
-            patchInstructions = ''
-              addAutoPatchelfSearchPath "$packageBaseDir/lib"
-              if [[ -d "$packageBaseDir/lib64" ]]; then
-                addAutoPatchelfSearchPath "$packageBaseDir/lib64"
-                autoPatchelf --no-recurse "$packageBaseDir/lib64"
-              fi
-              autoPatchelf --no-recurse "$packageBaseDir"
-              cd "$out/libexec/android-sdk"
-            '';
-          };
-          androidSdk = pkgs.symlinkJoin {
+          # Keep the main SDK composition free of Build Tools so it does not
+      # retain Nixpkgs' legacy i686 compatibility closure. A second composition
+      # resolves the exact upstream Build Tools derivation, then replaces only
+      # its host build inputs with the 64-bit libraries used by modern tools.
+      androidBuildToolsComposition = androidPkgs.androidenv.composeAndroidPackages {
+        toolsVersion = null;
+        platformVersions = [ "35" ];
+        buildToolsVersions = [ "35.0.0" ];
+        includeCmake = false;
+        includeNDK = false;
+        includeEmulator = false;
+        includeSystemImages = false;
+      };
+      androidBuildTools = (builtins.head androidBuildToolsComposition."build-tools").overrideAttrs (_: {
+        buildInputs = [
+          androidPkgs.glibc
+          androidPkgs.zlib
+          androidPkgs.ncurses5
+          androidPkgs.libcxx
+        ];
+      });
+
+      androidSdk = pkgs.symlinkJoin {
             name = "amaryllis-android-sdk";
             paths = [
               androidComposition.androidsdk
