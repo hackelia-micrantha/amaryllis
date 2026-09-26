@@ -126,6 +126,34 @@ test('native jobs remain controlled by the native dimension', () => {
   }
 });
 
+test('Android bootstrap is owned by the repository flake', () => {
+  const android = jobBlock('build-android');
+  const flake = readFileSync('flake.nix', 'utf8');
+
+  assertContainsAll(android, [
+    'nix build --no-link --print-out-paths .#android-ci-toolchain',
+    'ANDROID_HOME=$toolchain/android-sdk',
+    'ANDROID_SDK_ROOT=$toolchain/android-sdk',
+    'android-sdk/platforms/android-35',
+    'android-sdk/build-tools/35.0.0',
+    'android-sdk/ndk/27.1.12297006',
+  ]);
+  assert.doesNotMatch(android, /actions\/setup-java@|android-actions\/setup-android@/);
+
+  assertContainsAll(flake, [
+    'pkgs.gh',
+    'android_sdk.accept_license = true',
+    'toolsVersion = null',
+    'platformVersions = [ "35" ]',
+    'buildToolsVersions = [ "35.0.0" ]',
+    'includeCmake = true',
+    'cmakeVersions = [ "3.22.1" ]',
+    'includeNDK = true',
+    'ndkVersions = [ "27.1.12297006" ]',
+    'android-ci-toolchain = androidCiToolchain',
+  ]);
+});
+
 test('hosted iOS bootstrap stays separate from the self-hosted Nix boundary', () => {
   const ios = jobBlock('build-ios');
   assertContainsAll(ios, [
