@@ -145,13 +145,27 @@ test('Android bootstrap is owned by the repository flake', () => {
     'android_sdk.accept_license = true',
     'toolsVersion = null',
     'platformVersions = [ "35" ]',
-    'buildToolsVersions = [ "35.0.0" ]',
+    'buildToolsVersions = [ ]',
+    'androidComposition.all."build-tools".v35_0_0',
+    'autoPatchelfIgnoreMissingDeps = [ "*" ]',
+    'androidBuildTools',
     'includeCmake = true',
     'cmakeVersions = [ "3.22.1" ]',
     'includeNDK = true',
     'ndkVersions = [ "27.1.12297006" ]',
     'android-ci-toolchain = androidCiToolchain',
   ]);
+});
+
+test('workflow lint uses the repository toolchain without a container action', () => {
+  const lintWorkflow = actionSources.get('.github/workflows/workflow-lint.yml');
+  const flake = readFileSync('flake.nix', 'utf8');
+
+  assert.ok(lintWorkflow, 'missing workflow lint workflow');
+  assert.match(lintWorkflow, /nix build --no-link --print-out-paths \.#ci-toolchain/);
+  assert.match(lintWorkflow, /run: actionlint/);
+  assert.doesNotMatch(lintWorkflow, /reviewdog\/action-actionlint|docker/);
+  assert.match(flake, /pkgs\.actionlint/);
 });
 
 test('hosted iOS bootstrap stays separate from the self-hosted Nix boundary', () => {
