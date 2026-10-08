@@ -15,6 +15,13 @@
   --code-ink: #e8f2ed;
 }
 
+html[data-ui-variant='pastel'] {
+  --surface-a: #e9f0e7;
+  --surface-b: #e8eef3;
+  --surface-c: #f1eadc;
+  --surface-d: #eee8f4;
+}
+
 * {
   box-sizing: border-box;
 }
