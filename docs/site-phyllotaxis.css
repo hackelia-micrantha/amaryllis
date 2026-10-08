@@ -34,10 +34,10 @@
   --phyllotaxis-color-surface: #f5f5f5;
   --phyllotaxis-color-text: #111111;
   --phyllotaxis-color-text-muted: #555555;
-  --phyllotaxis-color-border: #8a918d;
-  --phyllotaxis-color-link: #164f9c;
-  --phyllotaxis-color-link-visited: #67447c;
-  --phyllotaxis-color-focus: #8a3500;
+  --phyllotaxis-color-border: #a0a0a0;
+  --phyllotaxis-color-link: #0000ee;
+  --phyllotaxis-color-link-visited: #551a8b;
+  --phyllotaxis-color-focus: #111111;
   --phyllotaxis-color-selection: #cfe3ff;
   --phyllotaxis-color-selection-text: #111111;
 
@@ -95,7 +95,7 @@ button:focus-visible {
 .shell {
   width: min(
     var(--phyllotaxis-content-width-wide),
-    calc(100% - (2 * var(--phyllotaxis-gutter-page)))
+    calc(100% - var(--phyllotaxis-gutter-page) - var(--phyllotaxis-gutter-page))
   );
   margin-inline: auto;
 }
