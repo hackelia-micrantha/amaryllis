@@ -11,7 +11,6 @@ import {
 
 async function createFixture({
   androidVersion = EXPECTED_MEDIAPIPE_VERSION,
-  androidCoreVersion = EXPECTED_MEDIAPIPE_VERSION,
   podspecConstraint = `= ${EXPECTED_MEDIAPIPE_VERSION}`,
   lockedVersion = EXPECTED_MEDIAPIPE_VERSION,
   lockedCVersion = EXPECTED_MEDIAPIPE_VERSION,
@@ -26,11 +25,9 @@ async function createFixture({
 
   const androidDependency =
     `  implementation 'com.google.mediapipe:tasks-genai:${androidVersion}'\n`;
-  const androidCoreDependency =
-    `  implementation 'com.google.mediapipe:tasks-core:${androidCoreVersion}'\n`;
   await writeFile(
     path.join(rootDir, 'android/build.gradle'),
-    `dependencies {\n${androidDependency}${androidCoreDependency}${duplicateAndroidDependency ? androidDependency : ''}${extraAndroidDeclaration}}\n`
+    `dependencies {\n${androidDependency}${duplicateAndroidDependency ? androidDependency : ''}${extraAndroidDeclaration}}\n`
   );
   await writeFile(
     path.join(rootDir, 'Amaryllis.podspec'),
@@ -129,13 +126,19 @@ test('rejects alternate tasks-genai notation outside the single implementation a
   );
 });
 
-test('rejects Android MediaPipe core version drift', async () => {
-  await withFixture({ androidCoreVersion: '0.10.23' }, async (rootDir) => {
-    await assert.rejects(
-      validateNativeDependencies({ rootDir }),
-      /Android tasks-core must be pinned to 0\.10\.24/
-    );
-  });
+test('rejects any direct tasks-core dependency', async () => {
+  await withFixture(
+    {
+      extraAndroidDeclaration:
+        "  implementation 'com.google.mediapipe:tasks-core:0.10.24'\\n",
+    },
+    async (rootDir) => {
+      await assert.rejects(
+        validateNativeDependencies({ rootDir }),
+        /Android tasks-core must not be declared directly/
+      );
+    }
+  );
 });
 
 test('rejects unconstrained iOS MediaPipe dependency', async () => {
