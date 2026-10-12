@@ -1,9 +1,5 @@
 import { ContextEngine } from '../ContextEngine';
-import type {
-  ContextItem,
-  ContextPolicy,
-  ContextStore,
-} from '../ContextTypes';
+import type { ContextItem, ContextPolicy, ContextStore } from '../ContextTypes';
 import { ValidationError } from '../Errors';
 
 const createStore = (): ContextStore => ({
