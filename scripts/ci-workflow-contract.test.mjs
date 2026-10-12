@@ -164,7 +164,7 @@ test('workflow lint uses the repository toolchain without a container action', (
 
   assert.ok(lintWorkflow, 'missing workflow lint workflow');
   assert.match(lintWorkflow, /nix build --no-link --print-out-paths \.#ci-toolchain/);
-  assert.match(lintWorkflow, /run: actionlint/);
+  assert.match(lintWorkflow, /(?:^|\n)\s+actionlint(?:\s|$)/);
   assert.doesNotMatch(lintWorkflow, /reviewdog\/action-actionlint|docker/);
   assert.match(flake, /pkgs\.actionlint/);
 });
