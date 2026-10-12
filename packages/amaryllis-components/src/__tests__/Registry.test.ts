@@ -204,6 +204,7 @@ describe('ComponentRegistry identity binding', () => {
       restored.getExact('registry-card@1.0.0')
     );
   });
+
   test('pinned executable resolution is stable when newer versions register', () => {
     const registry = createTestComponentRegistry();
     const registered = (version: string) => ({
@@ -278,5 +279,4 @@ describe('ComponentRegistry identity binding', () => {
     ).toThrow('invalid SemVer');
     expect(registry.list()).toEqual([]);
   });
-
 });
