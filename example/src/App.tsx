@@ -14,7 +14,6 @@ import { registerExampleAiComponents } from './ai/registerComponents';
 import { PersonaDemoScreen } from './personaDemo/PersonaDemoScreen';
 import { ModelSettingsScreen } from './modelSettings/ModelSettingsScreen';
 
-
 function AppGate() {
   const { paths: models, setPaths: setModelsReady } = useModelContext();
 
