@@ -172,7 +172,8 @@ a:focus-visible {
   grid-template-columns: 7rem minmax(0, 1fr);
   gap: 1.25rem;
   align-items: start;
-  padding-block: 1.5rem;
+  padding: 1.5rem 1rem;
+  border-inline: 1px solid var(--phyllotaxis-color-border);
   border-bottom: 1px solid var(--phyllotaxis-color-border);
   background: var(--amaryllis-surface-a);
 }
@@ -441,6 +442,8 @@ p {
 }
 
 .feature-panel {
+  padding-inline: 1rem;
+  border-inline: 1px solid var(--phyllotaxis-color-border);
   background: var(--amaryllis-surface-d);
 }
 
@@ -513,6 +516,8 @@ code {
   align-items: end;
   justify-content: space-between;
   gap: 1rem;
+  padding-inline: 1rem;
+  border-inline: 1px solid var(--phyllotaxis-color-border);
   background: var(--amaryllis-surface-c);
 }
 
