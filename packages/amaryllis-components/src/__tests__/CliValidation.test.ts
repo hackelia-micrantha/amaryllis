@@ -49,7 +49,10 @@ describe('CLI component generation boundary', () => {
   });
 
   const invalidPatches: Array<[string, unknown]> = [
-    ['API version', [{ op: 'replace', path: '/apiVersion', value: 'amaryllis/v99' }]],
+    [
+      'API version',
+      [{ op: 'replace', path: '/apiVersion', value: 'amaryllis/v99' }],
+    ],
     ['kind', [{ op: 'replace', path: '/kind', value: 'Untrusted' }]],
     [
       'invalid prop identifier',
@@ -77,10 +80,7 @@ describe('CLI component generation boundary', () => {
       'device scaffold',
       [{ op: 'replace', path: '/ai/execution', value: 'device' }],
     ],
-    [
-      'invalid structure',
-      [{ op: 'replace', path: '/props', value: 'bad' }],
-    ],
+    ['invalid structure', [{ op: 'replace', path: '/props', value: 'bad' }]],
   ];
 
   it.each(invalidPatches)(
