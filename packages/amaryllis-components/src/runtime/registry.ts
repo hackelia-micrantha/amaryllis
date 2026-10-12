@@ -86,7 +86,7 @@ export function getRegistryKey(componentName: string, version: string): string {
 }
 
 export function createRegistryIdentity(
-  entry: RegisteredComponent,
+  entry: Pick<RegisteredComponent, 'spec' | 'contract' | 'implementationIdentity'>,
   hash: RegistryHashFunction = fnv1aHash
 ): RegistryIdentity {
   const componentName = entry.spec.metadata.name;
@@ -170,7 +170,11 @@ export class ComponentRegistry {
         : candidates;
 
     return eligible
-      .sort((left, right) => compareSemver(left.version, right.version))
+      .sort(
+        (left, right) =>
+          compareSemver(left.version, right.version) ||
+          left.version.localeCompare(right.version)
+      )
       .at(-1);
   }
 
@@ -197,6 +201,16 @@ export class ComponentRegistry {
     options: RegisterOptions = {}
   ): void {
     entries.forEach((entry) => {
+      // Validate the snapshot before executing the application resolver:
+      // invalid identity metadata must not select a component implementation.
+      const identity = createRegistryIdentity(entry, this.hash);
+      if (!validSemver(identity.version)) {
+        throw new Error(
+          `invalid SemVer for component ${identity.componentName}: ${identity.version}`
+        );
+      }
+      this.assertRegistrationMatches(entry.key, entry, identity);
+
       this.register(
         entry.key,
         {
