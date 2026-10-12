@@ -224,7 +224,10 @@ export class ComponentRegistry {
 
   private assertRegistrationMatches(
     name: string,
-    entry: RegisteredComponent,
+    entry: Pick<
+      RegisteredComponent,
+      'componentName' | 'version' | 'specHash' | 'runtimeContractHash'
+    >,
     identity: RegistryIdentity
   ): void {
     if (name.includes('@') && name !== identity.key) {
