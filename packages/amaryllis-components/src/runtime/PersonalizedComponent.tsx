@@ -68,9 +68,8 @@ export const PersonalizedComponent: React.FC<PersonalizedComponentProps> = ({
     return engine.apply(baseProps, validation.data ?? {});
   }, [baseProps, validation, engine]);
 
-  const error = validation && !validation.valid
-    ? 'Invalid personalization data'
-    : null;
+  const error =
+    validation && !validation.valid ? 'Invalid personalization data' : null;
 
   useEffect(() => {
     if (!validation) return;
