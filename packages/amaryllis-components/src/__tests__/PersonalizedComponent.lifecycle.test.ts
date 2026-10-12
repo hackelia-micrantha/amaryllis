@@ -24,7 +24,7 @@ const renderer = require('react-test-renderer') as {
 const spec: ValidatedComponentSpec = {
   apiVersion: 'amaryllis/v1alpha1',
   kind: 'ComponentSpec',
-  metadata: { name: 'card', version: '1.0.0' },
+  metadata: { name: 'card@1.0.0', version: '1.0.0' },
   target: { framework: 'react', runtime: 'rn' },
   props: {
     type: 'object',
