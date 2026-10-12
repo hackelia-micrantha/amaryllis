@@ -105,6 +105,49 @@ describe('LLMProvider lifecycle authority', () => {
     expect(engine.close).toHaveBeenCalledTimes(2);
   });
 
+  it('does not start reinitialization before a stale same-engine init settles', async () => {
+    const first = deferred();
+    const second = deferred();
+    const engine = createPipe();
+    (engine.init as jest.Mock)
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementationOnce(() => second.promise);
+
+    const { rerender, unmount } = render(
+      <LLMProvider config={configA} llmPipe={engine}>
+        <Probe />
+      </LLMProvider>
+    );
+    expect(engine.init).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <LLMProvider config={configB} llmPipe={engine}>
+        <Probe />
+      </LLMProvider>
+    );
+    expect(current().controller).toBeNull();
+    expect(engine.init).toHaveBeenCalledTimes(1);
+    expect(engine.close).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      first.resolve();
+      await first.promise;
+    });
+    expect(engine.close).toHaveBeenCalledTimes(2);
+    expect(engine.init).toHaveBeenCalledTimes(2);
+    expect(engine.init).toHaveBeenNthCalledWith(2, configB);
+    expect(current().controller).toBeNull();
+
+    await act(async () => {
+      second.resolve();
+      await second.promise;
+    });
+    expect(current().controller).toBe(engine);
+    expect(current().isReady).toBe(true);
+    unmount();
+    expect(engine.close).toHaveBeenCalledTimes(3);
+  });
+
   it('prevents a stale engine completion from becoming authoritative', async () => {
     const first = deferred();
     const second = deferred();
@@ -130,7 +173,7 @@ describe('LLMProvider lifecycle authority', () => {
     });
     expect(current().controller).toBeNull();
     expect(current().isReady).toBe(false);
-    expect(engineA.close).toHaveBeenCalledTimes(1);
+    expect(engineA.close).toHaveBeenCalledTimes(2);
 
     await act(async () => {
       second.resolve();
@@ -196,8 +239,9 @@ describe('LLMProvider lifecycle authority', () => {
       pending.resolve();
       await pending.promise;
     });
-    expect(engine.close).toHaveBeenCalledTimes(1);
+    expect(engine.close).toHaveBeenCalledTimes(2);
   });
+
   it('keeps inference hooks from invoking an initializing engine', async () => {
     const pending = deferred();
     const engine = createPipe(() => pending.promise);
