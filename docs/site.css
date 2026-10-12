@@ -226,6 +226,7 @@ html[data-ui-variant="pastel"] #quickstart .eyebrow {
 html[data-ui-variant="pastel"] #implementation {
   padding-inline: 1rem;
   border-inline: 1px solid var(--amaryllis-accent-blue);
+  border-bottom: 0;
   background: var(--amaryllis-surface-b);
 }
 
@@ -250,6 +251,7 @@ html[data-ui-variant="pastel"] #components .mode-grid article > span {
 html[data-ui-variant="pastel"] #fit {
   padding-inline: 1rem;
   border-inline: 1px solid var(--amaryllis-accent-green);
+  border-bottom: 0;
   background: var(--amaryllis-surface-a);
 }
 
