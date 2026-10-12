@@ -103,6 +103,7 @@ export function createRegistryIdentity(
       `${componentName}@${version}:implementation`,
   };
 }
+
 export interface ComponentRegistryOptions {
   hash?: RegistryHashFunction;
 }
@@ -123,7 +124,9 @@ export class ComponentRegistry {
     const identity = createRegistryIdentity(entry, this.hash);
 
     if (!validSemver(identity.version)) {
-      throw new Error(`invalid SemVer for component ${identity.componentName}: ${identity.version}`);
+      throw new Error(
+        `invalid SemVer for component ${identity.componentName}: ${identity.version}`
+      );
     }
 
     this.assertRegistrationMatches(name, entry, identity);
@@ -138,7 +141,6 @@ export class ComponentRegistry {
       ...entry,
       ...identity,
     });
-
   }
 
   /** Exact versioned identity only: never select an executable implicitly. */
