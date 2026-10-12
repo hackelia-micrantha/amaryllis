@@ -3,9 +3,11 @@ import { LLMProvider, gemmaProtocol } from '@micrantha/react-native-amaryllis';
 import {
   createContextEngine,
   type ContextItem,
+  type ContextPolicy,
   type ContextQuery,
   type ContextStore,
 } from '@micrantha/amaryllis/context';
+import { ContextPolicyUnsupportedError } from '@micrantha/amaryllis';
 import { ContextEngineProvider } from '@micrantha/react-native-amaryllis/context';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -15,18 +17,53 @@ import { PromptProvider } from './PromptContext';
 import { ModelProvider, useModelContext } from './ModelContext';
 import { default as WelcomeScreen } from './ImportModels';
 import { registerExampleAiComponents } from './ai/registerComponents';
-import { PersonaDemoScreen } from './personaDemo/PersonaDemoScreen';
-import { ModelSettingsScreen } from './modelSettings/ModelSettingsScreen';
-
+import { PersonaDemoScreen } from './personaDemo/Pers// Illustrative in-memory adapter, not a durable/context-encrypted store.
+// It supports recency eviction + maxItems and refuses unsupported limits.
 const createMemoryStore = (): ContextStore => {
   let items: ContextItem[] = [];
 
+  const live = (source: ContextItem[]): ContextItem[] =>
+    source.filter(
+      (item) =>
+        item.ttlSeconds === undefined ||
+        item.createdAt + item.ttlSeconds * 1000 > Date.now()
+    );
+
+  const enforce = (
+    candidate: ContextItem[],
+    policy: ContextPolicy
+  ): ContextItem[] => {
+    if (policy.maxBytes !== undefined) {
+      throw new ContextPolicyUnsupportedError(
+        'The example memory store cannot enforce maxBytes'
+      );
+    }
+    if (
+      policy.evictionStrategy !== undefined &&
+      policy.evictionStrategy !== 'recency'
+    ) {
+      throw new ContextPolicyUnsupportedError(
+        'The example memory store only supports recency eviction'
+      );
+    }
+
+    let next = live(candidate);
+    if (policy.maxItems !== undefined && next.length > policy.maxItems) {
+      next = [...next]
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .slice(0, policy.maxItems);
+    }
+    return next;
+  };
+
   return {
-    async put(nextItems) {
-      items = [...items, ...nextItems];
+    async put(nextItems, policy) {
+      // Compute before committing: a rejected limit leaves storage unchanged.
+      const next = enforce([...items, ...nextItems], policy);
+      items = next;
     },
     async query(query: ContextQuery) {
-      let results = items;
+      let results = live(items);
       if (query.tags && query.tags.length > 0) {
         results = results.filter((item) =>
           query.tags?.every((tag) => item.tags?.includes(tag))
@@ -53,10 +90,13 @@ const createMemoryStore = (): ContextStore => {
       items = items.filter((item) => !idSet.has(item.id));
     },
     async compact(policy) {
-      if (policy.maxItems && items.length > policy.maxItems) {
-        items = [...items]
-          .sort((a, b) => b.createdAt - a.createdAt)
-          .slice(0, policy.maxItems);
+      items = enforce(items, policy);
+    },
+    async stats() {
+      return { itemCount: items.length };
+    },
+  };
+};
       }
     },
     async stats() {
