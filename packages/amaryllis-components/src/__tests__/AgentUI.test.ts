@@ -80,10 +80,10 @@ describe('Agent UI integration', () => {
 
   test('valid structured output updates props through the action bridge', async () => {
     const action = createAmaryllisPersonalizationAction({
-      componentName: 'summary-card',
+      componentName: 'summary-card@1.0.0',
       baseProps: { title: 'Base', count: 0 },
       infer: async (request) => {
-        expect(request.componentName).toBe('summary-card');
+        expect(request.componentName).toBe('summary-card@1.0.0');
         expect(request.prompt).toBe('summarize locally');
         return {
           props: { title: 'Personalized', count: 2 },
@@ -115,7 +115,7 @@ describe('Agent UI integration', () => {
     });
 
     const action = createAmaryllisPersonalizationAction({
-      componentName: 'summary-card',
+      componentName: 'summary-card@1.0.0',
       baseProps: { title: 'Base', count: 0 },
       infer,
       registry,
@@ -137,7 +137,7 @@ describe('Agent UI integration', () => {
   test('bridges base Amaryllis inference directly to validated personalization props', async () => {
     const generateRequests: Array<{ prompt: string }> = [];
     const action = createAmaryllisInferencePersonalizationAction({
-      componentName: 'summary-card',
+      componentName: 'summary-card@1.0.0',
       baseProps: { title: 'Base', count: 0 },
       generate: async (request) => {
         generateRequests.push(request);
@@ -166,7 +166,7 @@ describe('Agent UI integration', () => {
 
   test('invalid structured output returns errors and base props', async () => {
     const action = createAmaryllisPersonalizationAction({
-      componentName: 'summary-card',
+      componentName: 'summary-card@1.0.0',
       baseProps: { title: 'Base', count: 0 },
       infer: async () => ({
         props: { title: 123 },
@@ -187,7 +187,7 @@ describe('Agent UI integration', () => {
       props: { title: 123 },
     }));
     const action = createAmaryllisPersonalizationAction({
-      componentName: 'summary-card',
+      componentName: 'summary-card@1.0.0',
       baseProps: { title: 'Base', count: 0 },
       infer,
       registry,
@@ -211,7 +211,7 @@ describe('Agent UI integration', () => {
         return { props: { title: 'Recovered', count: 5 } };
       });
     const action = createAmaryllisPersonalizationAction({
-      componentName: 'summary-card',
+      componentName: 'summary-card@1.0.0',
       baseProps: { title: 'Base', count: 0 },
       infer,
       recovery: { maxAttempts: 1 },
@@ -227,7 +227,7 @@ describe('Agent UI integration', () => {
 
   test('raw TSX-like output fails schema validation', async () => {
     const action = createAmaryllisPersonalizationAction({
-      componentName: 'summary-card',
+      componentName: 'summary-card@1.0.0',
       baseProps: { title: 'Base' },
       infer: async () => '<SummaryCard title="Unsafe" />',
       registry,
