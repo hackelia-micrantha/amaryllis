@@ -15,7 +15,9 @@ export function validateSpecForGeneration(
   const spec = ComponentSpecSchema.parse(candidate);
   const result = new PolicyEngine().validateSpec(spec);
   if (!result.valid) {
-    throw new Error(`Component policy validation failed: ${result.errors.join('; ')}`);
+    throw new Error(
+      `Component policy validation failed: ${result.errors.join('; ')}`
+    );
   }
   return spec;
 }
@@ -29,7 +31,9 @@ export function applyCustomizationAndValidate(
   patch: unknown
 ): ValidatedComponentSpec {
   if (!Array.isArray(patch)) {
-    throw new Error('Customization patch must be an array of JSON Patch operations');
+    throw new Error(
+      'Customization patch must be an array of JSON Patch operations'
+    );
   }
 
   const result = jsonpatch.applyPatch(
