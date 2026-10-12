@@ -128,6 +128,11 @@ export class ContextEngine implements ContextEngineContract {
   }
 
   formatRequest(params: ContextFormatParams): LlmRequestParams {
+    // Direct callers may supply their own retrieved items rather than using
+    // search(); every item crosses the same untrusted-context boundary.
+    if (params.items.length > 0) {
+      validateContextItems(params.items, this.policy);
+    }
     return this.formatter(params);
   }
 
