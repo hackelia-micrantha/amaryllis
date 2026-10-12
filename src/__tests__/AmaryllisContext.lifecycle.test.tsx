@@ -92,6 +92,8 @@ describe('LLMProvider lifecycle authority', () => {
     expect(current().controller).toBeNull();
     expect(current().isReady).toBe(false);
     expect(engine.close).toHaveBeenCalledTimes(1);
+    // Reinitialization begins after the previous lifecycle lease settles.
+    await act(async () => {});
     expect(engine.init).toHaveBeenNthCalledWith(2, configB);
 
     await act(async () => {
