@@ -121,7 +121,7 @@ try {
     contract: generatedContract,
     implementationIdentity: 'docs/examples/SummaryCard',
   });
-  assert.ok(registry.get('summary-card'));
+  assert.ok(registry.get(`summary-card@${spec.metadata.version}`));
 
   const engine = new PersonalizationEngine();
   const baseProps = {
