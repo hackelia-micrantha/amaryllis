@@ -174,7 +174,6 @@ a:focus-visible {
   align-items: start;
   padding: 1.5rem 1rem;
   border-inline: 1px solid var(--phyllotaxis-color-border);
-  border-bottom: 1px solid var(--phyllotaxis-color-border);
   background: var(--amaryllis-surface-a);
 }
 
@@ -444,6 +443,7 @@ p {
 .feature-panel {
   padding-inline: 1rem;
   border-inline: 1px solid var(--phyllotaxis-color-border);
+  border-bottom: 0;
   background: var(--amaryllis-surface-d);
 }
 
@@ -518,6 +518,7 @@ code {
   gap: 1rem;
   padding-inline: 1rem;
   border-inline: 1px solid var(--phyllotaxis-color-border);
+  border-bottom: 0;
   background: var(--amaryllis-surface-c);
 }
 
