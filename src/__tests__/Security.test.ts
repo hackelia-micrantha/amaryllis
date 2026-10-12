@@ -11,6 +11,7 @@ describe('Security Tests', () => {
   describe('Input validation security', () => {
     it('should reject extremely long prompts before native dispatch', async () => {
       const { result, unmount } = renderHook(() => useInference());
+      await act(async () => {});
       const longPrompt = 'x'.repeat(100001);
 
       await act(async () => {
@@ -23,6 +24,7 @@ describe('Security Tests', () => {
 
     it('should handle prompts with special characters', async () => {
       const { result, unmount } = renderHook(() => useInference());
+      await act(async () => {});
       const maliciousPrompt = '<script>alert("xss")</script>\n\r\t\'"\\';
 
       await act(async () => {
@@ -37,6 +39,7 @@ describe('Security Tests', () => {
 
     it('should handle unicode and emoji prompts', async () => {
       const { result, unmount } = renderHook(() => useInference());
+      await act(async () => {});
       const unicodePrompt = 'Test with 🚀🔥 emojis and 中文 characters';
 
       await act(async () => {
@@ -49,6 +52,7 @@ describe('Security Tests', () => {
 
     it('should reject large image arrays before native dispatch', async () => {
       const { result, unmount } = renderHook(() => useInference());
+      await act(async () => {});
       const images = Array(3).fill('file:///tmp/test.png');
 
       await act(async () => {
@@ -74,6 +78,7 @@ describe('Security Tests', () => {
           },
         })
       );
+      await act(async () => {});
 
       await act(async () => {
         await result.current?.({ prompt: 'test' });
@@ -100,6 +105,7 @@ describe('Security Tests', () => {
           },
         })
       );
+      await act(async () => {});
 
       await act(async () => {
         await result.current?.({ prompt: 'test' });
@@ -117,6 +123,7 @@ describe('Security Tests', () => {
   describe('Performance security', () => {
     it('should handle rapid sequential operations', async () => {
       const { result, unmount } = renderHook(() => useInference());
+      await act(async () => {});
 
       // Fire multiple requests sequentially instead of parallel to avoid overlapping act()
       for (let i = 0; i < 10; i++) {
@@ -131,6 +138,7 @@ describe('Security Tests', () => {
 
     it('should clean up subscriptions on unmount', async () => {
       const { result, unmount } = renderHook(() => useInferenceAsync());
+      await act(async () => {});
 
       await act(async () => {
         await result.current?.({ prompt: 'test' });
@@ -155,6 +163,7 @@ describe('Security Tests', () => {
           },
         })
       );
+      await act(async () => {});
 
       await act(async () => {
         await result.current?.({ prompt: 'test' });
@@ -175,6 +184,7 @@ describe('Security Tests', () => {
           },
         })
       );
+      await act(async () => {});
 
       await act(async () => {
         await result.current?.({ prompt: 'test' });
