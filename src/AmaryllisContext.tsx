@@ -66,7 +66,7 @@ export const LLMProvider = ({
   );
   // Reconfigurations of a provider must not overlap native initialization on
   // the same injected engine or shared native module.
-  const initializationChain = useRef<Promise<void>>(Promise.resolve());
+  const initializationChain = useRef<Promise<void> | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -95,7 +95,7 @@ export const LLMProvider = ({
 
     const start = async () => {
       try {
-        await previous;
+        if (previous) await previous;
         if (!active) return;
 
         const engine = llmPipe ?? newLlmPipe();
