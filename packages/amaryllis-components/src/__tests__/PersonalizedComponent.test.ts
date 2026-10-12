@@ -75,7 +75,7 @@ describe('PersonalizedComponent primitives', () => {
       get: (name: string) => unknown;
       register: typeof import('../runtime/registry').ComponentRegistry.prototype.register;
     }) => {
-      if (!registry.get('primitive-card')) {
+      if (!registry.get('primitive-card@1.0.0')) {
         registry.register('primitive-card', {
           component: Component,
           spec,
