@@ -47,10 +47,15 @@
 }
 
 html[data-ui-variant="pastel"] {
-  --amaryllis-surface-a: light-dark(#e9f0e7, #1d2820);
-  --amaryllis-surface-b: light-dark(#e8eef3, #1b242c);
-  --amaryllis-surface-c: light-dark(#f1eadc, #2c271e);
-  --amaryllis-surface-d: light-dark(#eee8f4, #28212d);
+  --amaryllis-surface-a: light-dark(#e7f3ea, #1b2a21);
+  --amaryllis-surface-b: light-dark(#e8f1f8, #192633);
+  --amaryllis-surface-c: light-dark(#f7eddc, #30271c);
+  --amaryllis-surface-d: light-dark(#eee8f7, #2b2233);
+
+  --amaryllis-accent-green: light-dark(#2f6f4e, #81c995);
+  --amaryllis-accent-blue: light-dark(#315f8a, #8ab4f8);
+  --amaryllis-accent-violet: light-dark(#6d4f92, #c7a0e8);
+  --amaryllis-accent-amber: light-dark(#8a5725, #e4b86d);
 }
 
 [data-phyllotaxis-scheme="light"] {
@@ -207,6 +212,57 @@ a:focus-visible {
 
 .eyebrow {
   color: var(--phyllotaxis-color-text-muted);
+}
+
+html[data-ui-variant="pastel"] .hero {
+  border-inline-color: var(--amaryllis-accent-green);
+}
+
+html[data-ui-variant="pastel"] .hero .eyebrow,
+html[data-ui-variant="pastel"] #quickstart .eyebrow {
+  color: var(--amaryllis-accent-green);
+}
+
+html[data-ui-variant="pastel"] #implementation {
+  padding-inline: 1rem;
+  border-inline: 1px solid var(--amaryllis-accent-blue);
+  background: var(--amaryllis-surface-b);
+}
+
+html[data-ui-variant="pastel"] #implementation .eyebrow,
+html[data-ui-variant="pastel"] #architecture .eyebrow {
+  color: var(--amaryllis-accent-blue);
+}
+
+html[data-ui-variant="pastel"] #architecture .flow {
+  border-left-color: var(--amaryllis-accent-blue);
+}
+
+html[data-ui-variant="pastel"] .feature-panel {
+  border-inline-color: var(--amaryllis-accent-violet);
+}
+
+html[data-ui-variant="pastel"] #components .eyebrow,
+html[data-ui-variant="pastel"] #components .mode-grid article > span {
+  color: var(--amaryllis-accent-violet);
+}
+
+html[data-ui-variant="pastel"] #fit {
+  padding-inline: 1rem;
+  border-inline: 1px solid var(--amaryllis-accent-green);
+  background: var(--amaryllis-surface-a);
+}
+
+html[data-ui-variant="pastel"] #fit .eyebrow {
+  color: var(--amaryllis-accent-green);
+}
+
+html[data-ui-variant="pastel"] .callout {
+  border-inline-color: var(--amaryllis-accent-amber);
+}
+
+html[data-ui-variant="pastel"] .callout .eyebrow {
+  color: var(--amaryllis-accent-amber);
 }
 
 h1,
