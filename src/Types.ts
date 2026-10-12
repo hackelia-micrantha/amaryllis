@@ -141,6 +141,12 @@ export interface LLMContextValue {
 
 export interface LLMProviderProps {
   config: LlmEngineConfig;
+  /**
+   * Optional caller-constructed engine. The provider owns its init/close
+   * lifecycle while supplied: a config change closes and reinitializes the
+   * same object, while a changed engine identity closes the previous object.
+   * The engine is not exposed until its current init call completes.
+   */
   llmPipe?: LlmEngine;
   children: React.ReactNode;
 }
