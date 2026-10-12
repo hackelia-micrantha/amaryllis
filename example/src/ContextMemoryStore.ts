@@ -86,10 +86,3 @@ export const createMemoryStore = (): ContextStore => {
     },
   };
 };
-      }
-    },
-    async stats() {
-      return { itemCount: items.length };
-    },
-  };
-};
