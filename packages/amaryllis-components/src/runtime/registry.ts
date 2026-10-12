@@ -86,7 +86,7 @@ export function getRegistryKey(componentName: string, version: string): string {
 }
 
 export function createRegistryIdentity(
-  entry: Pick<RegisteredComponent, 'spec' | 'contract' | 'implementationIdentity'>,
+  entry: RegisteredComponent | RegistrySnapshotEntry,
   hash: RegistryHashFunction = fnv1aHash
 ): RegistryIdentity {
   const componentName = entry.spec.metadata.name;
