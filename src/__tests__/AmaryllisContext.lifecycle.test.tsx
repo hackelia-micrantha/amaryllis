@@ -1,6 +1,8 @@
 import React from 'react';
 import { act, render } from '@testing-library/react-native';
 import { LLMProvider, useLLMContext } from '../AmaryllisContext';
+import { useInferenceAsync } from '../AmaryllisHooks';
+import { newLlmPipe } from '../NativePipe';
 import type { LLMContextValue, LlmEngine, LlmEngineConfig } from '../Types';
 
 const configA: LlmEngineConfig = { modelPath: 'a.task' };
@@ -196,4 +198,50 @@ describe('LLMProvider lifecycle authority', () => {
     });
     expect(engine.close).toHaveBeenCalledTimes(1);
   });
+  it('keeps inference hooks from invoking an initializing engine', async () => {
+    const pending = deferred();
+    const engine = createPipe(() => pending.promise);
+    const onError = jest.fn();
+    const InferenceProbe = () => {
+      const generate = useInferenceAsync({ onError });
+      React.useEffect(() => {
+        void generate({ prompt: 'before init' });
+      }, [generate]);
+      return null;
+    };
+
+    const { unmount } = render(
+      <LLMProvider config={configA} llmPipe={engine}>
+        <InferenceProbe />
+      </LLMProvider>
+    );
+    await act(async () => {});
+    expect(engine.generateAsync).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'Controller not initialized' })
+    );
+    unmount();
+    await act(async () => {
+      pending.resolve();
+      await pending.promise;
+    });
+  });
+
+  it('reports engine construction failures without updating state during render', async () => {
+    (newLlmPipe as jest.Mock).mockImplementationOnce(() => {
+      throw new Error('native unavailable');
+    });
+
+    const { unmount } = render(
+      <LLMProvider config={configA}>
+        <Probe />
+      </LLMProvider>
+    );
+    await act(async () => {});
+    expect(current().controller).toBeNull();
+    expect(current().isReady).toBe(false);
+    expect(current().error?.message).toBe('native unavailable');
+    unmount();
+  });
+
 });
