@@ -46,6 +46,13 @@
   --amaryllis-code-ink: #e8f2ed;
 }
 
+html[data-ui-variant="pastel"] {
+  --amaryllis-surface-a: light-dark(#e9f0e7, #1d2820);
+  --amaryllis-surface-b: light-dark(#e8eef3, #1b242c);
+  --amaryllis-surface-c: light-dark(#f1eadc, #2c271e);
+  --amaryllis-surface-d: light-dark(#eee8f4, #28212d);
+}
+
 [data-phyllotaxis-scheme="light"] {
   color-scheme: light;
 }
