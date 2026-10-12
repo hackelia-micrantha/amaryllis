@@ -274,9 +274,20 @@ describe('ComponentRegistry identity binding', () => {
       version: 'release-next',
       spec: invalid.spec,
     };
+    const resolver = jest.fn(() => Component);
     expect(() =>
-      registry.hydrate([invalidSnapshot], () => Component)
+      registry.hydrate([invalidSnapshot], resolver)
     ).toThrow('invalid SemVer');
+    expect(resolver).not.toHaveBeenCalled();
     expect(registry.list()).toEqual([]);
+
+    const mismatched = {
+      ...snapshot,
+      specHash: 'untrusted-hash',
+    };
+    expect(() =>
+      registry.hydrate([mismatched], resolver)
+    ).toThrow('specHash does not match spec');
+    expect(resolver).not.toHaveBeenCalled();
   });
 });
