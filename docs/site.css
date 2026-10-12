@@ -1,19 +1,64 @@
 :root {
-  --page: #f6f4ed;
-  --surface: #ffffff;
-  --surface-a: #ffffff;
-  --surface-b: #ffffff;
-  --surface-c: #ffffff;
-  --surface-d: #ffffff;
-  --ink: #172126;
-  --muted: #4f5c61;
-  --line: #6d7772;
-  --link: #164f9c;
-  --visited: #67447c;
-  --focus: #9b4c00;
-  --code-bg: #111a17;
-  --code-ink: #e8f2ed;
+  color-scheme: light dark;
+
+  --phyllotaxis-space-none: 0;
+  --phyllotaxis-space-xs: 0.25rem;
+  --phyllotaxis-space-sm: 0.5rem;
+  --phyllotaxis-space-md: 1rem;
+  --phyllotaxis-space-lg: 1.5rem;
+  --phyllotaxis-space-xl: 2rem;
+  --phyllotaxis-gutter-page: 1rem;
+  --phyllotaxis-content-width-narrow: 46rem;
+  --phyllotaxis-content-width-readable: 70rem;
+  --phyllotaxis-content-width-wide: 82rem;
+  --phyllotaxis-content-width-full: 100%;
+
+  --phyllotaxis-font-body: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --phyllotaxis-font-display: var(--phyllotaxis-font-body);
+  --phyllotaxis-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --phyllotaxis-type-body-size: 1rem;
+  --phyllotaxis-type-body-line-height: 1.45;
+  --phyllotaxis-type-title-size: 1.75rem;
+  --phyllotaxis-type-title-line-height: 1.15;
+  --phyllotaxis-type-title-weight: 700;
+  --phyllotaxis-type-heading-size: 1.25rem;
+  --phyllotaxis-type-heading-line-height: 1.25;
+  --phyllotaxis-type-heading-weight: 700;
+  --phyllotaxis-type-meta-size: 0.875rem;
+  --phyllotaxis-type-meta-line-height: 1.35;
+
+  --phyllotaxis-color-canvas: light-dark(#ffffff, #111111);
+  --phyllotaxis-color-surface: light-dark(#f5f5f5, #1b1b1b);
+  --phyllotaxis-color-text: light-dark(#111111, #eeeeee);
+  --phyllotaxis-color-text-muted: light-dark(#555555, #bbbbbb);
+  --phyllotaxis-color-border: light-dark(#a0a0a0, #666666);
+  --phyllotaxis-color-link: light-dark(#0000ee, #8ab4f8);
+  --phyllotaxis-color-link-visited: light-dark(#551a8b, #c58af9);
+  --phyllotaxis-color-focus: light-dark(#111111, #ffffff);
+  --phyllotaxis-color-selection: light-dark(#cfe3ff, #294a70);
+  --phyllotaxis-color-selection-text: light-dark(#111111, #ffffff);
+
+  --amaryllis-surface-a: var(--phyllotaxis-color-surface);
+  --amaryllis-surface-b: var(--phyllotaxis-color-surface);
+  --amaryllis-surface-c: var(--phyllotaxis-color-surface);
+  --amaryllis-surface-d: var(--phyllotaxis-color-surface);
+  --amaryllis-code-bg: light-dark(#111a17, #070b09);
+  --amaryllis-code-ink: #e8f2ed;
 }
+
+[data-phyllotaxis-scheme="light"] {
+  color-scheme: light;
+}
+
+[data-phyllotaxis-scheme="dark"] {
+  color-scheme: dark;
+}
+
+::selection {
+  background-color: var(--phyllotaxis-color-selection);
+  color: var(--phyllotaxis-color-selection-text);
+}
+
 
 * {
   box-sizing: border-box;
@@ -25,24 +70,26 @@ html {
 
 body {
   margin: 0;
-  color: var(--ink);
-  background: var(--page);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  line-height: 1.5;
+  color: var(--phyllotaxis-color-text);
+  background: var(--phyllotaxis-color-canvas);
+  font-family: var(--phyllotaxis-font-body);
+  font-size: var(--phyllotaxis-type-body-size);
+  line-height: var(--phyllotaxis-type-body-line-height);
+  overflow-wrap: anywhere;
 }
 
 a {
-  color: var(--link);
+  color: var(--phyllotaxis-color-link);
   text-decoration: underline;
   text-underline-offset: 0.12em;
 }
 
 a:visited {
-  color: var(--visited);
+  color: var(--phyllotaxis-color-link-visited);
 }
 
 a:focus-visible {
-  outline: 3px solid var(--focus);
+  outline: 3px solid var(--phyllotaxis-color-focus);
   outline-offset: 3px;
 }
 
@@ -52,8 +99,8 @@ a:focus-visible {
   top: 0.5rem;
   left: 0.5rem;
   padding: 0.4rem 0.6rem;
-  border: 1px solid var(--line);
-  background: var(--surface);
+  border: 1px solid var(--phyllotaxis-color-border);
+  background: var(--phyllotaxis-color-surface);
   transform: translateY(-200%);
 }
 
@@ -62,7 +109,8 @@ a:focus-visible {
 }
 
 .shell {
-  width: min(72rem, calc(100% - 2rem));
+  width: calc(100% - 2rem);
+  max-width: var(--phyllotaxis-content-width-readable);
   margin-inline: auto;
 }
 
@@ -73,19 +121,19 @@ a:focus-visible {
   justify-content: space-between;
   gap: 1rem;
   padding-block: 0.5rem;
-  border-bottom: 2px solid var(--line);
+  border-bottom: 2px solid var(--phyllotaxis-color-border);
 }
 
 .brand {
   display: inline-flex;
   align-items: center;
   gap: 0.55rem;
-  color: var(--ink);
+  color: var(--phyllotaxis-color-text);
   font-weight: 800;
 }
 
 .brand:visited {
-  color: var(--ink);
+  color: var(--phyllotaxis-color-text);
 }
 
 .brand img {
@@ -115,8 +163,8 @@ a:focus-visible {
 .feature-panel,
 .callout,
 .section {
-  border: 1px solid var(--line);
-  background: var(--surface);
+  border: 1px solid var(--phyllotaxis-color-border);
+  background: var(--phyllotaxis-color-surface);
 }
 
 .hero {
@@ -125,12 +173,12 @@ a:focus-visible {
   gap: 1.25rem;
   align-items: start;
   padding: 1rem;
-  background: var(--surface-a);
+  background: var(--amaryllis-surface-a);
 }
 
 .hero-mark {
-  border: 1px solid var(--line);
-  background: var(--surface);
+  border: 1px solid var(--phyllotaxis-color-border);
+  background: var(--phyllotaxis-color-surface);
   padding: 0.75rem;
 }
 
@@ -151,36 +199,38 @@ a:focus-visible {
 }
 
 .eyebrow {
-  color: var(--muted);
+  color: var(--phyllotaxis-color-text-muted);
 }
 
 h1,
 h2,
 h3 {
-  font-family: inherit;
-  color: var(--ink);
+  color: var(--phyllotaxis-color-text);
+  font-family: var(--phyllotaxis-font-display);
+  overflow-wrap: anywhere;
 }
 
 h1 {
   max-width: 27ch;
   margin: 0.35rem 0 0.75rem;
-  font-size: clamp(2rem, 5vw, 3.2rem);
-  line-height: 1.05;
-  letter-spacing: -0.025em;
+  font-size: var(--phyllotaxis-type-title-size);
+  font-weight: var(--phyllotaxis-type-title-weight);
+  line-height: var(--phyllotaxis-type-title-line-height);
 }
 
 h2 {
   max-width: 30ch;
   margin: 0.3rem 0 0.65rem;
-  font-size: clamp(1.5rem, 3vw, 2.15rem);
-  line-height: 1.12;
-  letter-spacing: -0.015em;
+  font-size: var(--phyllotaxis-type-heading-size);
+  font-weight: var(--phyllotaxis-type-heading-weight);
+  line-height: var(--phyllotaxis-type-heading-line-height);
 }
 
 h3 {
   margin: 0.25rem 0;
-  font-size: 1rem;
-  line-height: 1.3;
+  font-size: var(--phyllotaxis-type-heading-size);
+  font-weight: var(--phyllotaxis-type-heading-weight);
+  line-height: var(--phyllotaxis-type-heading-line-height);
 }
 
 p {
@@ -195,7 +245,7 @@ p {
 .signal-grid span,
 .guardrails span,
 .flow small {
-  color: var(--muted);
+  color: var(--phyllotaxis-color-text-muted);
 }
 
 .lead,
@@ -217,9 +267,9 @@ p {
   align-items: center;
   justify-content: center;
   padding: 0.4rem 0.7rem;
-  border: 1px solid var(--line);
-  color: var(--link);
-  background: var(--surface);
+  border: 1px solid var(--phyllotaxis-color-border);
+  color: var(--phyllotaxis-color-link);
+  background: var(--phyllotaxis-color-surface);
   font-weight: 800;
   transition:
     background-color 120ms ease-out,
@@ -228,18 +278,18 @@ p {
 }
 
 .button:visited {
-  color: var(--visited);
+  color: var(--phyllotaxis-color-link-visited);
 }
 
 @media (hover: hover) {
   .button:hover {
-    background: var(--surface-c);
+    background: var(--amaryllis-surface-c);
     transform: translateY(-1px);
   }
 }
 
 .button:active {
-  border-color: var(--focus);
+  border-color: var(--phyllotaxis-color-focus);
   transform: translateY(0);
 }
 
@@ -264,8 +314,8 @@ p {
 .state {
   width: fit-content;
   padding: 0.2rem 0.4rem;
-  border: 1px solid var(--line);
-  background: var(--surface);
+  border: 1px solid var(--phyllotaxis-color-border);
+  background: var(--phyllotaxis-color-surface);
   font-size: 0.8rem;
   font-weight: 700;
 }
@@ -279,8 +329,8 @@ p {
   display: grid;
   gap: 0;
   margin-top: 1rem;
-  border-top: 1px solid var(--line);
-  border-left: 1px solid var(--line);
+  border-top: 1px solid var(--phyllotaxis-color-border);
+  border-left: 1px solid var(--phyllotaxis-color-border);
 }
 
 .signal-grid,
@@ -297,8 +347,8 @@ p {
 .code-grid > * {
   min-width: 0;
   padding: 0.8rem;
-  border-right: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
+  border-right: 1px solid var(--phyllotaxis-color-border);
+  border-bottom: 1px solid var(--phyllotaxis-color-border);
 }
 
 .signal-grid strong,
@@ -330,19 +380,19 @@ p {
 
 .card {
   min-height: 0;
-  background: var(--surface);
+  background: var(--phyllotaxis-color-surface);
 }
 
 .tint-blue {
-  background: var(--surface-b);
+  background: var(--amaryllis-surface-b);
 }
 
 .tint-green {
-  background: var(--surface-a);
+  background: var(--amaryllis-surface-a);
 }
 
 .tint-amber {
-  background: var(--surface-c);
+  background: var(--amaryllis-surface-c);
 }
 
 .compact .card {
@@ -357,15 +407,15 @@ p {
 .flow {
   display: grid;
   gap: 0;
-  border-top: 1px solid var(--line);
-  border-left: 1px solid var(--line);
+  border-top: 1px solid var(--phyllotaxis-color-border);
+  border-left: 1px solid var(--phyllotaxis-color-border);
 }
 
 .flow div {
   padding: 0.75rem;
-  border-right: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  background: var(--surface);
+  border-right: 1px solid var(--phyllotaxis-color-border);
+  border-bottom: 1px solid var(--phyllotaxis-color-border);
+  background: var(--phyllotaxis-color-surface);
 }
 
 .flow b {
@@ -375,23 +425,23 @@ p {
 
 .feature-panel {
   padding: 1rem;
-  background: var(--surface-d);
+  background: var(--amaryllis-surface-d);
 }
 
 .mode-grid article {
-  background: var(--surface);
+  background: var(--phyllotaxis-color-surface);
 }
 
 .mode-grid article:nth-child(1) {
-  background: var(--surface-a);
+  background: var(--amaryllis-surface-a);
 }
 
 .mode-grid article:nth-child(2) {
-  background: var(--surface-b);
+  background: var(--amaryllis-surface-b);
 }
 
 .mode-grid article:nth-child(3) {
-  background: var(--surface-c);
+  background: var(--amaryllis-surface-c);
 }
 
 .mode-grid article > span {
@@ -404,7 +454,7 @@ p {
 }
 
 .guardrails div {
-  background: var(--surface);
+  background: var(--phyllotaxis-color-surface);
 }
 
 .fit-grid {
@@ -412,11 +462,11 @@ p {
 }
 
 .fit-card {
-  background: var(--surface);
+  background: var(--phyllotaxis-color-surface);
 }
 
 .fit-positive {
-  background: var(--surface-a);
+  background: var(--amaryllis-surface-a);
 }
 
 .fit-card ul {
@@ -433,7 +483,7 @@ p {
 }
 
 .code-card {
-  background: var(--code-bg);
+  background: var(--amaryllis-code-bg);
 }
 
 .code-card .label {
@@ -447,8 +497,10 @@ pre {
 }
 
 code {
-  color: var(--code-ink);
-  font: 0.82rem/1.65 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: var(--amaryllis-code-ink);
+  font-family: var(--phyllotaxis-font-mono);
+  font-size: 0.82rem;
+  line-height: 1.65;
 }
 
 .callout {
@@ -457,7 +509,7 @@ code {
   justify-content: space-between;
   gap: 1rem;
   padding: 1rem;
-  background: var(--surface-c);
+  background: var(--amaryllis-surface-c);
 }
 
 .callout .actions {
@@ -469,8 +521,8 @@ code {
   justify-content: space-between;
   gap: 1rem;
   padding-block: 1rem 2rem;
-  border-top: 2px solid var(--line);
-  color: var(--muted);
+  border-top: 2px solid var(--phyllotaxis-color-border);
+  color: var(--phyllotaxis-color-text-muted);
   font-size: 0.88rem;
 }
 
@@ -509,7 +561,7 @@ code {
 
 @media (max-width: 42rem) {
   .shell {
-    width: min(100% - 1rem, 72rem);
+    width: calc(100% - 1rem);
   }
 
   .nav-links {
