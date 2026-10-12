@@ -287,9 +287,9 @@ describe('ComponentRegistry identity binding', () => {
       spec: invalid.spec,
     };
     const resolver = jest.fn(() => Component);
-    expect(() =>
-      registry.hydrate([invalidSnapshot], resolver)
-    ).toThrow('invalid SemVer');
+    expect(() => registry.hydrate([invalidSnapshot], resolver)).toThrow(
+      'invalid SemVer'
+    );
     expect(resolver).not.toHaveBeenCalled();
     expect(registry.list()).toEqual([]);
 
@@ -297,9 +297,9 @@ describe('ComponentRegistry identity binding', () => {
       ...snapshot,
       specHash: 'untrusted-hash',
     };
-    expect(() =>
-      registry.hydrate([mismatched], resolver)
-    ).toThrow('specHash does not match spec');
+    expect(() => registry.hydrate([mismatched], resolver)).toThrow(
+      'specHash does not match spec'
+    );
     expect(resolver).not.toHaveBeenCalled();
   });
 });
