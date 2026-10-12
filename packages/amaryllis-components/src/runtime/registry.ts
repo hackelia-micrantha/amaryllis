@@ -1,5 +1,10 @@
 /* eslint-disable no-bitwise */
 import type { ComponentType } from 'react';
+import {
+  compare as compareSemver,
+  prerelease as semverPrerelease,
+  valid as validSemver,
+} from 'semver';
 import type { ValidatedComponentSpec } from '../schema/spec.schema';
 import type { PersonalizationContract } from './engine';
 
@@ -104,7 +109,6 @@ export interface ComponentRegistryOptions {
 
 export class ComponentRegistry {
   private components: Map<string, BoundRegisteredComponent> = new Map();
-  private latestByName: Map<string, string> = new Map();
   private hash: RegistryHashFunction;
 
   constructor(options: ComponentRegistryOptions = {}) {
@@ -117,6 +121,10 @@ export class ComponentRegistry {
     options: RegisterOptions = {}
   ): void {
     const identity = createRegistryIdentity(entry, this.hash);
+
+    if (!validSemver(identity.version)) {
+      throw new Error(`invalid SemVer for component ${identity.componentName}: ${identity.version}`);
+    }
 
     this.assertRegistrationMatches(name, entry, identity);
 
@@ -131,11 +139,37 @@ export class ComponentRegistry {
       ...identity,
     });
 
-    this.updateLatest(identity.componentName);
   }
 
-  get(name: string): BoundRegisteredComponent | undefined {
-    return this.components.get(name) ?? this.getLatestByComponentName(name);
+  /** Exact versioned identity only: never select an executable implicitly. */
+  get(key: string): BoundRegisteredComponent | undefined {
+    return this.components.get(key);
+  }
+
+  getExact(key: string): BoundRegisteredComponent | undefined {
+    return this.components.get(key);
+  }
+
+  /** Explicitly opt into moving version selection (e.g. development/tooling). */
+  getLatest(
+    componentName: string,
+    options: { includePrerelease?: boolean } = {}
+  ): BoundRegisteredComponent | undefined {
+    const candidates = Array.from(this.components.values()).filter(
+      (entry) => entry.componentName === componentName
+    );
+    const stable = candidates.filter(
+      (entry) => semverPrerelease(entry.version) === null
+    );
+    const eligible = options.includePrerelease
+      ? candidates
+      : stable.length > 0
+        ? stable
+        : candidates;
+
+    return eligible
+      .sort((left, right) => compareSemver(left.version, right.version))
+      .at(-1);
   }
 
   list(): string[] {
@@ -208,27 +242,4 @@ export class ComponentRegistry {
     }
   }
 
-  private getLatestByComponentName(
-    componentName: string
-  ): BoundRegisteredComponent | undefined {
-    const key = this.latestByName.get(componentName);
-    return key ? this.components.get(key) : undefined;
-  }
-
-  private updateLatest(componentName: string): void {
-    const keys = Array.from(this.components.keys()).filter((key) =>
-      key.startsWith(`${componentName}@`)
-    );
-    const latest = keys.sort(compareRegistryKeys).at(-1);
-
-    if (latest) {
-      this.latestByName.set(componentName, latest);
-    }
-  }
-}
-
-function compareRegistryKeys(left: string, right: string): number {
-  const leftVersion = left.slice(left.lastIndexOf('@') + 1);
-  const rightVersion = right.slice(right.lastIndexOf('@') + 1);
-  return leftVersion.localeCompare(rightVersion, undefined, { numeric: true });
 }
