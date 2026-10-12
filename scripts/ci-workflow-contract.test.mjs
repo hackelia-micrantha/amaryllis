@@ -55,26 +55,26 @@ test('compatibility and SBOM jobs cancel only superseded PR runs', () => {
     'concurrency:',
     '  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}',
     "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
-  ].join('\\n');
+  ].join('\n');
 
   for (const name of ['compat-matrix.yml', 'sbom.yml']) {
     const source = actionSources.get(`.github/workflows/${name}`);
     assert.ok(source, `missing ${name}`);
     const header = source.slice(0, source.indexOf('jobs:'));
     assert.ok(
-      header.includes(`\\n${expected}\\n`),
+      header.includes(`\n${expected}\n`),
       `${name} must have workflow-level per-PR cancellation`,
     );
     assert.doesNotMatch(
       header,
-      /cancel-in-progress:\\s*true\\b/,
+      /cancel-in-progress:\s*true\b/,
       `${name} must not cancel release, main, or manual runs`,
     );
   }
 
   const sbom = actionSources.get('.github/workflows/sbom.yml');
-  assert.match(sbom, /push:\\n    branches:\\n      - main/);
-  assert.match(sbom, /tags:\\n      - 'v\\*'/);
+  assert.match(sbom, /push:\n    branches:\n      - main/);
+  assert.match(sbom, /tags:\n      - 'v\*'/);
 });
 
 test('change classifier exposes every CI dimension', () => {
