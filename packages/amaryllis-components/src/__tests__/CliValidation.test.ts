@@ -22,7 +22,7 @@ props:
   required:
     - title
 ui:
-  layout: "<div>{title}</div>"
+  layout: "<div>{children}</div>"
 ai:
   mode: scaffold
   execution: build
