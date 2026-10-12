@@ -255,7 +255,9 @@ describe('Personalization', () => {
       contract,
     });
 
-    const registered = globalRegistry.get(`test-card@${mockSpec.metadata.version}`);
+    const registered = globalRegistry.get(
+      `test-card@${mockSpec.metadata.version}`
+    );
     expect(registered).toBeDefined();
     expect(registered?.spec.metadata.name).toBe('test-card');
     expect(registered?.contract).toEqual(contract);
