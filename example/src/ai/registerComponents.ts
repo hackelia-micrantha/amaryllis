@@ -16,7 +16,11 @@ const personaProfileCardContract = JSON.parse(
 );
 
 export function registerExampleAiComponents(registry: ComponentRegistry): void {
-  if (!registry.get(`${contextSummaryCardSpec.metadata.name}@${contextSummaryCardSpec.metadata.version}`)) {
+  if (
+    !registry.get(
+      `${contextSummaryCardSpec.metadata.name}@${contextSummaryCardSpec.metadata.version}`
+    )
+  ) {
     registry.register(contextSummaryCardSpec.metadata.name, {
       component: ContextSummaryCard as unknown as ComponentType<
         Record<string, unknown>
@@ -26,7 +30,11 @@ export function registerExampleAiComponents(registry: ComponentRegistry): void {
     });
   }
 
-  if (!registry.get(`${personaProfileCardSpec.metadata.name}@${personaProfileCardSpec.metadata.version}`)) {
+  if (
+    !registry.get(
+      `${personaProfileCardSpec.metadata.name}@${personaProfileCardSpec.metadata.version}`
+    )
+  ) {
     registry.register(personaProfileCardSpec.metadata.name, {
       component: PersonaProfileCard as unknown as ComponentType<
         Record<string, unknown>
