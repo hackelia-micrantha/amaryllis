@@ -243,5 +243,4 @@ describe('LLMProvider lifecycle authority', () => {
     expect(current().error?.message).toBe('native unavailable');
     unmount();
   });
-
 });
