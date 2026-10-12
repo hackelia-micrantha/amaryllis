@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type {
   LlmEngine,
   LlmEngineConfig,
@@ -64,14 +64,17 @@ export const LLMProvider = ({
   const [state, setState] = useState<ProviderState>(() =>
     initializing(config, llmPipe)
   );
+  // Reconfigurations of a provider must not overlap native initialization on
+  // the same injected engine or shared native module.
+  const initializationChain = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
     let active = true;
     let candidate: LlmEngine | undefined;
     let closed = false;
 
-    const closeCandidate = () => {
-      if (!candidate || closed) return;
+    const closeCandidate = (afterPendingInit = false) => {
+      if (!candidate || (closed && !afterPendingInit)) return;
       closed = true;
       try {
         candidate.close();
@@ -80,15 +83,28 @@ export const LLMProvider = ({
       }
     };
 
+    // The prior effect owns any pending native init. Do not begin a new init
+    // until its result has settled and stale native resources have been closed.
+    const previous = initializationChain.current;
+    let release: () => void = () => {};
+    initializationChain.current = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+
     setState(initializing(config, llmPipe));
 
     const start = async () => {
       try {
+        await previous;
+        if (!active) return;
+
         const engine = llmPipe ?? newLlmPipe();
         candidate = engine;
         await engine.init(config);
         if (!active) {
-          closeCandidate();
+          // Cleanup may already have closed a still-initializing candidate.
+          // Native resources can be allocated after that first close.
+          closeCandidate(true);
           return;
         }
         setState({
@@ -99,7 +115,7 @@ export const LLMProvider = ({
           error: undefined,
         });
       } catch (e: unknown) {
-        closeCandidate();
+        closeCandidate(!active && closed);
         if (!active) return;
         const error = isAmaryllisError(e)
           ? e
@@ -113,6 +129,8 @@ export const LLMProvider = ({
           controller: null,
           error,
         });
+      } finally {
+        release();
       }
     };
 
