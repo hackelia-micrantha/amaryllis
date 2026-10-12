@@ -81,13 +81,26 @@ export class ContextEngine implements ContextEngineContract {
   }
 
   async add(items: ContextItem[]): Promise<void> {
-    validateContextItems(items, this.policy);
-    await this.store.put(items);
+    const policy = this.policy ?? {};
+    validateContextItems(items, policy);
+    // Default TTL is materialized at write time, never retroactively on
+    // existing records. An explicit item TTL takes precedence.
+    const materialized = items.map((item) =>
+      item.ttlSeconds === undefined && policy.defaultTtlSeconds !== undefined
+        ? { ...item, ttlSeconds: policy.defaultTtlSeconds }
+        : { ...item }
+    );
+    // Persistent limits and eviction are store-owned atomic invariants.
+    await this.store.put(materialized, { ...policy });
   }
 
   async search(query: ContextQuery): Promise<ContextItem[]> {
     validateContextQuery(query);
     const results = await this.store.query(query);
+    // Store output remains untrusted even when persistence is application-owned.
+    if (results.length > 0) {
+      validateContextItems(results, this.policy);
+    }
     if (results.length <= 1) {
       return results;
     }
