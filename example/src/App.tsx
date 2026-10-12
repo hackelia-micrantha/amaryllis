@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { LLMProvider, gemmaProtocol } from '@micrantha/react-native-amaryllis';
 import { createContextEngine } from '@micrantha/amaryllis/context';
-import { ContextEngineProvider } from '@micrantha/react-native-amaryllis/context';
 import { createMemoryStore } from './ContextMemoryStore';
+import { ContextEngineProvider } from '@micrantha/react-native-amaryllis/context';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { RegistryProvider } from '@micrantha/amaryllis-components';
@@ -11,7 +11,10 @@ import { PromptProvider } from './PromptContext';
 import { ModelProvider, useModelContext } from './ModelContext';
 import { default as WelcomeScreen } from './ImportModels';
 import { registerExampleAiComponents } from './ai/registerComponents';
-import { PersonaDemoScreen } from './personaDemo/Pers
+import { PersonaDemoScreen } from './personaDemo/PersonaDemoScreen';
+import { ModelSettingsScreen } from './modelSettings/ModelSettingsScreen';
+
+
 function AppGate() {
   const { paths: models, setPaths: setModelsReady } = useModelContext();
 
