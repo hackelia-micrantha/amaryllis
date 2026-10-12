@@ -93,6 +93,22 @@ describe('ContextPolicy enforcement ownership', () => {
     expect(store.put).not.toHaveBeenCalled();
   });
 
+  it('rejects untrusted items passed directly into a formatter', () => {
+    const engine = new ContextEngine({
+      store: createStore(),
+      policy: { media: { maxMediaBytes: 100 } },
+    });
+    const request = { prompt: 'question' };
+
+    expect(() =>
+      engine.formatRequest({
+        prompt: request.prompt,
+        items: [item({ media: [{ uri: 'file:///large', sizeBytes: 4096 }] })],
+        request,
+      })
+    ).toThrow(ValidationError);
+  });
+
   it('revalidates retrieved storage content before using it as model context', async () => {
     const store = createStore();
     store.query = jest.fn(async () => [
