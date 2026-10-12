@@ -262,6 +262,18 @@ describe('ComponentRegistry identity binding', () => {
     );
     expect(registry.list()).toEqual([]);
 
+    // SemVer's parser normalizes these spellings; registry identities do not.
+    expect(() =>
+      registry.register('registry-card', {
+        ...invalid,
+        spec: {
+          ...baseSpec,
+          metadata: { ...baseSpec.metadata, version: 'v1.0.0' },
+        },
+      })
+    ).toThrow('invalid SemVer');
+    expect(registry.list()).toEqual([]);
+
     const snapshotSource = createTestComponentRegistry();
     snapshotSource.register('registry-card', {
       component: Component,
