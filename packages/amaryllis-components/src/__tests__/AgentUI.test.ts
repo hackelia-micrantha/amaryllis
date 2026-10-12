@@ -56,7 +56,7 @@ describe('Agent UI integration', () => {
   });
 
   test('maps registered component to an AG-UI-shaped tool contract', () => {
-    const entry = registry.get('summary-card');
+    const entry = registry.get(`summary-card@${spec.metadata.version}`);
     const tool = createAgentUIToolContract('summary-card', entry);
 
     expect(tool.name).toBe('amaryllis.personalize.summary-card');
