@@ -90,7 +90,7 @@ describe('PersonalizedComponent primitives', () => {
           RegistryProvider,
           { initialize: initializeRegistry },
           React.createElement(PersonalizedComponent, {
-            name: 'primitive-card',
+            name: 'primitive-card@1.0.0',
             baseProps: { title: 'Base' },
             personalizationData: { props: { title: 123 } },
             primitives: { View, Text },
