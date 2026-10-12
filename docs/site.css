@@ -155,31 +155,31 @@ a:focus-visible {
 
 .page-stack {
   display: grid;
-  gap: 1rem;
-  padding-block: 1rem 3rem;
+  gap: 0;
+  padding-block: 0 3rem;
 }
 
 .panel,
 .feature-panel,
 .callout,
 .section {
-  border: 1px solid var(--phyllotaxis-color-border);
-  background: var(--phyllotaxis-color-surface);
+  border: 0;
+  background: transparent;
 }
 
 .hero {
   display: grid;
-  grid-template-columns: 8rem minmax(0, 1fr);
+  grid-template-columns: 7rem minmax(0, 1fr);
   gap: 1.25rem;
   align-items: start;
-  padding: 1rem;
+  padding-block: 1.5rem;
+  border-bottom: 1px solid var(--phyllotaxis-color-border);
   background: var(--amaryllis-surface-a);
 }
 
 .hero-mark {
-  border: 1px solid var(--phyllotaxis-color-border);
-  background: var(--phyllotaxis-color-surface);
-  padding: 0.75rem;
+  padding: 0;
+  background: transparent;
 }
 
 .hero-mark img {
@@ -308,14 +308,18 @@ p {
   flex-wrap: wrap;
   gap: 0.45rem;
   margin-top: 1rem;
+  color: var(--phyllotaxis-color-text-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
 }
 
-.status-row span,
+.status-row span + span::before {
+  content: "·";
+  margin-right: 0.45rem;
+}
+
 .state {
   width: fit-content;
-  padding: 0.2rem 0.4rem;
-  border: 1px solid var(--phyllotaxis-color-border);
-  background: var(--phyllotaxis-color-surface);
   font-size: 0.8rem;
   font-weight: 700;
 }
@@ -329,8 +333,6 @@ p {
   display: grid;
   gap: 0;
   margin-top: 1rem;
-  border-top: 1px solid var(--phyllotaxis-color-border);
-  border-left: 1px solid var(--phyllotaxis-color-border);
 }
 
 .signal-grid,
@@ -343,12 +345,30 @@ p {
 .card-grid > *,
 .mode-grid > *,
 .guardrails > *,
-.fit-grid > *,
+.fit-grid > * {
+  min-width: 0;
+  padding: 0 1rem;
+}
+
+.signal-grid > :first-child,
+.card-grid > :first-child,
+.mode-grid > :first-child,
+.guardrails > :first-child,
+.fit-grid > :first-child {
+  padding-left: 0;
+}
+
+.signal-grid > * + *,
+.card-grid > * + *,
+.mode-grid > * + *,
+.guardrails > * + *,
+.fit-grid > * + * {
+  border-left: 1px solid var(--phyllotaxis-color-border);
+}
+
 .code-grid > * {
   min-width: 0;
   padding: 0.8rem;
-  border-right: 1px solid var(--phyllotaxis-color-border);
-  border-bottom: 1px solid var(--phyllotaxis-color-border);
 }
 
 .signal-grid strong,
@@ -370,7 +390,8 @@ p {
 .section {
   display: grid;
   gap: 1rem;
-  padding: 1rem;
+  padding-block: 1.5rem;
+  border-bottom: 1px solid var(--phyllotaxis-color-border);
   scroll-margin-top: 1rem;
 }
 
@@ -380,19 +401,13 @@ p {
 
 .card {
   min-height: 0;
-  background: var(--phyllotaxis-color-surface);
+  background: transparent;
 }
 
-.tint-blue {
-  background: var(--amaryllis-surface-b);
-}
-
-.tint-green {
-  background: var(--amaryllis-surface-a);
-}
-
+.tint-blue,
+.tint-green,
 .tint-amber {
-  background: var(--amaryllis-surface-c);
+  background: transparent;
 }
 
 .compact .card {
@@ -407,41 +422,33 @@ p {
 .flow {
   display: grid;
   gap: 0;
-  border-top: 1px solid var(--phyllotaxis-color-border);
-  border-left: 1px solid var(--phyllotaxis-color-border);
+  padding-left: 1rem;
+  border-left: 2px solid var(--phyllotaxis-color-border);
 }
 
 .flow div {
-  padding: 0.75rem;
-  border-right: 1px solid var(--phyllotaxis-color-border);
-  border-bottom: 1px solid var(--phyllotaxis-color-border);
-  background: var(--phyllotaxis-color-surface);
+  padding-block: 0.55rem;
+  background: transparent;
+}
+
+.flow div + b {
+  border-top: 1px solid var(--phyllotaxis-color-border);
 }
 
 .flow b {
-  padding: 0.15rem 0;
-  text-align: center;
+  height: 0;
+  overflow: hidden;
 }
 
 .feature-panel {
-  padding: 1rem;
   background: var(--amaryllis-surface-d);
 }
 
-.mode-grid article {
-  background: var(--phyllotaxis-color-surface);
-}
-
-.mode-grid article:nth-child(1) {
-  background: var(--amaryllis-surface-a);
-}
-
-.mode-grid article:nth-child(2) {
-  background: var(--amaryllis-surface-b);
-}
-
+.mode-grid article,
+.mode-grid article:nth-child(1),
+.mode-grid article:nth-child(2),
 .mode-grid article:nth-child(3) {
-  background: var(--amaryllis-surface-c);
+  background: transparent;
 }
 
 .mode-grid article > span {
@@ -454,19 +461,16 @@ p {
 }
 
 .guardrails div {
-  background: var(--phyllotaxis-color-surface);
+  background: transparent;
 }
 
 .fit-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.fit-card {
-  background: var(--phyllotaxis-color-surface);
-}
-
+.fit-card,
 .fit-positive {
-  background: var(--amaryllis-surface-a);
+  background: transparent;
 }
 
 .fit-card ul {
@@ -480,6 +484,7 @@ p {
 
 .code-grid {
   grid-template-columns: 0.7fr 1.35fr 1.35fr;
+  gap: 0.75rem;
 }
 
 .code-card {
@@ -508,7 +513,6 @@ code {
   align-items: end;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1rem;
   background: var(--amaryllis-surface-c);
 }
 
@@ -551,6 +555,23 @@ code {
   .fit-grid,
   .split {
     grid-template-columns: 1fr;
+  }
+
+  .signal-grid > *,
+  .card-grid > *,
+  .mode-grid > *,
+  .guardrails > *,
+  .fit-grid > * {
+    padding: 0.9rem 0;
+    border-left: 0;
+  }
+
+  .signal-grid > * + *,
+  .card-grid > * + *,
+  .mode-grid > * + *,
+  .guardrails > * + *,
+  .fit-grid > * + * {
+    border-top: 1px solid var(--phyllotaxis-color-border);
   }
 
   .callout {
