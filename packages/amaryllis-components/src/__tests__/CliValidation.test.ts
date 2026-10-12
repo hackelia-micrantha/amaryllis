@@ -35,7 +35,11 @@ describe('CLI component generation boundary', () => {
     const spec = base();
     const before = JSON.stringify(spec);
     const changed = applyCustomizationAndValidate(spec, [
-      { op: 'replace', path: '/props/properties/title/type', value: 'number' },
+      {
+        op: 'replace',
+        path: '/props/properties/title/type',
+        value: 'number',
+      },
     ]);
 
     expect(spec.props.properties.title).toEqual({ type: 'string' });
@@ -44,12 +48,18 @@ describe('CLI component generation boundary', () => {
     expect(new ReactGenerator().generate(changed)).toContain('title: number;');
   });
 
-  it.each([
+  const invalidPatches: Array<[string, unknown]> = [
     ['API version', [{ op: 'replace', path: '/apiVersion', value: 'amaryllis/v99' }]],
     ['kind', [{ op: 'replace', path: '/kind', value: 'Untrusted' }]],
     [
       'invalid prop identifier',
-      [{ op: 'add', path: '/props/properties/invalid-name', value: { type: 'string' } }],
+      [
+        {
+          op: 'add',
+          path: '/props/properties/invalid-name',
+          value: { type: 'string' },
+        },
+      ],
     ],
     [
       'undeclared required prop',
@@ -71,18 +81,27 @@ describe('CLI component generation boundary', () => {
       'invalid structure',
       [{ op: 'replace', path: '/props', value: 'bad' }],
     ],
-  ])('rejects a post-patch %s violation through the canonical schema', (_label, patch) => {
-    const spec = base();
-    const snapshot = JSON.stringify(spec);
-    expect(() => applyCustomizationAndValidate(spec, patch)).toThrow();
-    expect(JSON.stringify(spec)).toBe(snapshot);
-  });
+  ];
+
+  it.each(invalidPatches)(
+    'rejects a post-patch %s violation through the canonical schema',
+    (_label, patch) => {
+      const spec = base();
+      const snapshot = JSON.stringify(spec);
+      expect(() => applyCustomizationAndValidate(spec, patch)).toThrow();
+      expect(JSON.stringify(spec)).toBe(snapshot);
+    }
+  );
 
   it('rejects policy-invalid device specifications even when schema-valid', () => {
     const changed = [
       { op: 'replace', path: '/ai/mode', value: 'personalize' },
       { op: 'replace', path: '/ai/execution', value: 'device' },
-      { op: 'add', path: '/ai/generationContract', value: { output: 'props-json' } },
+      {
+        op: 'add',
+        path: '/ai/generationContract',
+        value: { output: 'props-json' },
+      },
     ];
     expect(() => applyCustomizationAndValidate(base(), changed)).toThrow(
       'runtime.networkAccess'
@@ -95,7 +114,13 @@ describe('CLI component generation boundary', () => {
       { op: 'replace', path: '/kind', value: 'ComponentSpec' },
       [{ op: 'bogus', path: '/kind', value: 'ComponentSpec' }],
       [{ op: 'replace', path: '/does-not-exist', value: 'x' }],
-      [{ op: 'add', path: '/props/properties/__proto__', value: { type: 'string' } }],
+      [
+        {
+          op: 'add',
+          path: '/props/properties/__proto__',
+          value: { type: 'string' },
+        },
+      ],
     ]) {
       expect(() => applyCustomizationAndValidate(spec, patch)).toThrow();
     }
