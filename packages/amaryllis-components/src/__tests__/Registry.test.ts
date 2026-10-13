@@ -247,6 +247,27 @@ describe('ComponentRegistry identity binding', () => {
     expect(registry.getLatest('registry-card')?.version).toBe('2.0.0');
   });
 
+  test('preserves SemVer build metadata in exact registration and hydration', () => {
+    const registry = createTestComponentRegistry();
+    const spec = {
+      ...baseSpec,
+      metadata: { ...baseSpec.metadata, version: '1.2.3+build.7' },
+    };
+    registry.register('registry-card', {
+      component: Component,
+      spec,
+      contract,
+    });
+
+    const exact = registry.getExact('registry-card@1.2.3+build.7');
+    expect(exact?.version).toBe('1.2.3+build.7');
+    expect(registry.getExact('registry-card@1.2.3')).toBeUndefined();
+
+    const restored = createTestComponentRegistry();
+    restored.hydrate(registry.snapshot(), () => Component);
+    expect(restored.getExact('registry-card@1.2.3+build.7')).toEqual(exact);
+  });
+
   test('invalid SemVer fails before registration and while hydrating', () => {
     const registry = createTestComponentRegistry();
     const invalid = {
