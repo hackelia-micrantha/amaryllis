@@ -147,7 +147,7 @@ Applications should cancel active work during lifecycle cleanup and bound image 
 
 ## Context Engine
 
-The Context Engine provides memory and retrieval without imposing a hosted storage dependency. Applications supply a `ContextStore`, such as SQLite, files, or another database.
+The Context Engine provides memory and retrieval without imposing a hosted storage dependency. Applications supply a `ContextStore`, such as SQLite, files, or another database. The engine validates inputs and materializes TTL defaults; the application-owned store must enforce persistent limits/expiry atomically or reject unsupported policy settings.
 
 ```ts
 import { ContextEngine } from '@micrantha/react-native-amaryllis/context';
