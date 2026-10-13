@@ -281,6 +281,7 @@ describe('ComponentRegistry identity binding', () => {
       contract,
     });
     const [snapshot] = snapshotSource.snapshot();
+    if (!snapshot) throw new Error('expected a registry snapshot');
     const invalidSnapshot = {
       ...snapshot,
       version: 'release-next',
