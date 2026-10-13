@@ -74,6 +74,10 @@ dependencies {
   implementation "com.facebook.react:react-android"
   implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
   implementation 'com.google.mediapipe:tasks-genai:0.10.24'
+  // Google did not publish tasks-core:0.10.24. Core 0.10.21 supplies
+  // MPImage/BitmapImageBuilder referenced by GenAI; retain exact pins and
+  // verify the resolved Android compile/runtime artifacts before release.
+  implementation 'com.google.mediapipe:tasks-core:0.10.21'
 
   testImplementation "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
   testImplementation 'junit:junit:4.13.2'
