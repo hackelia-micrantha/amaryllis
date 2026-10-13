@@ -1,5 +1,10 @@
 /* eslint-disable no-bitwise */
 import type { ComponentType } from 'react';
+import {
+  compare as compareSemver,
+  prerelease as semverPrerelease,
+  valid as validSemver,
+} from 'semver';
 import type { ValidatedComponentSpec } from '../schema/spec.schema';
 import type { PersonalizationContract } from './engine';
 
@@ -81,7 +86,7 @@ export function getRegistryKey(componentName: string, version: string): string {
 }
 
 export function createRegistryIdentity(
-  entry: RegisteredComponent,
+  entry: RegisteredComponent | RegistrySnapshotEntry,
   hash: RegistryHashFunction = fnv1aHash
 ): RegistryIdentity {
   const componentName = entry.spec.metadata.name;
@@ -98,13 +103,13 @@ export function createRegistryIdentity(
       `${componentName}@${version}:implementation`,
   };
 }
+
 export interface ComponentRegistryOptions {
   hash?: RegistryHashFunction;
 }
 
 export class ComponentRegistry {
   private components: Map<string, BoundRegisteredComponent> = new Map();
-  private latestByName: Map<string, string> = new Map();
   private hash: RegistryHashFunction;
 
   constructor(options: ComponentRegistryOptions = {}) {
@@ -118,6 +123,12 @@ export class ComponentRegistry {
   ): void {
     const identity = createRegistryIdentity(entry, this.hash);
 
+    if (validSemver(identity.version) !== identity.version.split('+', 1)[0]) {
+      throw new Error(
+        `invalid SemVer for component ${identity.componentName}: ${identity.version}`
+      );
+    }
+
     this.assertRegistrationMatches(name, entry, identity);
 
     if (!options.replace && this.components.has(identity.key)) {
@@ -130,12 +141,41 @@ export class ComponentRegistry {
       ...entry,
       ...identity,
     });
-
-    this.updateLatest(identity.componentName);
   }
 
-  get(name: string): BoundRegisteredComponent | undefined {
-    return this.components.get(name) ?? this.getLatestByComponentName(name);
+  /** Exact versioned identity only: never select an executable implicitly. */
+  get(key: string): BoundRegisteredComponent | undefined {
+    return this.components.get(key);
+  }
+
+  getExact(key: string): BoundRegisteredComponent | undefined {
+    return this.components.get(key);
+  }
+
+  /** Explicitly opt into moving version selection (e.g. development/tooling). */
+  getLatest(
+    componentName: string,
+    options: { includePrerelease?: boolean } = {}
+  ): BoundRegisteredComponent | undefined {
+    const candidates = Array.from(this.components.values()).filter(
+      (entry) => entry.componentName === componentName
+    );
+    const stable = candidates.filter(
+      (entry) => semverPrerelease(entry.version) === null
+    );
+    const eligible = options.includePrerelease
+      ? candidates
+      : stable.length > 0
+        ? stable
+        : candidates;
+
+    return eligible
+      .sort(
+        (left, right) =>
+          compareSemver(left.version, right.version) ||
+          left.version.localeCompare(right.version)
+      )
+      .at(-1);
   }
 
   list(): string[] {
@@ -161,6 +201,16 @@ export class ComponentRegistry {
     options: RegisterOptions = {}
   ): void {
     entries.forEach((entry) => {
+      // Validate the snapshot before executing the application resolver:
+      // invalid identity metadata must not select a component implementation.
+      const identity = createRegistryIdentity(entry, this.hash);
+      if (validSemver(identity.version) !== identity.version.split('+', 1)[0]) {
+        throw new Error(
+          `invalid SemVer for component ${identity.componentName}: ${identity.version}`
+        );
+      }
+      this.assertRegistrationMatches(entry.key, entry, identity);
+
       this.register(
         entry.key,
         {
@@ -174,7 +224,10 @@ export class ComponentRegistry {
 
   private assertRegistrationMatches(
     name: string,
-    entry: RegisteredComponent,
+    entry: Pick<
+      RegisteredComponent,
+      'componentName' | 'version' | 'specHash' | 'runtimeContractHash'
+    >,
     identity: RegistryIdentity
   ): void {
     if (name.includes('@') && name !== identity.key) {
@@ -207,28 +260,4 @@ export class ComponentRegistry {
       throw new Error('runtimeContractHash does not match contract');
     }
   }
-
-  private getLatestByComponentName(
-    componentName: string
-  ): BoundRegisteredComponent | undefined {
-    const key = this.latestByName.get(componentName);
-    return key ? this.components.get(key) : undefined;
-  }
-
-  private updateLatest(componentName: string): void {
-    const keys = Array.from(this.components.keys()).filter((key) =>
-      key.startsWith(`${componentName}@`)
-    );
-    const latest = keys.sort(compareRegistryKeys).at(-1);
-
-    if (latest) {
-      this.latestByName.set(componentName, latest);
-    }
-  }
-}
-
-function compareRegistryKeys(left: string, right: string): number {
-  const leftVersion = left.slice(left.lastIndexOf('@') + 1);
-  const rightVersion = right.slice(right.lastIndexOf('@') + 1);
-  return leftVersion.localeCompare(rightVersion, undefined, { numeric: true });
 }

@@ -109,7 +109,7 @@ Do not include any other text.`,
         </View>
       ) : (
         <PersonalizedComponent
-          name="persona-profile-card"
+          name="persona-profile-card@1.0.0"
           baseProps={state.baseProps}
           personalizationData={state.personalizationData}
           fallback={<Text>Select a persona to see it in action.</Text>}
