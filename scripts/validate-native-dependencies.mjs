@@ -3,6 +3,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const EXPECTED_MEDIAPIPE_VERSION = '0.10.24';
+// Google does not publish tasks-core:0.10.24; core 0.10.21 provides MPImage.
+export const EXPECTED_ANDROID_CORE_VERSION = '0.10.21';
 
 function requireMatch(value, message) {
   if (!value) {
@@ -54,15 +56,32 @@ function extractAndroidVersion(contents) {
   return coordinateMatches[0][1];
 }
 
-function rejectDirectAndroidCoreDependency(contents) {
+function extractAndroidCoreVersion(contents) {
   const source = stripGradleComments(contents);
-  // Only pinned GenAI is a direct app dependency. Resolving its transitive
-  // graph remains Gradle's job; never add an unavailable direct core pin.
-  if (/\btasks-core\b/.test(source)) {
+  const coordinates = [
+    ...source.matchAll(
+      /['"]com\\.google\\.mediapipe:tasks-core:([^'"]+)['"]/g
+    ),
+  ];
+  if ([...source.matchAll(/\\btasks-core\\b/g)].length !== coordinates.length) {
     throw new Error(
-      'Android tasks-core must not be declared directly; use only the pinned tasks-genai dependency'
+      'Android tasks-core must use one literal com.google.mediapipe:tasks-core:<version> coordinate'
     );
   }
+  if (coordinates.length !== 1) {
+    throw new Error(
+      `expected exactly one Android tasks-core dependency; found ${coordinates.length}`
+    );
+  }
+  const implementations = [
+    ...source.matchAll(
+      /^\\s*implementation\\s*(?:\\(\\s*)?['"]com\\.google\\.mediapipe:tasks-core:([^'"]+)['"]\\s*\\)?\\s*;?\\s*$/gm
+    ),
+  ];
+  if (implementations.length !== 1) {
+    throw new Error('Android tasks-core must have exactly one implementation declaration');
+  }
+  return coordinates[0][1];
 }
 
 function extractIosVersion(contents) {
@@ -99,7 +118,12 @@ export async function validateNativeDependencies({ rootDir = process.cwd() } = {
   ]);
 
   const androidVersion = extractAndroidVersion(gradle);
-  rejectDirectAndroidCoreDependency(gradle);
+  const coreVersion = extractAndroidCoreVersion(gradle);
+  if (coreVersion !== EXPECTED_ANDROID_CORE_VERSION) {
+    throw new Error(
+      `Android tasks-core must be pinned to ${EXPECTED_ANDROID_CORE_VERSION}; found ${coreVersion}`
+    );
+  }
   const iosVersion = extractIosVersion(podspec);
   const iosLockedVersion = extractLockedVersion(lockfile, 'MediaPipeTasksGenAI');
   const iosCLockedVersion = extractLockedVersion(lockfile, 'MediaPipeTasksGenAIC');
