@@ -134,7 +134,7 @@ test('requires the separately published exact core dependency', async () => {
   await withFixture({ androidCoreVersion: '0.10.24' }, async (rootDir) => {
     await assert.rejects(
       validateNativeDependencies({ rootDir }),
-      /Android tasks-core must be pinned to 0\\.10\\.21/
+      /Android tasks-core must be pinned to 0\.10\.21/
     );
   });
 });
@@ -153,7 +153,7 @@ test('rejects duplicate and shadow core declarations', async () => {
   }, async (rootDir) => {
     await assert.rejects(
       validateNativeDependencies({ rootDir }),
-      /one literal com\\.google\\.mediapipe:tasks-core/
+      /one literal com\.google\.mediapipe:tasks-core/
     );
   });
 });
