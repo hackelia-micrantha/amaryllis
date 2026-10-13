@@ -123,7 +123,7 @@ export class ComponentRegistry {
   ): void {
     const identity = createRegistryIdentity(entry, this.hash);
 
-    if (validSemver(identity.version) !== identity.version) {
+    if (validSemver(identity.version) !== identity.version.split('+', 1)[0]) {
       throw new Error(
         `invalid SemVer for component ${identity.componentName}: ${identity.version}`
       );
@@ -204,7 +204,7 @@ export class ComponentRegistry {
       // Validate the snapshot before executing the application resolver:
       // invalid identity metadata must not select a component implementation.
       const identity = createRegistryIdentity(entry, this.hash);
-      if (validSemver(identity.version) !== identity.version) {
+      if (validSemver(identity.version) !== identity.version.split('+', 1)[0]) {
         throw new Error(
           `invalid SemVer for component ${identity.componentName}: ${identity.version}`
         );
