@@ -54,6 +54,7 @@ describe('useInferenceAsync terminal cancellation', () => {
       () => useInferenceAsync({ onComplete, onError }),
       { wrapper: createWrapper(pipe) }
     );
+    await act(async () => {});
 
     let cancel: (() => void) | undefined;
     await act(async () => {
@@ -96,6 +97,7 @@ describe('useInferenceAsync terminal cancellation', () => {
       () => useInferenceAsync({ onComplete, onError }),
       { wrapper: createWrapper(pipe) }
     );
+    await act(async () => {});
 
     let cancel: (() => void) | undefined;
     await act(async () => {
