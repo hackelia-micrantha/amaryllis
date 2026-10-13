@@ -139,6 +139,14 @@ test('Android bootstrap is owned by the repository flake', () => {
     'android-sdk/ndk/27.1.12297006',
     "hashFiles('yarn.lock', 'flake.nix', 'flake.lock'",
   ]);
+  const turboCacheBlock = android.split('      - name: Cache turborepo for Android')[1]
+    ?.split('      - name: Check turborepo cache for Android')[0];
+  assert.ok(turboCacheBlock, 'missing Android Turbo cache step');
+  assert.doesNotMatch(
+    turboCacheBlock,
+    /restore-keys:/,
+    'Android toolchain changes must never restore previous Gradle output',
+  );
   assert.doesNotMatch(android, /actions\/setup-java@|android-actions\/setup-android@/);
 
   assertContainsAll(flake, [
