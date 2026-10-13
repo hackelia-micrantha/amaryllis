@@ -60,10 +60,10 @@ function extractAndroidCoreVersion(contents) {
   const source = stripGradleComments(contents);
   const coordinates = [
     ...source.matchAll(
-      /['"]com\\.google\\.mediapipe:tasks-core:([^'"]+)['"]/g
+      /['"]com\.google\.mediapipe:tasks-core:([^'"]+)['"]/g
     ),
   ];
-  if ([...source.matchAll(/\\btasks-core\\b/g)].length !== coordinates.length) {
+  if ([...source.matchAll(/\btasks-core\b/g)].length !== coordinates.length) {
     throw new Error(
       'Android tasks-core must use one literal com.google.mediapipe:tasks-core:<version> coordinate'
     );
@@ -75,7 +75,7 @@ function extractAndroidCoreVersion(contents) {
   }
   const implementations = [
     ...source.matchAll(
-      /^\\s*implementation\\s*(?:\\(\\s*)?['"]com\\.google\\.mediapipe:tasks-core:([^'"]+)['"]\\s*\\)?\\s*;?\\s*$/gm
+      /^\s*implementation\s*(?:\(\s*)?['"]com\.google\.mediapipe:tasks-core:([^'"]+)['"]\s*\)?\s*;?\s*$/gm
     ),
   ];
   if (implementations.length !== 1) {
