@@ -53,6 +53,17 @@ android {
     targetCompatibility JavaVersion.VERSION_1_8
   }
 
+  // MediaPipe tasks-genai 0.10.24 contains JVM classes compiled for Java 21.
+  // Keep Android/library bytecode compatibility at Java 8, but run host-side
+  // unit tests with a Java 21 launcher so those upstream classes can load.
+  testOptions {
+    unitTests.all {
+      javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(21)
+      }
+    }
+  }
+
   sourceSets {
     main {
       java.srcDirs += [
