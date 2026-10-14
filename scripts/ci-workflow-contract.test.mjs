@@ -129,6 +129,7 @@ test('native jobs remain controlled by the native dimension', () => {
 test('Android bootstrap is owned by the repository flake', () => {
   const android = jobBlock('build-android');
   const flake = readFileSync('flake.nix', 'utf8');
+  const androidGradle = readFileSync('android/build.gradle', 'utf8');
 
   assertContainsAll(android, [
     'nix build --no-link --print-out-paths .#android-ci-toolchain',
@@ -165,6 +166,13 @@ test('Android bootstrap is owned by the repository flake', () => {
     'ndkVersions = [ "27.1.12297006" ]',
     'android-ci-toolchain = androidCiToolchain',
     'androidPkgs.jdk21',
+  ]);
+
+  assertContainsAll(androidGradle, [
+    'sourceCompatibility JavaVersion.VERSION_1_8',
+    'targetCompatibility JavaVersion.VERSION_1_8',
+    'javaLauncher = javaToolchains.launcherFor',
+    'languageVersion = JavaLanguageVersion.of(21)',
   ]);
 });
 
