@@ -275,6 +275,7 @@ jobs:
           toolchain="$(nix build --no-link --print-out-paths .#android-ci-toolchain)"
 
           test -x "$toolchain/bin/java"
+          "$toolchain/bin/java" -version 2>&1 | grep -Eq 'version "21([.]|")'
           test -x "$toolchain/bin/unzip"
           test -d "$toolchain/android-sdk/platforms/android-35"
           test -d "$toolchain/android-sdk/build-tools/35.0.0"
