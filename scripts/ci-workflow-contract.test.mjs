@@ -137,6 +137,7 @@ test('Android bootstrap is owned by the repository flake', () => {
     'android-sdk/platforms/android-35',
     'android-sdk/build-tools/35.0.0',
     'android-sdk/ndk/27.1.12297006',
+    'grep -Eq',
     "hashFiles('yarn.lock', 'flake.nix', 'flake.lock'",
   ]);
   const turboCacheBlock = android.split('      - name: Cache turborepo for Android')[1]
@@ -163,6 +164,7 @@ test('Android bootstrap is owned by the repository flake', () => {
     'includeNDK = true',
     'ndkVersions = [ "27.1.12297006" ]',
     'android-ci-toolchain = androidCiToolchain',
+    'androidPkgs.jdk21',
   ]);
 });
 
