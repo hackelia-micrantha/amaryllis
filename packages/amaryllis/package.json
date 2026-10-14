@@ -24,6 +24,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "prepare": "yarn build"
   },
   "keywords": [
@@ -31,6 +32,11 @@
     "context",
     "ai"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hackelia-micrantha/amaryllis.git",
+    "directory": "packages/amaryllis"
+  },
   "author": "Ryan Jennings",
   "license": "MIT",
   "publishConfig": {

@@ -99,11 +99,10 @@ test('components job retains stable acknowledgement and validation paths', () =>
     'yarn workspace @micrantha/amaryllis-components test --runInBand',
     'yarn workspace @micrantha/amaryllis-components typecheck',
     'yarn workspace @micrantha/amaryllis-components build',
-    'npm pack --dry-run',
   ]);
 });
 
-test('root library job independently validates package outputs', () => {
+test('root library job retains the stable build boundary', () => {
   const block = jobBlock('build-library');
 
   assertContainsAll(block, [
@@ -111,8 +110,23 @@ test('root library job independently validates package outputs', () => {
     "if: needs.changes.outputs.run_root != 'true'",
     "if: needs.changes.outputs.run_root == 'true'",
     'run: yarn prepare',
-    'run: node scripts/validate-packages.mjs',
-    'run: npm pack --dry-run',
+  ]);
+});
+
+test('package preflight validates the complete publishable DAG in one checkout', () => {
+  const block = jobBlock('package-preflight');
+
+  assertContainsAll(block, [
+    'needs: [changes, lint, test, components-package]',
+    "if: needs.changes.outputs.run_root == 'true' || needs.changes.outputs.run_components == 'true'",
+    'uses: ./.github/actions/setup',
+    'node --test scripts/package-release.test.mjs',
+    'yarn workspace @micrantha/amaryllis typecheck',
+    'yarn workspace @micrantha/amaryllis build',
+    'run: yarn prepare',
+    'yarn workspace @micrantha/amaryllis-components build',
+    'node scripts/validate-packages.mjs',
+    'node scripts/package-preflight.mjs --output-dir package-artifacts',
   ]);
 });
 
@@ -137,11 +151,45 @@ test('hosted iOS bootstrap stays separate from the self-hosted Nix boundary', ()
   ]);
   assert.doesNotMatch(ios, /uses: \.\/\.github\/actions\/setup|nix flake check|nix build/);
 
-  for (const name of ['changes', 'lint', 'test', 'components-package', 'build-library', 'build-android']) {
+  for (const name of [
+    'changes',
+    'lint',
+    'test',
+    'components-package',
+    'build-library',
+    'package-preflight',
+    'build-android',
+  ]) {
     assert.doesNotMatch(
       jobBlock(name),
       /actions\/setup-node@/,
       `${name} must not bypass the self-hosted Nix toolchain`,
+    );
+  }
+});
+
+test('release workflows preflight on project runners and publish exact artifacts on hosted runners', () => {
+  for (const path of [
+    '.github/workflows/publish.yml',
+    '.github/workflows/canary-publish.yml',
+  ]) {
+    const source = actionSources.get(path);
+    assert.ok(source, `missing ${path}`);
+    assertContainsAll(source, [
+      'preflight:',
+      'runs-on: runner-amaryllis',
+      'node scripts/package-preflight.mjs',
+      'actions/upload-artifact@v7',
+      'publish:',
+      'runs-on: ubuntu-latest',
+      'actions/setup-node@v7',
+      'actions/download-artifact@v7',
+      'node scripts/publish-package-artifacts.mjs',
+    ]);
+    assert.ok(
+      source.indexOf('node scripts/package-preflight.mjs') <
+        source.indexOf('runs-on: ubuntu-latest'),
+      `${path} must create artifacts before crossing to hosted publication`,
     );
   }
 });
