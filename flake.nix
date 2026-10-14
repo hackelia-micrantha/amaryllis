@@ -108,11 +108,11 @@
           };
           androidCiToolchain = pkgs.runCommand "amaryllis-android-ci-toolchain" { } ''
             mkdir -p "$out/bin"
-            ln -s ${androidPkgs.jdk17} "$out/jdk"
+            ln -s ${androidPkgs.jdk21} "$out/jdk"
             ln -s ${androidSdk}/libexec/android-sdk "$out/android-sdk"
             ln -s ${pkgs.unzip}/bin/unzip "$out/bin/unzip"
             for tool in java javac jar keytool; do
-              ln -s "${androidPkgs.jdk17}/bin/$tool" "$out/bin/$tool"
+              ln -s "${androidPkgs.jdk21}/bin/$tool" "$out/bin/$tool"
             done
           '';
           cyclonedxRelease = cyclonedxReleases.${system};
