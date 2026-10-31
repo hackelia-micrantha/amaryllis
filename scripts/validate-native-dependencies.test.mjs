@@ -6,11 +6,13 @@ import test from 'node:test';
 
 import {
   EXPECTED_MEDIAPIPE_VERSION,
+  EXPECTED_ANDROID_CORE_VERSION,
   validateNativeDependencies,
 } from './validate-native-dependencies.mjs';
 
 async function createFixture({
   androidVersion = EXPECTED_MEDIAPIPE_VERSION,
+  androidCoreVersion = EXPECTED_ANDROID_CORE_VERSION,
   podspecConstraint = `= ${EXPECTED_MEDIAPIPE_VERSION}`,
   lockedVersion = EXPECTED_MEDIAPIPE_VERSION,
   lockedCVersion = EXPECTED_MEDIAPIPE_VERSION,
@@ -25,9 +27,11 @@ async function createFixture({
 
   const androidDependency =
     `  implementation 'com.google.mediapipe:tasks-genai:${androidVersion}'\n`;
+  const coreDependency =
+    `  implementation 'com.google.mediapipe:tasks-core:${androidCoreVersion}'\n`;
   await writeFile(
     path.join(rootDir, 'android/build.gradle'),
-    `dependencies {\n${androidDependency}${duplicateAndroidDependency ? androidDependency : ''}${extraAndroidDeclaration}}\n`
+    `dependencies {\n${androidDependency}${duplicateAndroidDependency ? androidDependency : ''}${coreDependency}${extraAndroidDeclaration}}\n`
   );
   await writeFile(
     path.join(rootDir, 'Amaryllis.podspec'),
@@ -124,6 +128,34 @@ test('rejects alternate tasks-genai notation outside the single implementation a
       );
     }
   );
+});
+
+test('requires the separately published exact core dependency', async () => {
+  await withFixture({ androidCoreVersion: '0.10.24' }, async (rootDir) => {
+    await assert.rejects(
+      validateNativeDependencies({ rootDir }),
+      /Android tasks-core must be pinned to 0\.10\.21/
+    );
+  });
+});
+
+test('rejects duplicate and shadow core declarations', async () => {
+  await withFixture({
+    extraAndroidDeclaration: "  implementation 'com.google.mediapipe:tasks-core:0.10.21'\\n",
+  }, async (rootDir) => {
+    await assert.rejects(
+      validateNativeDependencies({ rootDir }),
+      /expected exactly one Android tasks-core dependency; found 2/
+    );
+  });
+  await withFixture({
+    extraAndroidDeclaration: "  api group: 'com.google.mediapipe', name: 'tasks-core', version: '0.10.21'\\n",
+  }, async (rootDir) => {
+    await assert.rejects(
+      validateNativeDependencies({ rootDir }),
+      /one literal com\.google\.mediapipe:tasks-core/
+    );
+  });
 });
 
 test('rejects unconstrained iOS MediaPipe dependency', async () => {

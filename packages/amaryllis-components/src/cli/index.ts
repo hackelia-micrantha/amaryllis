@@ -4,10 +4,12 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { parseComponentSpec } from '../parser/yaml';
-import { PolicyEngine } from '../policy/engine';
+import {
+  applyCustomizationAndValidate,
+  validateSpecForGeneration,
+} from './validation';
 import { ReactGenerator } from '../generator/react';
 import { JSONSchemaGenerator } from '../generator/schema';
-import * as jsonpatch from 'fast-json-patch';
 import { getLineDiff } from './diff';
 
 const program = new Command();
@@ -39,17 +41,7 @@ program
       }
 
       const content = fs.readFileSync(specPath, 'utf8');
-      const spec = parseComponentSpec(content);
-
-      // Validate with Policy Engine
-      const policyEngine = new PolicyEngine();
-      const policyResult = policyEngine.validateSpec(spec);
-
-      if (!policyResult.valid) {
-        console.error('Policy Validation Failed:');
-        policyResult.errors.forEach((err) => console.error(` - ${err}`));
-        process.exit(1);
-      }
+      const spec = validateSpecForGeneration(parseComponentSpec(content));
 
       // Generate React Code
       const generator = new ReactGenerator();
@@ -118,23 +110,13 @@ program
       const patchPath = path.resolve(options.patch);
 
       const specContent = fs.readFileSync(specPath, 'utf8');
-      const spec = parseComponentSpec(specContent);
+      const spec = validateSpecForGeneration(parseComponentSpec(specContent));
 
       const patchContent = fs.readFileSync(patchPath, 'utf8');
       const patch = JSON.parse(patchContent);
 
-      // Apply patch
-      const patchedSpec = jsonpatch.applyPatch(spec, patch).newDocument;
-
-      // Validate patched spec
-      const policyEngine = new PolicyEngine();
-      const policyResult = policyEngine.validateSpec(patchedSpec);
-
-      if (!policyResult.valid) {
-        console.error('Patched Spec Policy Validation Failed:');
-        policyResult.errors.forEach((err) => console.error(` - ${err}`));
-        process.exit(1);
-      }
+      // A JSON Patch invalidates prior validation; verify the entire candidate.
+      const patchedSpec = applyCustomizationAndValidate(spec, patch);
 
       // Generate
       const generator = new ReactGenerator();
