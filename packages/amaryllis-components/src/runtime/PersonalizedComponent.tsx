@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   PersonalizationEngine,
   type PersonalizationDiagnostics,
 } from './engine';
 import { resolveUiPrimitives, type UiPrimitives } from './primitives';
 import { useRegistry } from './registryContext';
+
+const EMPTY_PROPS: Record<string, unknown> = Object.freeze({});
 
 export interface PersonalizedComponentValidationEvent {
   name: string;
@@ -38,7 +40,7 @@ export interface PersonalizedComponentProps {
  */
 export const PersonalizedComponent: React.FC<PersonalizedComponentProps> = ({
   name,
-  baseProps = {},
+  baseProps = EMPTY_PROPS,
   personalizationData,
   loading,
   fallback,
@@ -54,48 +56,37 @@ export const PersonalizedComponent: React.FC<PersonalizedComponentProps> = ({
     [primitives]
   );
 
-  const [finalProps, setFinalProps] = useState(baseProps);
-  const [error, setError] = useState<string | null>(null);
+  // Derived render state must be computed from current inputs, not restored in
+  // a passive effect after a previous component/audience has already rendered.
+  const validation = useMemo(() => {
+    if (!registered || !personalizationData) return null;
+    return engine.validate(registered.contract, personalizationData);
+  }, [registered, personalizationData, engine]);
+
+  const finalProps = useMemo(() => {
+    if (!validation?.valid) return baseProps;
+    return engine.apply(baseProps, validation.data ?? {});
+  }, [baseProps, validation, engine]);
+
+  const error =
+    validation && !validation.valid ? 'Invalid personalization data' : null;
 
   useEffect(() => {
-    if (!registered) return;
+    if (!validation) return;
+    onValidation?.({
+      name,
+      valid: validation.valid,
+      errors: validation.errors,
+      diagnostics: validation.diagnostics,
+    });
 
-    if (personalizationData) {
-      const result = engine.validate(registered.contract, personalizationData);
-      onValidation?.({
-        name,
-        valid: result.valid,
-        errors: result.errors,
-        diagnostics: result.diagnostics,
-      });
-
-      if (result.valid) {
-        setFinalProps(engine.apply(baseProps, result.data ?? {}));
-        setError(null);
-      } else {
-        if (warnOnValidationFailure) {
-          console.warn(
-            `Personalization validation failed for ${name}:`,
-            result.errors
-          );
-        }
-        setError('Invalid personalization data');
-        // Revert to base props on failure
-        setFinalProps(baseProps);
-      }
-    } else {
-      setFinalProps(baseProps);
-      setError(null);
+    if (!validation.valid && warnOnValidationFailure) {
+      console.warn(
+        `Personalization validation failed for ${name}:`,
+        validation.errors
+      );
     }
-  }, [
-    name,
-    personalizationData,
-    baseProps,
-    registered,
-    engine,
-    onValidation,
-    warnOnValidationFailure,
-  ]);
+  }, [name, validation, onValidation, warnOnValidationFailure]);
 
   if (!registered) {
     return <>{fallback || null}</>;
