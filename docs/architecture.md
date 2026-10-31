@@ -27,7 +27,7 @@ It provides:
 
 - application-owned storage integration;
 - bounded retrieval;
-- TTL and item-count policy;
+- TTL default materialization and explicit store-owned retention enforcement;
 - validation hooks;
 - optional scoring and ranking.
 

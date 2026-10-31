@@ -1,11 +1,7 @@
 import { useMemo, useState } from 'react';
 import { LLMProvider, gemmaProtocol } from '@micrantha/react-native-amaryllis';
-import {
-  createContextEngine,
-  type ContextItem,
-  type ContextQuery,
-  type ContextStore,
-} from '@micrantha/amaryllis/context';
+import { createContextEngine } from '@micrantha/amaryllis/context';
+import { createMemoryStore } from './ContextMemoryStore';
 import { ContextEngineProvider } from '@micrantha/react-native-amaryllis/context';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -17,53 +13,6 @@ import { default as WelcomeScreen } from './ImportModels';
 import { registerExampleAiComponents } from './ai/registerComponents';
 import { PersonaDemoScreen } from './personaDemo/PersonaDemoScreen';
 import { ModelSettingsScreen } from './modelSettings/ModelSettingsScreen';
-
-const createMemoryStore = (): ContextStore => {
-  let items: ContextItem[] = [];
-
-  return {
-    async put(nextItems) {
-      items = [...items, ...nextItems];
-    },
-    async query(query: ContextQuery) {
-      let results = items;
-      if (query.tags && query.tags.length > 0) {
-        results = results.filter((item) =>
-          query.tags?.every((tag) => item.tags?.includes(tag))
-        );
-      }
-      if (query.filters) {
-        results = results.filter((item) =>
-          Object.entries(query.filters ?? {}).every(
-            ([key, value]) => item.metadata?.[key] === value
-          )
-        );
-      }
-      const needle = query.text.toLowerCase();
-      results = results.filter((item) =>
-        item.text.toLowerCase().includes(needle)
-      );
-      if (query.limit) {
-        results = results.slice(0, query.limit);
-      }
-      return results;
-    },
-    async delete(ids) {
-      const idSet = new Set(ids);
-      items = items.filter((item) => !idSet.has(item.id));
-    },
-    async compact(policy) {
-      if (policy.maxItems && items.length > policy.maxItems) {
-        items = [...items]
-          .sort((a, b) => b.createdAt - a.createdAt)
-          .slice(0, policy.maxItems);
-      }
-    },
-    async stats() {
-      return { itemCount: items.length };
-    },
-  };
-};
 
 function AppGate() {
   const { paths: models, setPaths: setModelsReady } = useModelContext();

@@ -14,3 +14,11 @@ export class ValidationError extends AmaryllisError {
     this.name = 'ValidationError';
   }
 }
+
+/** An application-owned ContextStore cannot honor a configured invariant. */
+export class ContextPolicyUnsupportedError extends AmaryllisError {
+  constructor(message: string) {
+    super(message, 'CONTEXT_POLICY_UNSUPPORTED');
+    this.name = 'ContextPolicyUnsupportedError';
+  }
+}
