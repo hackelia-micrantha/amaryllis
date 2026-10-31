@@ -48,6 +48,7 @@ describe('useInferenceAsync callback isolation', () => {
       () => useInferenceAsync({ onResult, onError, onComplete }),
       { wrapper: createWrapper(engine) }
     );
+    await act(async () => {});
 
     await act(async () => {
       await result.current({ prompt: 'first' });
@@ -81,6 +82,7 @@ describe('useInferenceAsync callback isolation', () => {
       () => useInferenceAsync({ onError, onComplete }),
       { wrapper: createWrapper(engine) }
     );
+    await act(async () => {});
 
     await act(async () => {
       await result.current({ prompt: 'first' });

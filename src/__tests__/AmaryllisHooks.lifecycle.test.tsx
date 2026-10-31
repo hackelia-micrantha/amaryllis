@@ -82,6 +82,7 @@ describe('useInferenceAsync lifecycle', () => {
         }),
       { wrapper: createWrapper(pipe) }
     );
+    await act(async () => {});
 
     await act(async () => {
       await result.current({ prompt: 'first' });
@@ -120,6 +121,7 @@ describe('useInferenceAsync lifecycle', () => {
         }),
       { wrapper: createWrapper(pipe) }
     );
+    await act(async () => {});
 
     await act(async () => {
       await result.current({ prompt: 'first' });
@@ -158,6 +160,7 @@ describe('useInferenceAsync lifecycle', () => {
         }),
       { wrapper: createWrapper(pipe) }
     );
+    await act(async () => {});
 
     let cancel: (() => void) | undefined;
     await act(async () => {
@@ -188,6 +191,7 @@ describe('useInferenceAsync lifecycle', () => {
     const { result } = renderHook(() => useInferenceAsync({ onError }), {
       wrapper: createWrapper(pipe),
     });
+    await act(async () => {});
 
     let cancelFirst: (() => void) | undefined;
     await act(async () => {
@@ -215,6 +219,7 @@ describe('useInferenceAsync lifecycle', () => {
     const { result } = renderHook(() => useInferenceAsync({ onComplete }), {
       wrapper: createWrapper(pipe),
     });
+    await act(async () => {});
 
     await act(async () => {
       await result.current({ prompt: 'first' });
@@ -241,6 +246,7 @@ describe('useInferenceAsync lifecycle', () => {
       () => useInferenceAsync({ onError, onComplete }),
       { wrapper: createWrapper(pipe) }
     );
+    await act(async () => {});
 
     let cancel: (() => void) | undefined;
     await act(async () => {
@@ -264,6 +270,7 @@ describe('useInferenceAsync lifecycle', () => {
       () => useInferenceAsync({ onComplete }),
       { wrapper: createWrapper(pipe) }
     );
+    await act(async () => {});
 
     await act(async () => {
       await result.current({ prompt: 'test' });
@@ -287,6 +294,7 @@ describe('useContextInferenceAsync lifecycle', () => {
       () => useContextInferenceAsync({ contextEngine }),
       { wrapper: createWrapper(pipe) }
     );
+    await act(async () => {});
 
     let pendingGeneration: Promise<() => void> | undefined;
     act(() => {
@@ -313,6 +321,7 @@ describe('useContextInferenceAsync lifecycle', () => {
       () => useContextInferenceAsync({ contextEngine, onError }),
       { wrapper: createWrapper(pipe) }
     );
+    await act(async () => {});
 
     let firstGeneration: Promise<() => void> | undefined;
     act(() => {
