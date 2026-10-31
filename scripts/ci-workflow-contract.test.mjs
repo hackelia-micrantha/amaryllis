@@ -140,6 +140,67 @@ test('native jobs remain controlled by the native dimension', () => {
   }
 });
 
+test('Android bootstrap is owned by the repository flake', () => {
+  const android = jobBlock('build-android');
+  const flake = readFileSync('flake.nix', 'utf8');
+  const androidGradle = readFileSync('android/build.gradle', 'utf8');
+
+  assertContainsAll(android, [
+    'nix build --no-link --print-out-paths .#android-ci-toolchain',
+    'ANDROID_HOME=$toolchain/android-sdk',
+    'ANDROID_SDK_ROOT=$toolchain/android-sdk',
+    'android-sdk/platforms/android-35',
+    'android-sdk/build-tools/35.0.0',
+    'android-sdk/ndk/27.1.12297006',
+    'grep -Eq',
+    "hashFiles('yarn.lock', 'flake.nix', 'flake.lock'",
+  ]);
+  const turboCacheBlock = android.split('      - name: Cache turborepo for Android')[1]
+    ?.split('      - name: Check turborepo cache for Android')[0];
+  assert.ok(turboCacheBlock, 'missing Android Turbo cache step');
+  assert.doesNotMatch(
+    turboCacheBlock,
+    /restore-keys:/,
+    'Android toolchain changes must never restore previous Gradle output',
+  );
+  assert.doesNotMatch(android, /actions\/setup-java@|android-actions\/setup-android@/);
+
+  assertContainsAll(flake, [
+    'pkgs.gh',
+    'android_sdk.accept_license = true',
+    'toolsVersion = null',
+    'platformVersions = [ "35" ]',
+    'buildToolsVersions = [ ]',
+    'androidBuildToolsComposition."build-tools"',
+    'overrideAttrs',
+    'androidBuildTools',
+    'includeCmake = true',
+    'cmakeVersions = [ "3.22.1" ]',
+    'includeNDK = true',
+    'ndkVersions = [ "27.1.12297006" ]',
+    'android-ci-toolchain = androidCiToolchain',
+    'androidPkgs.jdk21',
+  ]);
+
+  assertContainsAll(androidGradle, [
+    'sourceCompatibility JavaVersion.VERSION_1_8',
+    'targetCompatibility JavaVersion.VERSION_1_8',
+    'javaLauncher = javaToolchains.launcherFor',
+    'languageVersion = JavaLanguageVersion.of(21)',
+  ]);
+});
+
+test('workflow lint uses the repository toolchain without a container action', () => {
+  const lintWorkflow = actionSources.get('.github/workflows/workflow-lint.yml');
+  const flake = readFileSync('flake.nix', 'utf8');
+
+  assert.ok(lintWorkflow, 'missing workflow lint workflow');
+  assert.match(lintWorkflow, /nix build --no-link --print-out-paths \.#ci-toolchain/);
+  assert.match(lintWorkflow, /(?:^|\n)\s+actionlint(?:\s|$)/);
+  assert.doesNotMatch(lintWorkflow, /reviewdog\/action-actionlint|docker/);
+  assert.match(flake, /pkgs\.actionlint/);
+});
+
 test('hosted iOS bootstrap stays separate from the self-hosted Nix boundary', () => {
   const ios = jobBlock('build-ios');
   assertContainsAll(ios, [
