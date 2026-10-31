@@ -50,6 +50,83 @@ const actionSources = new Map(
   ].map(path => [relative('.', path), readFileSync(path, 'utf8')]),
 );
 
+function splitUsesScalar(raw, path, lineNumber) {
+  let quote = null;
+  let commentIndex = -1;
+
+  for (let index = 0; index < raw.length; index += 1) {
+    const character = raw[index];
+
+    if (quote === "'") {
+      if (character === "'" && raw[index + 1] === "'") {
+        index += 1;
+      } else if (character === "'") {
+        quote = null;
+      }
+      continue;
+    }
+
+    if (quote === '"') {
+      if (character === '\\') {
+        index += 1;
+      } else if (character === '"') {
+        quote = null;
+      }
+      continue;
+    }
+
+    if (character === "'" || character === '"') {
+      quote = character;
+      continue;
+    }
+
+    if (character === '#') {
+      commentIndex = index;
+      break;
+    }
+  }
+
+  assert.equal(quote, null, `${path}:${lineNumber} has an unterminated quoted uses value`);
+
+  const valuePart = (commentIndex === -1 ? raw : raw.slice(0, commentIndex)).trim();
+  const comment = commentIndex === -1 ? '' : raw.slice(commentIndex + 1).trim();
+
+  assert.ok(valuePart, `${path}:${lineNumber} has an empty uses value`);
+  assert.ok(!['|', '>'].includes(valuePart[0]), `${path}:${lineNumber} uses multiline uses syntax`);
+
+  let value = valuePart;
+  if (valuePart.startsWith("'")) {
+    assert.ok(valuePart.endsWith("'"), `${path}:${lineNumber} has malformed single-quoted uses syntax`);
+    value = valuePart.slice(1, -1).replaceAll("''", "'");
+  } else if (valuePart.startsWith('"')) {
+    assert.ok(valuePart.endsWith('"'), `${path}:${lineNumber} has malformed double-quoted uses syntax`);
+    value = JSON.parse(valuePart);
+  }
+
+  return { value, comment };
+}
+
+function extractUsesReferences(source, path) {
+  const references = [];
+
+  for (const [index, line] of source.split('\n').entries()) {
+    const trimmed = line.trimStart();
+    if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('uses:')) {
+      continue;
+    }
+
+    const match = line.match(/^\s*(?:-\s*)?uses:\s*(.+?)\s*$/);
+    assert.ok(match, `${path}:${index + 1} uses unsupported YAML uses syntax`);
+
+    references.push({
+      ...splitUsesScalar(match[1], path, index + 1),
+      lineNumber: index + 1,
+    });
+  }
+
+  return references;
+}
+
 test('change classifier exposes every CI dimension', () => {
   const changes = jobBlock('changes');
 
@@ -191,7 +268,7 @@ test('hosted iOS bootstrap stays separate from the self-hosted Nix boundary', ()
   const ios = jobBlock('build-ios');
   assertContainsAll(ios, [
     'runs-on: macos-15',
-    'uses: actions/setup-node@v7',
+    'uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7',
     'node-version-file: .nvmrc',
     'node .yarn/releases/yarn-3.6.1.cjs install --immutable',
     'node .yarn/releases/yarn-3.6.1.cjs turbo run build:ios',
@@ -266,28 +343,30 @@ test('SBOM schema validation uses an executable pinned flake validator without D
   assert.doesNotMatch(validator, /\bdocker\b/i);
 });
 
-test('workflow actions use current releases and repository tooling uses Nix', () => {
-  const obsoleteActions = [
-    ['actions/checkout', /actions\/checkout@(?:v[1-6]\b|[0-9a-f]{40}\s+# v[1-6](?:\.\d+\.\d+)?\b)/],
-    ['actions/setup-node', /actions\/setup-node@v[1-6]\b/],
-    ['actions/cache', /actions\/cache@v[1-4]\b/],
-    ['actions/setup-java', /actions\/setup-java@v[1-4]\b/],
-    ['actions/upload-artifact', /actions\/upload-artifact@(?:v[1-6]\b|[0-9a-f]{40}\s+# v[1-6](?:\.\d+\.\d+)?\b)/],
-    ['actions/github-script', /actions\/github-script@v[1-8]\b/],
-    ['github/codeql-action', /github\/codeql-action\/(?:init|autobuild|analyze)@v[1-3]\b/],
-    ['android-actions/setup-android', /android-actions\/setup-android@v[1-3]\b/],
-    ['marocchino/sticky-pull-request-comment', /marocchino\/sticky-pull-request-comment@/],
-  ];
+test('external workflow and composite-action references are immutable', () => {
+  const immutableRef = /^[^@\s]+@[0-9a-f]{40}$/;
 
   for (const [path, source] of actionSources) {
-    for (const [action, pattern] of obsoleteActions) {
-      assert.doesNotMatch(source, pattern, `${path} uses an obsolete ${action} release`);
+    for (const { value, comment, lineNumber } of extractUsesReferences(source, path)) {
+      if (value.startsWith('./')) {
+        continue;
+      }
+
+      assert.match(
+        value,
+        immutableRef,
+        `${path}:${lineNumber} must pin external uses to a full 40-character commit SHA`,
+      );
+      assert.ok(
+        comment && /\d/.test(comment),
+        `${path}:${lineNumber} must include a readable upstream version/revision comment`,
+      );
     }
   }
 
   const coverage = actionSources.get('.github/workflows/coverage-gate.yml');
   assert.ok(coverage, 'missing coverage workflow');
-  assert.match(coverage, /actions\/github-script@v9\b/);
+  assert.match(coverage, /actions\/github-script@[0-9a-f]{40} # v9/);
 
   const sbom = actionSources.get('.github/workflows/sbom.yml');
   assert.ok(sbom, 'missing SBOM workflow');

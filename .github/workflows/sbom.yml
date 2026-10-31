@@ -57,7 +57,7 @@ jobs:
         run: mkdir -p artifacts
 
       - name: Generate CycloneDX SBOM
-        uses: anchore/sbom-action@b1b13de3df818f1657380c7d558539b493c17f2b
+        uses: anchore/sbom-action@b1b13de3df818f1657380c7d558539b493c17f2b # upstream main 2026-07-17
         with:
           path: .
           format: cyclonedx-json
@@ -110,7 +110,7 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Submit dependency snapshot
-        uses: anchore/sbom-action@b1b13de3df818f1657380c7d558539b493c17f2b
+        uses: anchore/sbom-action@b1b13de3df818f1657380c7d558539b493c17f2b # upstream main 2026-07-17
         with:
           path: .
           format: cyclonedx-json
@@ -142,7 +142,7 @@ jobs:
         run: mkdir -p artifacts
 
       - name: Generate release CycloneDX SBOM
-        uses: anchore/sbom-action@b1b13de3df818f1657380c7d558539b493c17f2b
+        uses: anchore/sbom-action@b1b13de3df818f1657380c7d558539b493c17f2b # upstream main 2026-07-17
         with:
           path: .
           format: cyclonedx-json
