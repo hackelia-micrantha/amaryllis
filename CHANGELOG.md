@@ -9,6 +9,7 @@ future **minor** or **major** bump is required for similar changes.
 ## Unreleased
 
 ### Upgrade impact
+- Breaking pre-1.0 component registry: `ComponentRegistry.get()` now resolves exact `name@SemVer` keys only; moving selection requires explicit `getLatest(name)` with SemVer-correct stable/prerelease rules. Runtime personalization call sites must specify exact component identities.
 - Breaking pre-1.0 cleanup: the RxJS-shaped `createLLMObservable` API and `LLMObservableResult` type are removed.
 
 ### Changed

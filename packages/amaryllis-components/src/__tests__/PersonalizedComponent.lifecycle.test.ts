@@ -48,6 +48,20 @@ describe('PersonalizedComponent render consistency', () => {
   const contract = JSON.parse(new JSONSchemaGenerator().generate(spec));
   const initialize = (registry: ComponentRegistry) => {
     registry.register('card', { component: Card, spec, contract });
+
+    const newerSpec: ValidatedComponentSpec = {
+      ...spec,
+      metadata: { ...spec.metadata, version: '2.0.0' },
+    };
+    const CardV2 = ((props: Record<string, unknown>) => {
+      observed.push('unexpected-newer-version');
+      return React.createElement('newer-registered-card', props);
+    }) as ComponentType<Record<string, unknown>>;
+    registry.register('card', {
+      component: CardV2,
+      spec: newerSpec,
+      contract,
+    });
   };
 
   const element = (
@@ -58,7 +72,7 @@ describe('PersonalizedComponent render consistency', () => {
       RegistryProvider,
       { initialize },
       React.createElement(PersonalizedComponent, {
-        name: 'card',
+        name: 'card@1.0.0',
         baseProps,
         personalizationData,
       })
