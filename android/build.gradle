@@ -53,6 +53,17 @@ android {
     targetCompatibility JavaVersion.VERSION_1_8
   }
 
+  // MediaPipe tasks-genai 0.10.24 contains JVM classes compiled for Java 21.
+  // Keep Android/library bytecode compatibility at Java 8, but run host-side
+  // unit tests with a Java 21 launcher so those upstream classes can load.
+  testOptions {
+    unitTests.all {
+      javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(21)
+      }
+    }
+  }
+
   sourceSets {
     main {
       java.srcDirs += [
@@ -73,8 +84,11 @@ def kotlin_version = getExtOrDefault("kotlinVersion")
 dependencies {
   implementation "com.facebook.react:react-android"
   implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
-  implementation 'com.google.mediapipe:tasks-core:latest.release'
-  implementation 'com.google.mediapipe:tasks-genai:latest.release'
+  implementation 'com.google.mediapipe:tasks-genai:0.10.24'
+  // Google did not publish tasks-core:0.10.24. Core 0.10.21 supplies
+  // MPImage/BitmapImageBuilder referenced by GenAI; retain exact pins and
+  // verify the resolved Android compile/runtime artifacts before release.
+  implementation 'com.google.mediapipe:tasks-core:0.10.21'
 
   testImplementation "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
   testImplementation 'junit:junit:4.13.2'

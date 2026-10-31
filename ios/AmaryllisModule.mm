@@ -6,6 +6,7 @@
 static NSString *const EVENT_ON_PARTIAL_RESULT = @"onPartialResult";
 static NSString *const EVENT_ON_FINAL_RESULT = @"onFinalResult";
 static NSString *const EVENT_ON_ERROR = @"onError";
+static NSString *const EVENT_ON_CANCELLED = @"onCancelled";
 static NSString *const ERROR_CODE_INFER = @"ERR_INFER";
 static NSString *const ERROR_CODE_SESSION = @"ERR_SESSION";
 static NSString *const ERROR_CODE_IN_PROGRESS = @"GENERATION_IN_PROGRESS";
@@ -14,6 +15,8 @@ static NSString *const ERROR_CODE_IN_PROGRESS = @"GENERATION_IN_PROGRESS";
 
 @property(nonatomic, strong) Amaryllis *amaryllis;
 @property(nonatomic, strong) AMRequestTracker *requestTracker;
+
+- (void)sendCancelledEvent:(NSString *)requestId;
 
 @end
 
@@ -36,7 +39,12 @@ RCT_EXPORT_MODULE(Amaryllis)
 #pragma mark - Event Emitter
 
 - (NSArray *)supportedEvents {
-  return @[ EVENT_ON_PARTIAL_RESULT, EVENT_ON_FINAL_RESULT, EVENT_ON_ERROR ];
+  return @[
+    EVENT_ON_PARTIAL_RESULT,
+    EVENT_ON_FINAL_RESULT,
+    EVENT_ON_ERROR,
+    EVENT_ON_CANCELLED
+  ];
 }
 
 #pragma mark - Configure Engine
@@ -120,48 +128,73 @@ RCT_EXPORT_MODULE(Amaryllis)
 
       PartialResponseHandler progress = ^(NSString *result, NSError *err) {
         AmaryllisModule *strongSelf = weakSelf;
-        if (!strongSelf || ![strongSelf.requestTracker owns:requestId]) {
+        if (!strongSelf) {
           return;
         }
 
-        if (err) {
-          [strongSelf.requestTracker clear:requestId];
-          [strongSelf sendEventWithName:EVENT_ON_ERROR
+        @synchronized(strongSelf) {
+          if (![strongSelf.requestTracker owns:requestId]) {
+            return;
+          }
+
+          if (err) {
+            AMRequestState state = [strongSelf.requestTracker settle:requestId];
+            if (state == AMRequestStateCancelling) {
+              [strongSelf sendCancelledEvent:requestId];
+            } else if (state == AMRequestStateGenerating) {
+              [strongSelf sendEventWithName:EVENT_ON_ERROR
+                                       body:@{
+                                         @"requestId" : requestId,
+                                         @"message" : err.localizedDescription ?: @"unknown error",
+                                         @"code" : ERROR_CODE_INFER,
+                                       }];
+            }
+            return;
+          }
+
+          if ([strongSelf.requestTracker isCancelling:requestId]) {
+            return;
+          }
+
+          NSString *partialText = result ?: @"";
+          @synchronized(accumulatedText) {
+            [accumulatedText appendString:partialText];
+          }
+          [strongSelf sendEventWithName:EVENT_ON_PARTIAL_RESULT
                                    body:@{
                                      @"requestId" : requestId,
-                                     @"message" : err.localizedDescription ?: @"unknown error",
-                                     @"code" : ERROR_CODE_INFER,
+                                     @"text" : partialText,
                                    }];
-          return;
         }
-
-        NSString *partialText = result ?: @"";
-        @synchronized(accumulatedText) {
-          [accumulatedText appendString:partialText];
-        }
-        [strongSelf sendEventWithName:EVENT_ON_PARTIAL_RESULT
-                                 body:@{
-                                   @"requestId" : requestId,
-                                   @"text" : partialText,
-                                 }];
       };
 
       CompletionHandler completion = ^{
         AmaryllisModule *strongSelf = weakSelf;
-        if (!strongSelf || ![strongSelf.requestTracker clear:requestId]) {
+        if (!strongSelf) {
           return;
         }
 
-        NSString *finalText;
-        @synchronized(accumulatedText) {
-          finalText = [accumulatedText copy];
+        @synchronized(strongSelf) {
+          AMRequestState state = [strongSelf.requestTracker settle:requestId];
+          if (state == AMRequestStateCancelling) {
+            [strongSelf sendCancelledEvent:requestId];
+            return;
+          }
+          if (state != AMRequestStateGenerating) {
+            return;
+          }
+
+          NSString *finalText;
+          @synchronized(accumulatedText) {
+            finalText = [accumulatedText copy];
+          }
+          [strongSelf sendEventWithName:EVENT_ON_FINAL_RESULT
+                                   body:@{
+                                     @"requestId" : requestId,
+                                     @"text" : @"",
+                                     @"finalText" : finalText,
+                                   }];
         }
-        [strongSelf sendEventWithName:EVENT_ON_FINAL_RESULT
-                                 body:@{
-                                   @"requestId" : requestId,
-                                   @"text" : @"",
-                                   @"finalText" : finalText,
-                                 }];
       };
 
       [self.amaryllis generateAsyncWithParams:params
@@ -170,21 +203,15 @@ RCT_EXPORT_MODULE(Amaryllis)
                                    completion:completion];
 
       if (error) {
-        [self.requestTracker clear:requestId];
+        [self.requestTracker settle:requestId];
         reject(ERROR_CODE_INFER, @"unable to generate response", error);
         return;
       }
 
       resolve(nil);
     } @catch (NSException *exception) {
-      [self.requestTracker clear:requestId];
+      [self.requestTracker settle:requestId];
       NSLog(@"Amaryllis: error generating inference (%@)", exception.description);
-      [self sendEventWithName:EVENT_ON_ERROR
-                         body:@{
-                           @"requestId" : requestId,
-                           @"message" : @"unable to generate response",
-                           @"code" : ERROR_CODE_INFER,
-                         }];
       reject(ERROR_CODE_INFER, @"unable to generate response", nil);
     }
   }
@@ -194,16 +221,27 @@ RCT_EXPORT_MODULE(Amaryllis)
 
 - (void)close {
   @synchronized(self) {
-    [self.requestTracker clearAll];
     [self.amaryllis close];
+    [self.requestTracker clearAll];
   }
 }
 
 - (void)cancelAsync:(nonnull NSString *)requestId {
-  if (![self.requestTracker clear:requestId]) {
-    return;
+  @synchronized(self) {
+    if (![self.requestTracker requestCancellation:requestId]) {
+      return;
+    }
+    @try {
+      [self.amaryllis cancelAsync];
+    } @catch (NSException *exception) {
+      [self.requestTracker restoreGenerating:requestId];
+      @throw exception;
+    }
   }
-  [self.amaryllis cancelAsync];
+}
+
+- (void)sendCancelledEvent:(NSString *)requestId {
+  [self sendEventWithName:EVENT_ON_CANCELLED body:@{ @"requestId" : requestId }];
 }
 
 - (NSDictionary *)constantsToExport {
@@ -211,6 +249,7 @@ RCT_EXPORT_MODULE(Amaryllis)
     @"EVENT_ON_PARTIAL_RESULT" : EVENT_ON_PARTIAL_RESULT,
     @"EVENT_ON_FINAL_RESULT" : EVENT_ON_FINAL_RESULT,
     @"EVENT_ON_ERROR" : EVENT_ON_ERROR,
+    @"EVENT_ON_CANCELLED" : EVENT_ON_CANCELLED,
     @"ERROR_CODE_INFER" : ERROR_CODE_INFER,
     @"ERROR_CODE_SESSION" : ERROR_CODE_SESSION,
     @"ERROR_CODE_IN_PROGRESS" : ERROR_CODE_IN_PROGRESS,

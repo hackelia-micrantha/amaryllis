@@ -69,40 +69,60 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
     }
 
     val accumulatedText = StringBuilder()
+    var terminalDelta = ""
     try {
-      amaryllis.generateAsync(params) { partialResult, done ->
-        val text = partialResult ?: ""
-        if (done) {
-          if (!requestTracker.clear(requestId)) {
-            return@generateAsync
+      amaryllis.generateAsync(
+        params,
+        { partialResult, done ->
+          synchronized(this@AmaryllisModule) {
+            if (!requestTracker.owns(requestId) || requestTracker.isCancelling(requestId)) {
+              return@synchronized
+            }
+
+            val text = partialResult ?: ""
+            synchronized(accumulatedText) {
+              accumulatedText.append(text)
+              if (done) {
+                terminalDelta = text
+              }
+            }
+            if (!done) {
+              sendTextEvent(EVENT_ON_PARTIAL_RESULT, requestId, text)
+            }
           }
-          val finalText = synchronized(accumulatedText) {
-            accumulatedText.append(text).toString()
+        },
+        { error ->
+          synchronized(this@AmaryllisModule) {
+            when (requestTracker.settle(requestId)) {
+              NativeRequestState.CANCELLING -> sendCancelledEvent(requestId)
+              NativeRequestState.GENERATING -> {
+                if (error != null) {
+                  Log.e(NAME, "asynchronous generation failed", error)
+                  sendErrorEvent(requestId, "unable to generate response", ERROR_CODE_INFER)
+                } else {
+                  val (finalText, finalDelta) = synchronized(accumulatedText) {
+                    accumulatedText.toString() to terminalDelta
+                  }
+                  sendTextEvent(EVENT_ON_FINAL_RESULT, requestId, finalDelta, finalText)
+                }
+              }
+              null -> Unit
+            }
           }
-          sendTextEvent(EVENT_ON_FINAL_RESULT, requestId, text, finalText)
-        } else {
-          if (!requestTracker.owns(requestId)) {
-            return@generateAsync
-          }
-          synchronized(accumulatedText) {
-            accumulatedText.append(text)
-          }
-          sendTextEvent(EVENT_ON_PARTIAL_RESULT, requestId, text)
-        }
-      }
+        },
+      )
       promise.resolve(null)
     } catch (e: Amaryllis.SessionRequiredException) {
-      requestTracker.clear(requestId)
+      requestTracker.settle(requestId)
       Log.e(NAME, "session is required", e)
       promise.reject(ERROR_CODE_SESSION, "session is required", e)
     } catch (e: Amaryllis.NotInitializedException) {
-      requestTracker.clear(requestId)
+      requestTracker.settle(requestId)
       Log.e(NAME, "sdk is not initialized", e)
       promise.reject(ERROR_CODE_INFER, "sdk is not initialized", e)
     } catch (e: Throwable) {
-      requestTracker.clear(requestId)
+      requestTracker.settle(requestId)
       Log.e(NAME, "unable to generate response", e)
-      sendErrorEvent(requestId, "unable to generate response", ERROR_CODE_INFER)
       promise.reject(ERROR_CODE_INFER, "unable to generate response", e)
     }
   }
@@ -111,16 +131,22 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
   @Synchronized
   override fun close() {
     Log.d(NAME, "closing")
-    requestTracker.clearAll()
     amaryllis.close()
+    requestTracker.clearAll()
   }
 
   @ReactMethod
+  @Synchronized
   override fun cancelAsync(requestId: String) {
-    if (!requestTracker.clear(requestId)) {
+    if (!requestTracker.requestCancellation(requestId)) {
       return
     }
-    amaryllis.cancelAsync()
+    try {
+      amaryllis.cancelAsync()
+    } catch (error: Throwable) {
+      requestTracker.restoreGenerating(requestId)
+      throw error
+    }
   }
 
   @Override
@@ -149,6 +175,13 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
     sendEvent(event, data)
   }
 
+  private fun sendCancelledEvent(requestId: String) {
+    val data = Arguments.createMap().apply {
+      putString("requestId", requestId)
+    }
+    sendEvent(EVENT_ON_CANCELLED, data)
+  }
+
   private fun sendErrorEvent(requestId: String, message: String, code: String) {
     val data = Arguments.createMap().apply {
       putString("requestId", requestId)
@@ -169,6 +202,7 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
     "EVENT_ON_PARTIAL_RESULT" to EVENT_ON_PARTIAL_RESULT,
     "EVENT_ON_FINAL_RESULT" to EVENT_ON_FINAL_RESULT,
     "EVENT_ON_ERROR" to EVENT_ON_ERROR,
+    "EVENT_ON_CANCELLED" to EVENT_ON_CANCELLED,
     "ERROR_CODE_INFER" to ERROR_CODE_INFER,
     "ERROR_CODE_SESSION" to ERROR_CODE_SESSION,
     "ERROR_CODE_IN_PROGRESS" to ERROR_CODE_IN_PROGRESS,
@@ -194,6 +228,7 @@ class AmaryllisModule(reactContext: ReactApplicationContext) :
     const val EVENT_ON_PARTIAL_RESULT = "onPartialResult"
     const val EVENT_ON_FINAL_RESULT = "onFinalResult"
     const val EVENT_ON_ERROR = "onError"
+    const val EVENT_ON_CANCELLED = "onCancelled"
 
     const val ERROR_CODE_INFER = "ERR_INFER"
     const val ERROR_CODE_SESSION = "ERR_SESSION"

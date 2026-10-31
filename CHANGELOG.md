@@ -6,6 +6,18 @@ This project follows Semantic Versioning. In addition to Added/Changed/Fixed,
 each release includes an **Upgrade impact** section to indicate whether a
 future **minor** or **major** bump is required for similar changes.
 
+## Unreleased
+
+### Upgrade impact
+- Breaking pre-1.0 cleanup: the RxJS-shaped `createLLMObservable` API and `LLMObservableResult` type are removed.
+
+### Changed
+- `useInferenceAsync` now accumulates request-scoped `LlmCallbacks.onEvent` deltas directly without a stream-library bridge.
+- Low-level streaming consumers should use `LlmCallbacks.onEvent`; React consumers should use `useInferenceAsync` for cumulative result snapshots.
+
+### Removed
+- The internal/public `AmaryllisRx` observable bridge and its RxJS runtime/type dependency.
+- No compatibility shim or replacement reactive-stream dependency is introduced.
 
 ## [0.1.5] - 2026-01-17
 

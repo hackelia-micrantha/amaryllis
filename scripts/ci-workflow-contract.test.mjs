@@ -137,6 +137,23 @@ test('change classifier exposes every CI dimension', () => {
   ]);
 });
 
+test('change classifier activates the project toolchain before Node entrypoints', () => {
+  const changes = jobBlock('changes');
+
+  assertContainsAll(changes, [
+    'nix flake check',
+    'nix build --no-link --print-out-paths .#ci-toolchain',
+    'printf \'%s\\n\' "$toolchain/bin" >> "$GITHUB_PATH"',
+    'node --test',
+    'node scripts/detect-ci-changes.mjs',
+  ]);
+  assert.ok(
+    changes.indexOf('nix build --no-link --print-out-paths .#ci-toolchain') <
+      changes.indexOf('node --test'),
+    'change classifier must activate the project toolchain before invoking Node',
+  );
+});
+
 test('stable root jobs retain lightweight and expensive paths', () => {
   for (const name of ['lint', 'test']) {
     const block = jobBlock(name);
@@ -186,6 +203,146 @@ test('native jobs remain controlled by the native dimension', () => {
   }
 });
 
+test('Android bootstrap is owned by the repository flake', () => {
+  const android = jobBlock('build-android');
+  const flake = readFileSync('flake.nix', 'utf8');
+  const androidGradle = readFileSync('android/build.gradle', 'utf8');
+
+  assertContainsAll(android, [
+    'nix build --no-link --print-out-paths .#android-ci-toolchain',
+    'ANDROID_HOME=$toolchain/android-sdk',
+    'ANDROID_SDK_ROOT=$toolchain/android-sdk',
+    'android-sdk/platforms/android-35',
+    'android-sdk/build-tools/35.0.0',
+    'android-sdk/ndk/27.1.12297006',
+    'grep -Eq',
+    "hashFiles('yarn.lock', 'flake.nix', 'flake.lock'",
+  ]);
+  const turboCacheBlock = android.split('      - name: Cache turborepo for Android')[1]
+    ?.split('      - name: Check turborepo cache for Android')[0];
+  assert.ok(turboCacheBlock, 'missing Android Turbo cache step');
+  assert.doesNotMatch(
+    turboCacheBlock,
+    /restore-keys:/,
+    'Android toolchain changes must never restore previous Gradle output',
+  );
+  assert.doesNotMatch(android, /actions\/setup-java@|android-actions\/setup-android@/);
+
+  assertContainsAll(flake, [
+    'pkgs.gh',
+    'android_sdk.accept_license = true',
+    'toolsVersion = null',
+    'platformVersions = [ "35" ]',
+    'buildToolsVersions = [ ]',
+    'androidBuildToolsComposition."build-tools"',
+    'overrideAttrs',
+    'androidBuildTools',
+    'includeCmake = true',
+    'cmakeVersions = [ "3.22.1" ]',
+    'includeNDK = true',
+    'ndkVersions = [ "27.1.12297006" ]',
+    'android-ci-toolchain = androidCiToolchain',
+    'androidPkgs.jdk21',
+  ]);
+
+  assertContainsAll(androidGradle, [
+    'sourceCompatibility JavaVersion.VERSION_1_8',
+    'targetCompatibility JavaVersion.VERSION_1_8',
+    'javaLauncher = javaToolchains.launcherFor',
+    'languageVersion = JavaLanguageVersion.of(21)',
+  ]);
+});
+
+test('workflow lint uses the repository toolchain without a container action', () => {
+  const lintWorkflow = actionSources.get('.github/workflows/workflow-lint.yml');
+  const flake = readFileSync('flake.nix', 'utf8');
+
+  assert.ok(lintWorkflow, 'missing workflow lint workflow');
+  assert.match(lintWorkflow, /nix build --no-link --print-out-paths \.#ci-toolchain/);
+  assert.match(lintWorkflow, /(?:^|\n)\s+actionlint(?:\s|$)/);
+  assert.doesNotMatch(lintWorkflow, /reviewdog\/action-actionlint|docker/);
+  assert.match(flake, /pkgs\.actionlint/);
+});
+
+test('hosted iOS bootstrap stays separate from the self-hosted Nix boundary', () => {
+  const ios = jobBlock('build-ios');
+  assertContainsAll(ios, [
+    'runs-on: macos-15',
+    'uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7',
+    'node-version-file: .nvmrc',
+    'node .yarn/releases/yarn-3.6.1.cjs install --immutable',
+    'node .yarn/releases/yarn-3.6.1.cjs turbo run build:ios',
+  ]);
+  assert.doesNotMatch(ios, /uses: \.\/\.github\/actions\/setup|nix flake check|nix build/);
+
+  for (const name of ['changes', 'lint', 'test', 'components-package', 'build-library', 'build-android']) {
+    assert.doesNotMatch(
+      jobBlock(name),
+      /actions\/setup-node@/,
+      `${name} must not bypass the self-hosted Nix toolchain`,
+    );
+  }
+});
+
+test('Nix and hosted-native Node contracts retain the same major', () => {
+  const flake = readFileSync('flake.nix', 'utf8');
+  const nvmrc = readFileSync('.nvmrc', 'utf8').trim();
+
+  assert.match(flake, /nodejs_24\b/);
+  assert.match(nvmrc, /^v24(?:\.|$)/);
+});
+
+test('shared setup has no hosted or caller-controlled toolchain bypass', () => {
+  const setup = actionSources.get('.github/actions/setup/action.yml');
+  assert.ok(setup, 'missing composite setup action');
+  assert.doesNotMatch(setup, /actions\/setup-node@/);
+  assert.doesNotMatch(setup, /activate-nix-toolchain|hosted native|\.yarn\/releases/);
+  assert.match(setup, /nix flake check/);
+  assert.match(setup, /nix build --no-link --print-out-paths \.#ci-toolchain/);
+  assert.match(setup, /yarn install --immutable/);
+});
+
+test('SBOM schema validation uses an executable pinned flake validator without Docker', () => {
+  const flake = readFileSync('flake.nix', 'utf8');
+  const validator = readFileSync('scripts/validate-cyclonedx-schema.sh', 'utf8');
+
+  assertContainsAll(flake, [
+    'cyclonedxVersion = "0.32.0"',
+    'asset = "cyclonedx-linux-x64"',
+    'hash = "sha256-RUh55qSkBcihO/9JuJgq3LBZbzAZsmsIEcZuTX8Hg+E="',
+    'cyclonedxLinuxLoader =',
+    'pkgs.stdenv.cc.bintools.dynamicLinker',
+    'cyclonedxLinuxRPath =',
+    'pkgs.lib.makeLibraryPath [',
+    'pkgs.stdenv.cc.cc.lib',
+    'pkgs.stdenv.cc.libc',
+    'pkgs.icu',
+    'pkgs.krb5',
+    'pkgs.openssl',
+    'pkgs.zlib',
+    'nativeBuildInputs = pkgs.lib.optional (cyclonedxLinuxLoader != null) pkgs.patchelf',
+    'install -Dm755 ${cyclonedxSource} "$out/bin/cyclonedx"',
+    '--set-interpreter "${cyclonedxLinuxLoader}"',
+    '--set-rpath "${cyclonedxLinuxRPath}"',
+    'cyclonedx-validator = cyclonedxValidator',
+  ]);
+  assert.match(
+    flake,
+    /CycloneDX\/cyclonedx-cli\/releases\/download\/v\$\{cyclonedxVersion\}/,
+  );
+  assert.doesNotMatch(flake, /pkgs\.cyclonedx-cli\b|cyclonedx-linux-musl-x64/);
+  assert.doesNotMatch(flake, /libexec\/cyclonedx|printf '%s\\n'/);
+  assert.match(
+    validator,
+    /nix build --no-link --print-out-paths \.#cyclonedx-validator/,
+  );
+  assert.match(validator, /"\$cyclonedx" --version >\/dev\/null/);
+  assert.match(validator, /\[\[ -L "\$sbom_file" \]\]/);
+  assert.match(validator, /--input-file "\$absolute_file"/);
+  assert.match(validator, /"\$cyclonedx" validate/);
+  assert.doesNotMatch(validator, /\bdocker\b/i);
+});
+
 test('external workflow and composite-action references are immutable', () => {
   const immutableRef = /^[^@\s]+@[0-9a-f]{40}$/;
 
@@ -206,4 +363,19 @@ test('external workflow and composite-action references are immutable', () => {
       );
     }
   }
+
+  const coverage = actionSources.get('.github/workflows/coverage-gate.yml');
+  assert.ok(coverage, 'missing coverage workflow');
+  assert.match(coverage, /actions\/github-script@[0-9a-f]{40} # v9/);
+
+  const sbom = actionSources.get('.github/workflows/sbom.yml');
+  assert.ok(sbom, 'missing SBOM workflow');
+  assert.match(
+    sbom,
+    /actions\/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7\.0\.1/,
+  );
+  assert.match(
+    sbom,
+    /actions\/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7\.0\.1/,
+  );
 });
