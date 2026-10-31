@@ -3,8 +3,15 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const expectedRepository =
+  'git+https://github.com/hackelia-micrantha/amaryllis.git';
 
 const packages = [
+  {
+    directory: resolve(repositoryRoot, 'packages/amaryllis'),
+    expectedName: '@micrantha/amaryllis',
+    requiredFields: ['main', 'types'],
+  },
   {
     directory: repositoryRoot,
     expectedName: '@micrantha/react-native-amaryllis',
@@ -59,6 +66,12 @@ for (const packageConfig of packages) {
   if (!semverPattern.test(packageJson.version)) {
     throw new Error(
       `${packageConfig.expectedName} has an invalid version: ${packageJson.version}`
+    );
+  }
+
+  if (packageJson.repository?.url !== expectedRepository) {
+    throw new Error(
+      `${packageConfig.expectedName} repository.url must be ${expectedRepository}`
     );
   }
 
