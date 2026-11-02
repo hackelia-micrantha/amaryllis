@@ -111,7 +111,10 @@ function extractUsesReferences(source, path) {
 
   for (const [index, line] of source.split('\n').entries()) {
     const trimmed = line.trimStart();
-    if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('uses:')) {
+    // YAML permits quoted keys and spaces before ':'. Reject such uses keys
+    // rather than silently skipping mutable action references.
+    const possibleUsesKey = /(?:^|[\s{[,])(?:uses|"uses"|'uses')\s*:/;
+    if (!trimmed || trimmed.startsWith('#') || !possibleUsesKey.test(trimmed)) {
       continue;
     }
 
@@ -126,6 +129,25 @@ function extractUsesReferences(source, path) {
 
   return references;
 }
+
+test('unsupported YAML uses key shapes fail closed', () => {
+  for (const key of ['"uses"', "'uses'", 'uses ']) {
+    const fixture = `- ${key}: actions/checkout@v7`;
+    assert.throws(
+      () => extractUsesReferences(fixture, 'fixture.yml'),
+      /unsupported YAML uses syntax/,
+      `unsupported key encoding must not bypass immutable pin verification: ${key}`,
+    );
+  }
+  assert.throws(
+    () => extractUsesReferences('- {uses: actions/checkout@v7}', 'fixture.yml'),
+    /unsupported YAML uses syntax/,
+  );
+  assert.equal(
+    extractUsesReferences('  - uses: actions/checkout@0123456789abcdef0123456789abcdef01234567 # v7', 'fixture.yml').length,
+    1,
+  );
+});
 
 test('change classifier exposes every CI dimension', () => {
   const changes = jobBlock('changes');
