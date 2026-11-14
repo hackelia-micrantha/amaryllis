@@ -44,7 +44,7 @@ const contract = {
 };
 
 describe('ComponentRegistry identity binding', () => {
-  test('registers components by versioned identity and keeps legacy name lookup', () => {
+  test('registers components by exact versioned identity without implicit latest', () => {
     const registry = createTestComponentRegistry();
     const entry = {
       component: Component,
@@ -62,7 +62,11 @@ describe('ComponentRegistry identity binding', () => {
       version: '1.0.0',
       implementationIdentity: 'registry-card/react',
     });
-    expect(registry.get('registry-card')).toEqual(
+    expect(registry.get('registry-card')).toBeUndefined();
+    expect(registry.getExact('registry-card@1.0.0')).toEqual(
+      registry.get('registry-card@1.0.0')
+    );
+    expect(registry.getLatest('registry-card')).toEqual(
       registry.get('registry-card@1.0.0')
     );
   });
@@ -98,7 +102,7 @@ describe('ComponentRegistry identity binding', () => {
       implementationIdentity: 'registry-card/react',
     });
 
-    expect(registry.get('registry-card')).toMatchObject({
+    expect(registry.get('registry-card@1.0.0')).toMatchObject({
       specHash: hashRegistryValue(baseSpec, fnv1aHash),
       runtimeContractHash: hashRegistryValue(contract, fnv1aHash),
     });
@@ -195,8 +199,129 @@ describe('ComponentRegistry identity binding', () => {
       contract,
       implementationIdentity: 'registry-card/react',
     });
-    expect(restored.get('registry-card')).toEqual(
-      restored.get('registry-card@1.0.0')
+    expect(restored.get('registry-card')).toBeUndefined();
+    expect(restored.getLatest('registry-card')).toEqual(
+      restored.getExact('registry-card@1.0.0')
     );
+  });
+
+  test('pinned executable resolution is stable when newer versions register', () => {
+    const registry = createTestComponentRegistry();
+    const registered = (version: string) => ({
+      component: Component,
+      spec: {
+        ...baseSpec,
+        metadata: { ...baseSpec.metadata, version },
+      },
+      contract,
+    });
+    registry.register('registry-card', registered('1.9.0'));
+    const pinned = registry.get('registry-card@1.9.0');
+    registry.register('registry-card', registered('1.10.0'));
+
+    expect(registry.get('registry-card@1.9.0')).toBe(pinned);
+    expect(registry.getExact('registry-card@1.9.0')).toBe(pinned);
+    expect(registry.get('registry-card')).toBeUndefined();
+    expect(registry.getLatest('registry-card')?.version).toBe('1.10.0');
+  });
+
+  test('stable latest wins unless all entries are prereleases or opt-in requested', () => {
+    const registry = createTestComponentRegistry();
+    const register = (version: string) => {
+      registry.register('registry-card', {
+        component: Component,
+        spec: { ...baseSpec, metadata: { ...baseSpec.metadata, version } },
+        contract,
+      });
+    };
+    register('2.0.0-beta.2');
+    register('2.0.0-beta.11');
+    expect(registry.getLatest('registry-card')?.version).toBe('2.0.0-beta.11');
+    register('1.10.0');
+    register('1.9.0');
+    expect(registry.getLatest('registry-card')?.version).toBe('1.10.0');
+    expect(
+      registry.getLatest('registry-card', { includePrerelease: true })?.version
+    ).toBe('2.0.0-beta.11');
+    register('2.0.0');
+    expect(registry.getLatest('registry-card')?.version).toBe('2.0.0');
+  });
+
+  test('preserves SemVer build metadata in exact registration and hydration', () => {
+    const registry = createTestComponentRegistry();
+    const spec = {
+      ...baseSpec,
+      metadata: { ...baseSpec.metadata, version: '1.2.3+build.7' },
+    };
+    registry.register('registry-card', {
+      component: Component,
+      spec,
+      contract,
+    });
+
+    const exact = registry.getExact('registry-card@1.2.3+build.7');
+    expect(exact?.version).toBe('1.2.3+build.7');
+    expect(registry.getExact('registry-card@1.2.3')).toBeUndefined();
+
+    const restored = createTestComponentRegistry();
+    restored.hydrate(registry.snapshot(), () => Component);
+    expect(restored.getExact('registry-card@1.2.3+build.7')).toEqual(exact);
+  });
+
+  test('invalid SemVer fails before registration and while hydrating', () => {
+    const registry = createTestComponentRegistry();
+    const invalid = {
+      component: Component,
+      spec: {
+        ...baseSpec,
+        metadata: { ...baseSpec.metadata, version: 'release-next' },
+      },
+      contract,
+    };
+    expect(() => registry.register('registry-card', invalid)).toThrow(
+      'invalid SemVer'
+    );
+    expect(registry.list()).toEqual([]);
+
+    // SemVer's parser normalizes these spellings; registry identities do not.
+    expect(() =>
+      registry.register('registry-card', {
+        ...invalid,
+        spec: {
+          ...baseSpec,
+          metadata: { ...baseSpec.metadata, version: 'v1.0.0' },
+        },
+      })
+    ).toThrow('invalid SemVer');
+    expect(registry.list()).toEqual([]);
+
+    const snapshotSource = createTestComponentRegistry();
+    snapshotSource.register('registry-card', {
+      component: Component,
+      spec: baseSpec,
+      contract,
+    });
+    const [snapshot] = snapshotSource.snapshot();
+    if (!snapshot) throw new Error('expected a registry snapshot');
+    const invalidSnapshot = {
+      ...snapshot,
+      version: 'release-next',
+      spec: invalid.spec,
+    };
+    const resolver = jest.fn(() => Component);
+    expect(() => registry.hydrate([invalidSnapshot], resolver)).toThrow(
+      'invalid SemVer'
+    );
+    expect(resolver).not.toHaveBeenCalled();
+    expect(registry.list()).toEqual([]);
+
+    const mismatched = {
+      ...snapshot,
+      specHash: 'untrusted-hash',
+    };
+    expect(() => registry.hydrate([mismatched], resolver)).toThrow(
+      'specHash does not match spec'
+    );
+    expect(resolver).not.toHaveBeenCalled();
   });
 });

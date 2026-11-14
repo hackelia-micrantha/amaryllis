@@ -75,7 +75,7 @@ describe('PersonalizedComponent primitives', () => {
       get: (name: string) => unknown;
       register: typeof import('../runtime/registry').ComponentRegistry.prototype.register;
     }) => {
-      if (!registry.get('primitive-card')) {
+      if (!registry.get('primitive-card@1.0.0')) {
         registry.register('primitive-card', {
           component: Component,
           spec,
@@ -90,7 +90,7 @@ describe('PersonalizedComponent primitives', () => {
           RegistryProvider,
           { initialize: initializeRegistry },
           React.createElement(PersonalizedComponent, {
-            name: 'primitive-card',
+            name: 'primitive-card@1.0.0',
             baseProps: { title: 'Base' },
             personalizationData: { props: { title: 123 } },
             primitives: { View, Text },
