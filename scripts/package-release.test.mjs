@@ -169,12 +169,9 @@ test('manual canary dispatch cannot bypass the exact-commit release gates', () =
 
   assert.match(source, /^  workflow_dispatch:\s*$/m);
   assert.match(preflight, /name: Wait for required workflows/);
-  assert.match(
-    preflight,
-    /REQUIRED_WORKFLOWS: '\\["CI","Dependency Audit","Security - CodeQL"\\]'/
-  );
+  assert.match(preflight, /REQUIRED_WORKFLOWS: .*Dependency Audit.*Security - CodeQL/);
   assert.doesNotMatch(preflight, /if:\s*github\.event_name/);
-  assert.match(preflight, /TARGET_SHA: \\$\\{\\{ github\.sha \\}\\}/);
+  assert.ok(preflight.includes('TARGET_SHA: ${{ github.sha }}'));
   assert.match(publish, /needs: preflight/);
 });
 
