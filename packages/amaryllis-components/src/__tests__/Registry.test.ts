@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import type { ValidatedComponentSpec } from '../schema/spec.schema';
+import { ComponentSpecSchema, type ValidatedComponentSpec } from '../schema/spec.schema';
 import { createTestComponentRegistry } from './testRegistry';
 import {
   ComponentRegistry,
@@ -266,6 +266,32 @@ describe('ComponentRegistry identity binding', () => {
     const restored = createTestComponentRegistry();
     restored.hydrate(registry.snapshot(), () => Component);
     expect(restored.getExact('registry-card@1.2.3+build.7')).toEqual(exact);
+  });
+
+  test('parses and hydrates strict SemVer with combined prerelease and build metadata', () => {
+    const version = '1.2.3-beta.1+build.7';
+    const spec = ComponentSpecSchema.parse({
+      ...baseSpec,
+      metadata: { ...baseSpec.metadata, version },
+    });
+    const registry = createTestComponentRegistry();
+    registry.register('registry-card', { component: Component, spec, contract });
+
+    const key = `registry-card@${version}`;
+    expect(registry.getExact(key)?.version).toBe(version);
+
+    const restored = createTestComponentRegistry();
+    restored.hydrate(registry.snapshot(), () => Component);
+    expect(restored.getExact(key)).toEqual(registry.getExact(key));
+
+    for (const invalidVersion of ['v1.2.3', '01.2.3', '1.2.3-beta..1']) {
+      expect(
+        ComponentSpecSchema.safeParse({
+          ...baseSpec,
+          metadata: { ...baseSpec.metadata, version: invalidVersion },
+        }).success
+      ).toBe(false);
+    }
   });
 
   test('invalid SemVer fails before registration and while hydrating', () => {
