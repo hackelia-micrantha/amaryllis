@@ -340,9 +340,7 @@ describe('useContextInferenceAsync lifecycle', () => {
     await act(async () => {
       await result.current({ prompt: 'overlap' });
     });
-    expect(onError).toHaveBeenCalledWith(
-      expect.any(GenerationInProgressError)
-    );
+    expect(onError).toHaveBeenCalledWith(expect.any(GenerationInProgressError));
     expect(contextEngine.search).toHaveBeenCalledTimes(1);
     expect(pipe.generateAsync).not.toHaveBeenCalled();
 
