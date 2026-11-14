@@ -6,6 +6,7 @@ and the React Native debug Metro server available via adb reverse tcp:8081.
 """
 
 import argparse
+import hashlib
 import os
 from pathlib import Path
 import re
@@ -173,6 +174,8 @@ def smoke(evidence: Path) -> None:
         f"android_sdk={adb(serial, 'shell', 'getprop', 'ro.build.version.sdk')}",
         f"device_model={adb(serial, 'shell', 'getprop', 'ro.product.model')}",
     ]
+    with open(os.environ["MODEL_IMPORT_DEBUG_APK"], "rb") as apk:
+        metadata.append(f"apk_sha256={hashlib.file_digest(apk, 'sha256').hexdigest()}")
     (evidence / "device.txt").write_text("\n".join(metadata) + "\n")
     print("\n".join(metadata), flush=True)
 
