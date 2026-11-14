@@ -8,6 +8,7 @@ import type {
   LlmCallbacks,
   LlmEngine,
   LlmEngineConfig,
+  LlmRequestParams,
 } from '../Types';
 
 const configA: LlmEngineConfig = { modelPath: 'a.task' };
@@ -252,9 +253,11 @@ describe('LLMProvider lifecycle authority', () => {
   it('retires a streaming hook when reconfiguration precedes cancellation acknowledgement', async () => {
     const engine = createPipe();
     const callbacks: LlmCallbacks[] = [];
-    engine.generateAsync = jest.fn(async (_params, nextCallbacks) => {
-      callbacks.push(nextCallbacks ?? {});
-    });
+    engine.generateAsync = jest.fn(
+      async (_params: LlmRequestParams, nextCallbacks?: LlmCallbacks) => {
+        callbacks.push(nextCallbacks ?? {});
+      }
+    );
     // A real native cancellation may be acknowledged asynchronously. No
     // lifecycle event arrives before the replacement controller is ready.
     engine.subscribeAsyncLifecycle = jest.fn(() => () => {});
