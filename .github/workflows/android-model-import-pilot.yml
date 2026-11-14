@@ -40,6 +40,11 @@ jobs:
           java-version: '21'
       - name: Install immutable JavaScript dependencies
         run: node .yarn/releases/yarn-3.6.1.cjs install --immutable
+      - name: Install emulator host audio library
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libpulse0
+
       - name: Install Android SDK and emulator image
         run: |
           set -euo pipefail
