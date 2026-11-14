@@ -53,7 +53,7 @@ const actionSources = new Map(
 test('compatibility and SBOM jobs cancel only superseded PR runs', () => {
   const expected = [
     'concurrency:',
-    '  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}',
+    "  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}",
     "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
   ].join('\n');
 
