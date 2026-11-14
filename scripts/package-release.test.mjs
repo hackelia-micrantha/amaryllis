@@ -162,15 +162,15 @@ test('release workflows reserve OIDC authority for hosted publication', () => {
   }
 });
 
-test('manual canary dispatch cannot bypass the exact-commit release gates', () => {
+test('canary publication is restricted to main push and exact-commit release gates', () => {
   const source = readFileSync('.github/workflows/canary-publish.yml', 'utf8');
   const preflight = workflowJobBlock(source, 'preflight');
   const publish = workflowJobBlock(source, 'publish');
 
-  assert.match(source, /^  workflow_dispatch:\s*$/m);
+  assert.match(source, /^on:\s*\n  push:\s*\n    branches:\s*\n      - main\s*$/m);
+  assert.doesNotMatch(source, /^  workflow_dispatch:\s*$/m);
   assert.match(preflight, /name: Wait for required workflows/);
   assert.match(preflight, /REQUIRED_WORKFLOWS: .*Dependency Audit.*Security - CodeQL/);
-  assert.doesNotMatch(preflight, /if:\s*github\.event_name/);
   assert.ok(preflight.includes('TARGET_SHA: ${{ github.sha }}'));
   assert.match(publish, /needs: preflight/);
 });
