@@ -23,6 +23,7 @@ jobs:
     timeout-minutes: 55
     env:
       AVD_NAME: amaryllis-model-import
+      ANDROID_AVD_HOME: ${{ runner.temp }}/amaryllis-avds
       MODEL_IMPORT_DEBUG_APK: ${{ github.workspace }}/example/android/app/build/outputs/apk/debug/app-debug.apk
     steps:
       - name: Checkout without persisted credentials
@@ -92,12 +93,15 @@ jobs:
             echo 'BLOCKED: KVM remains inaccessible after scoped permission adjustment'
             exit 1
           }
+          mkdir -p "$ANDROID_AVD_HOME"
           avdmanager create avd --force \
             --name "$AVD_NAME" \
             --package 'system-images;android-35;google_apis;x86_64' \
             --device 'pixel_6'
           emulator -list-avds | grep -Fx -- "$AVD_NAME" || {
             echo 'BLOCKED: AVD creation did not produce a discoverable device'
+            echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME"
+            find "$ANDROID_AVD_HOME" "$HOME/.android/avd" -maxdepth 2 -type f -name '*.ini' -print 2>/dev/null || true
             exit 1
           }
           emulator -avd "$AVD_NAME" -no-window -no-audio -no-snapshot \
