@@ -162,6 +162,22 @@ test('release workflows reserve OIDC authority for hosted publication', () => {
   }
 });
 
+test('manual canary dispatch cannot bypass the exact-commit release gates', () => {
+  const source = readFileSync('.github/workflows/canary-publish.yml', 'utf8');
+  const preflight = workflowJobBlock(source, 'preflight');
+  const publish = workflowJobBlock(source, 'publish');
+
+  assert.match(source, /^  workflow_dispatch:\s*$/m);
+  assert.match(preflight, /name: Wait for required workflows/);
+  assert.match(
+    preflight,
+    /REQUIRED_WORKFLOWS: '\\["CI","Dependency Audit","Security - CodeQL"\\]'/
+  );
+  assert.doesNotMatch(preflight, /if:\s*github\.event_name/);
+  assert.match(preflight, /TARGET_SHA: \\$\\{\\{ github\.sha \\}\\}/);
+  assert.match(publish, /needs: preflight/);
+});
+
 test('production release gates the checked-out tagged commit inside the project toolchain', () => {
   const source = readFileSync('.github/workflows/publish.yml', 'utf8');
   const preflight = workflowJobBlock(source, 'preflight');
