@@ -310,6 +310,48 @@ describe('useContextInferenceAsync lifecycle', () => {
     expect(pipe.generateAsync).not.toHaveBeenCalled();
   });
 
+  it('retains a pending context request when callbacks change', async () => {
+    const deferredSearch = createDeferred<never[]>();
+    const contextEngine = createContextEngine({
+      search: jest.fn(() => deferredSearch.promise),
+    });
+    const { callbacks, pipe } = createPipe();
+    const previousOnError = jest.fn();
+    const currentOnError = jest.fn();
+    const { result, rerender } = renderHook(
+      ({ onError }: { onError: (error: Error) => void }) =>
+        useContextInferenceAsync({ contextEngine, onError }),
+      {
+        initialProps: { onError: previousOnError },
+        wrapper: createWrapper(pipe),
+      }
+    );
+    await act(async () => {});
+
+    let pending: Promise<() => void> | undefined;
+    act(() => {
+      pending = result.current({ prompt: 'first' });
+    });
+
+    rerender({ onError: currentOnError });
+    await act(async () => {
+      await result.current({ prompt: 'overlap' });
+    });
+    expect(currentOnError).toHaveBeenCalledWith(
+      expect.any(GenerationInProgressError)
+    );
+    expect(contextEngine.search).toHaveBeenCalledTimes(1);
+    expect(pipe.generateAsync).not.toHaveBeenCalled();
+
+    await act(async () => {
+      deferredSearch.resolve([]);
+      await pending;
+      callbacks[0]?.onEvent?.({ type: 'final', text: 'done' });
+    });
+    expect(pipe.generateAsync).toHaveBeenCalledTimes(1);
+    expect(previousOnError).not.toHaveBeenCalled();
+  });
+
   it('rejects concurrent context retrieval before results can reorder', async () => {
     const deferredSearch = createDeferred<never[]>();
     const contextEngine = createContextEngine({
