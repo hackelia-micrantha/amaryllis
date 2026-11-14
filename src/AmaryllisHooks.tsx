@@ -308,6 +308,15 @@ export const useContextInferenceAsync = (props: ContextInferenceProps = {}) => {
     onComplete: handleBaseComplete,
   });
 
+  // A controller replacement retires the inner generation without invoking
+  // onComplete (as on unmount). Retire this wrapper's request lease too, so
+  // late context retrieval cannot re-enter a superseded controller.
+  useLayoutEffect(() => {
+    return () => {
+      activeRequestRef.current = null;
+    };
+  }, [generateBase]);
+
   useEffect(() => {
     mountedRef.current = true;
     return () => {
