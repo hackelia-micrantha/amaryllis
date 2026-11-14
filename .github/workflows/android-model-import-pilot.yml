@@ -98,7 +98,11 @@ jobs:
           emulator -avd "$AVD_NAME" -no-window -no-audio -no-snapshot \
             -no-boot-anim -gpu swiftshader_indirect \
             > "$RUNNER_TEMP/android-emulator.log" 2>&1 &
-          adb wait-for-device
+          if ! timeout 120s adb wait-for-device; then
+            echo 'BLOCKED: emulator did not register with ADB within 120 seconds'
+            tail -n 80 "$RUNNER_TEMP/android-emulator.log" || true
+            exit 1
+          fi
           for _ in {1..100}; do
             if [[ "$(adb shell getprop sys.boot_completed | tr -d '\r')" == '1' ]]; then
               adb shell input keyevent 82
