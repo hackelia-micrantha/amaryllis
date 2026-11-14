@@ -210,9 +210,17 @@ export const useInferenceAsync = (props: InferenceProps = {}) => {
 
   useLayoutEffect(() => {
     return () => {
-      activeGenerationRef.current?.cancel(false);
+      const generation = activeGenerationRef.current;
+      if (!generation) return;
+
+      // When the provider withdraws a controller, its lifecycle subscription
+      // can disappear before a native cancellation acknowledgement arrives.
+      // Retire this hook's generation locally; provider cleanup owns closing
+      // the underlying engine, and no post-withdrawal callbacks may publish.
+      generation.cancel(false);
+      finishGeneration(generation, false);
     };
-  }, [controller]);
+  }, [controller, finishGeneration]);
 
   return generate;
 };
