@@ -70,7 +70,7 @@ jobs:
           set -euo pipefail
           node .yarn/releases/yarn-3.6.1.cjs example start --port 8081 \
             > "$RUNNER_TEMP/amaryllis-metro.log" 2>&1 &
-          for i in {1..80}; do
+          for _ in {1..80}; do
             if curl --fail --silent http://127.0.0.1:8081/status | grep -q 'packager-status:running'; then
               exit 0
             fi
@@ -92,7 +92,7 @@ jobs:
             -no-boot-anim -gpu swiftshader_indirect \
             > "$RUNNER_TEMP/android-emulator.log" 2>&1 &
           adb wait-for-device
-          for i in {1..100}; do
+          for _ in {1..100}; do
             if [[ "$(adb shell getprop sys.boot_completed | tr -d '\r')" == '1' ]]; then
               adb shell input keyevent 82
               exit 0
