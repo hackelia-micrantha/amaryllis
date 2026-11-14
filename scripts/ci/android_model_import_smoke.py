@@ -123,17 +123,25 @@ def assert_continue(root: ET.Element, expected_enabled: bool) -> tuple[int, int]
     return (x1 + x2) // 2, (y1 + y2) // 2
 
 
-def await_welcome(serial: str, timeout_seconds: int = 150) -> bytes:
+def await_welcome(serial: str, timeout_seconds: int = 150, diagnostic_dir: Path | None = None) -> bytes:
     deadline = time.monotonic() + timeout_seconds
     last_error = "no UI hierarchy received"
     while time.monotonic() < deadline:
         try:
             data = snapshot(serial)
+            if diagnostic_dir is not None:
+                (diagnostic_dir / 'last-window.xml').write_bytes(data)
             assert_welcome(ET.fromstring(data))
             return data
         except (RuntimeError, AssertionError, ET.ParseError, subprocess.CalledProcessError) as exc:
             last_error = str(exc)
         time.sleep(3)
+    if diagnostic_dir is not None:
+        try:
+            (diagnostic_dir / 'activity.txt').write_text(adb(serial, 'shell', 'dumpsys', 'activity', 'activities'))
+            (diagnostic_dir / 'logcat.txt').write_text(adb(serial, 'logcat', '-d', '-t', '400', timeout=20))
+        except (RuntimeError, subprocess.TimeoutExpired) as exc:
+            (diagnostic_dir / 'diagnostic-error.txt').write_text(str(exc))
     raise AssertionError(f"Model Imports not ready after {timeout_seconds}s: {last_error}")
 
 
@@ -186,7 +194,7 @@ def smoke(evidence: Path) -> None:
     adb(serial, "reverse", "tcp:8081", "tcp:8081")
     launch(serial)
 
-    (evidence / "launch.xml").write_bytes(await_welcome(serial))
+    (evidence / "launch.xml").write_bytes(await_welcome(serial, diagnostic_dir=evidence))
     print("PASS: installed debug app renders Model Imports / Not imported")
     initial = scroll_to_continue(serial)
     (evidence / "before-tap.xml").write_bytes(initial)
