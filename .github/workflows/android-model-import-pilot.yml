@@ -23,7 +23,7 @@ jobs:
     timeout-minutes: 55
     env:
       AVD_NAME: amaryllis-model-import
-      ANDROID_AVD_HOME: ${{ runner.temp }}/amaryllis-avds
+      ANDROID_AVD_HOME: ${{ github.workspace }}/.android-avds
       MODEL_IMPORT_DEBUG_APK: ${{ github.workspace }}/example/android/app/build/outputs/apk/debug/app-debug.apk
     steps:
       - name: Checkout without persisted credentials
