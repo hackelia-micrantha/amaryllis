@@ -78,11 +78,18 @@ jobs:
           done
           tail -n 30 "$RUNNER_TEMP/amaryllis-metro.log"
           exit 1
-      - name: Boot disposable emulator (no permission widening)
+      - name: Boot disposable emulator (job-scoped KVM access)
         run: |
           set -euo pipefail
+          test -c /dev/kvm || {
+            echo 'BLOCKED: hosted runner does not expose /dev/kvm'
+            exit 1
+          }
+          # Limit device access to the ephemeral runner's primary group.
+          sudo chgrp "$(id -gn)" /dev/kvm
+          sudo chmod g+rw /dev/kvm
           test -r /dev/kvm && test -w /dev/kvm || {
-            echo 'BLOCKED: hosted runner does not expose usable KVM'
+            echo 'BLOCKED: KVM remains inaccessible after scoped permission adjustment'
             exit 1
           }
           printf 'no\n' | avdmanager create avd --force \
