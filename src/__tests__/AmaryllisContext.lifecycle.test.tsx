@@ -1,7 +1,7 @@
 import React from 'react';
 import { act, render } from '@testing-library/react-native';
 import { LLMProvider, useLLMContext } from '../AmaryllisContext';
-import { useInferenceAsync } from '../AmaryllisHooks';
+import { useContextInferenceAsync, useInferenceAsync } from '../AmaryllisHooks';
 import { newLlmPipe } from '../NativePipe';
 import type {
   LLMContextValue,
@@ -308,6 +308,46 @@ describe('LLMProvider lifecycle authority', () => {
     expect(onResult).not.toHaveBeenCalled();
     expect(onComplete).not.toHaveBeenCalled();
 
+    unmount();
+  });
+
+  it('retires context-hook request state when the controller is replaced', async () => {
+    const engine = createPipe();
+    engine.subscribeAsyncLifecycle = jest.fn(() => () => {});
+    const onError = jest.fn();
+    const onComplete = jest.fn();
+    let generate: ReturnType<typeof useContextInferenceAsync> | undefined;
+    const InferenceProbe = () => {
+      generate = useContextInferenceAsync({ onError, onComplete });
+      return null;
+    };
+
+    const { rerender, unmount } = render(
+      <LLMProvider config={configA} llmPipe={engine}>
+        <InferenceProbe />
+      </LLMProvider>
+    );
+    await act(async () => {});
+
+    await act(async () => {
+      await generate?.({ prompt: 'first' });
+    });
+    expect(engine.generateAsync).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <LLMProvider config={configB} llmPipe={engine}>
+        <InferenceProbe />
+      </LLMProvider>
+    );
+    await act(async () => {});
+    expect(engine.init).toHaveBeenCalledTimes(2);
+    expect(onComplete).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await generate?.({ prompt: 'second' });
+    });
+    expect(engine.generateAsync).toHaveBeenCalledTimes(2);
+    expect(onError).not.toHaveBeenCalled();
     unmount();
   });
 
