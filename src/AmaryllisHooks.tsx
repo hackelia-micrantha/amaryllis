@@ -280,6 +280,7 @@ export const useInference = (props: InferenceProps = {}) => {
 };
 
 export const useContextInferenceAsync = (props: ContextInferenceProps = {}) => {
+  const { controller } = useLLMContext();
   const { contextEngine, query, ...inferenceProps } = props;
   const { onComplete, onError } = inferenceProps;
   const augmentRequest = useContextAugmentation(contextEngine, query);
@@ -308,14 +309,14 @@ export const useContextInferenceAsync = (props: ContextInferenceProps = {}) => {
     onComplete: handleBaseComplete,
   });
 
-  // A controller replacement retires the inner generation without invoking
-  // onComplete (as on unmount). Retire this wrapper's request lease too, so
-  // late context retrieval cannot re-enter a superseded controller.
+  // Only controller replacement retires this request lease. Callback identity
+  // changes must not release a still-active context lookup or stream.
+  // Clear the lease on withdrawal so stale retrieval cannot start generation.
   useLayoutEffect(() => {
     return () => {
       activeRequestRef.current = null;
     };
-  }, [generateBase]);
+  }, [controller]);
 
   useEffect(() => {
     mountedRef.current = true;
