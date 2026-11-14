@@ -11,6 +11,17 @@ import type {
 export const createMemoryStore = (): ContextStore => {
   let items: ContextItem[] = [];
 
+  // Copy the mutable record fields at both boundaries. A caller must not be
+  // able to revise stored TTL, admission metadata, or media after a write.
+  const copyItem = (item: ContextItem): ContextItem => ({
+    ...item,
+    ...(item.metadata && { metadata: { ...item.metadata } }),
+    ...(item.tags && { tags: [...item.tags] }),
+    ...(item.media && {
+      media: item.media.map((reference) => ({ ...reference })),
+    }),
+  });
+
   const live = (source: ContextItem[]): ContextItem[] =>
     source.filter(
       (item) =>
@@ -48,7 +59,7 @@ export const createMemoryStore = (): ContextStore => {
   return {
     async put(nextItems, policy) {
       // Compute before committing: a rejected limit leaves storage unchanged.
-      const next = enforce([...items, ...nextItems], policy);
+      const next = enforce([...items, ...nextItems.map(copyItem)], policy);
       items = next;
     },
     async query(query: ContextQuery) {
@@ -72,7 +83,7 @@ export const createMemoryStore = (): ContextStore => {
       if (query.limit) {
         results = results.slice(0, query.limit);
       }
-      return results;
+      return results.map(copyItem);
     },
     async delete(ids) {
       const idSet = new Set(ids);
