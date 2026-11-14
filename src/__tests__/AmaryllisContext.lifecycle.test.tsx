@@ -3,7 +3,12 @@ import { act, render } from '@testing-library/react-native';
 import { LLMProvider, useLLMContext } from '../AmaryllisContext';
 import { useInferenceAsync } from '../AmaryllisHooks';
 import { newLlmPipe } from '../NativePipe';
-import type { LLMContextValue, LlmEngine, LlmEngineConfig } from '../Types';
+import type {
+  LLMContextValue,
+  LlmCallbacks,
+  LlmEngine,
+  LlmEngineConfig,
+} from '../Types';
 
 const configA: LlmEngineConfig = { modelPath: 'a.task' };
 const configB: LlmEngineConfig = { modelPath: 'b.task' };
@@ -242,6 +247,65 @@ describe('LLMProvider lifecycle authority', () => {
       await pending.promise;
     });
     expect(engine.close).toHaveBeenCalledTimes(2);
+  });
+
+  it('retires a streaming hook when reconfiguration precedes cancellation acknowledgement', async () => {
+    const engine = createPipe();
+    const callbacks: LlmCallbacks[] = [];
+    engine.generateAsync = jest.fn(async (_params, nextCallbacks) => {
+      callbacks.push(nextCallbacks ?? {});
+    });
+    // A real native cancellation may be acknowledged asynchronously. No
+    // lifecycle event arrives before the replacement controller is ready.
+    engine.subscribeAsyncLifecycle = jest.fn(() => () => {});
+
+    const onError = jest.fn();
+    const onComplete = jest.fn();
+    const onResult = jest.fn();
+    let generate: ReturnType<typeof useInferenceAsync> | undefined;
+    const InferenceProbe = () => {
+      generate = useInferenceAsync({ onError, onComplete, onResult });
+      return null;
+    };
+
+    const { rerender, unmount } = render(
+      <LLMProvider config={configA} llmPipe={engine}>
+        <InferenceProbe />
+      </LLMProvider>
+    );
+    await act(async () => {});
+
+    await act(async () => {
+      await generate?.({ prompt: 'original' });
+    });
+    expect(engine.generateAsync).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <LLMProvider config={configB} llmPipe={engine}>
+        <InferenceProbe />
+      </LLMProvider>
+    );
+    await act(async () => {});
+    expect(engine.cancelAsync).toHaveBeenCalledTimes(1);
+    expect(engine.close).toHaveBeenCalledTimes(1);
+    expect(engine.init).toHaveBeenCalledTimes(2);
+
+    // Retiring a controller suppresses completion, as on unmount, but must
+    // not leave the mounted hook permanently busy after reinitialization.
+    expect(onComplete).not.toHaveBeenCalled();
+    await act(async () => {
+      await generate?.({ prompt: 'replacement' });
+    });
+    expect(engine.generateAsync).toHaveBeenCalledTimes(2);
+    expect(onError).not.toHaveBeenCalled();
+
+    act(() => {
+      callbacks[0]?.onEvent?.({ type: 'final', text: 'stale' });
+    });
+    expect(onResult).not.toHaveBeenCalled();
+    expect(onComplete).not.toHaveBeenCalled();
+
+    unmount();
   });
 
   it('keeps inference hooks from invoking an initializing engine', async () => {
