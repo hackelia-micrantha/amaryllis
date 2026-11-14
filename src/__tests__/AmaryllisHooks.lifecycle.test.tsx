@@ -310,19 +310,20 @@ describe('useContextInferenceAsync lifecycle', () => {
     expect(pipe.generateAsync).not.toHaveBeenCalled();
   });
 
-  it('retains a pending context request when callbacks change', async () => {
+  it('retains a pending context request when onGenerate changes', async () => {
     const deferredSearch = createDeferred<never[]>();
     const contextEngine = createContextEngine({
       search: jest.fn(() => deferredSearch.promise),
     });
     const { callbacks, pipe } = createPipe();
-    const previousOnError = jest.fn();
-    const currentOnError = jest.fn();
+    const onError = jest.fn();
+    const previousOnGenerate = jest.fn();
+    const currentOnGenerate = jest.fn();
     const { result, rerender } = renderHook(
-      ({ onError }: { onError: (error: Error) => void }) =>
-        useContextInferenceAsync({ contextEngine, onError }),
+      ({ onGenerate }: { onGenerate: () => void }) =>
+        useContextInferenceAsync({ contextEngine, onError, onGenerate }),
       {
-        initialProps: { onError: previousOnError },
+        initialProps: { onGenerate: previousOnGenerate },
         wrapper: createWrapper(pipe),
       }
     );
@@ -333,11 +334,13 @@ describe('useContextInferenceAsync lifecycle', () => {
       pending = result.current({ prompt: 'first' });
     });
 
-    rerender({ onError: currentOnError });
+    // onGenerate is a dependency of the inner generateBase callback. It
+    // must not retire an unrelated in-flight context lookup.
+    rerender({ onGenerate: currentOnGenerate });
     await act(async () => {
       await result.current({ prompt: 'overlap' });
     });
-    expect(currentOnError).toHaveBeenCalledWith(
+    expect(onError).toHaveBeenCalledWith(
       expect.any(GenerationInProgressError)
     );
     expect(contextEngine.search).toHaveBeenCalledTimes(1);
@@ -349,7 +352,8 @@ describe('useContextInferenceAsync lifecycle', () => {
       callbacks[0]?.onEvent?.({ type: 'final', text: 'done' });
     });
     expect(pipe.generateAsync).toHaveBeenCalledTimes(1);
-    expect(previousOnError).not.toHaveBeenCalled();
+    expect(previousOnGenerate).toHaveBeenCalledTimes(1);
+    expect(currentOnGenerate).not.toHaveBeenCalled();
   });
 
   it('rejects concurrent context retrieval before results can reorder', async () => {
