@@ -131,7 +131,11 @@ def await_welcome(serial: str, timeout_seconds: int = 150, diagnostic_dir: Path 
             data = snapshot(serial)
             if diagnostic_dir is not None:
                 (diagnostic_dir / 'last-window.xml').write_bytes(data)
-            assert_welcome(ET.fromstring(data))
+            root = ET.fromstring(data)
+            values = visible_values(root)
+            if any("isn't responding" in value for value in values):
+                raise AssertionError(f"Android system ANR dialog obstructs app: {values}")
+            assert_welcome(root)
             return data
         except (RuntimeError, AssertionError, ET.ParseError, subprocess.CalledProcessError) as exc:
             last_error = str(exc)
