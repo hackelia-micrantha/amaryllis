@@ -478,6 +478,8 @@ Before activation, policy may require that evidence matches:
 - required evaluation suite/version;
 - acceptable evidence age or source policy.
 
+For the proposed #117 qualification, follow the [production verification research note](production_verification_rfc.md#research-application--physical-device-and-quantized-artifact-qualification) already merged in #161. Evidence for nominally matching quantization or a different conversion/runtime/backend/device profile does not establish compatibility for this candidate. A re-quantized executable artifact requires its own exact-digest evidence and applicable lifecycle decision; an unsupported or unavailable required observation is not a passing measurement. Preserve the distinction between operational compatibility and semantic quality, with the application owning acceptance budgets. This cross-reference reuses the reviewed Mobile AI Factory research disposition; no new evidence schema, training system or physical-device qualification is implied.
+
 A stale evidence reference is not equivalent to failed evidence. It is **insufficient current evidence** and should become a non-pass activation state according to application policy.
 
 ---
