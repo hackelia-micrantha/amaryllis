@@ -100,6 +100,12 @@ Operational evidence must be data-minimized and structured. It must not require 
 - treat retrieved and multimodal content as untrusted;
 - separate prompt construction from execution authority.
 
+#### Research qualification: environmental injection (2026-11-18)
+
+[MobileProbe, arXiv:2611.16693v1](https://arxiv.org/abs/2611.16693v1) reports that fixed UI injection points can be missed by agents taking alternate paths. Its Android-emulator evaluation distinguishes adversarial content exposure from observed attack outcomes. Results are paper-reported, not independently reproduced, and do not establish Amaryllis or iOS vulnerability rates.
+
+For application-owned multimodal input and model-import admission (#158), treat rendered content and apparent consent dialogs as untrusted observations, not authority. A proposed matched test should verify the intended state was reached, the synthetic input was delivered, and a separate application-owned assertion observed the permitted or prohibited result. A missed target is unexercised, not a security pass. Keep this separate from model-performance evidence (#117); do not expand the verification schema or collect real user content. Installed-app qualification remains dependent on the existing device pilot.
+
 ### T2: Arbitrary runtime code generation
 
 **Description:** A device-time model produces JSX, TSX, JavaScript, imports, or markup that becomes authoritative UI logic.
