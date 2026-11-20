@@ -67,7 +67,7 @@ export const ContextSummaryCardPanel = () => {
   return (
     <View style={styles.container}>
       <PersonalizedComponent
-        name="context-summary-card"
+        name="context-summary-card@1.0.0"
         baseProps={baseProps}
         personalizationData={personalizationData}
         loading={isGenerating}
