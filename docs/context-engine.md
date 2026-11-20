@@ -1,6 +1,6 @@
 # Context Engine (Interface-First)
 
-The Context Engine is a lightweight, offline-first facade that wires validation, scoring, and storage without bundling any backend. You provide a `ContextStore` implementation that fits your app (SQLite, files, or custom DB). The engine enforces policy bounds and media constraints before it touches your store.
+The Context Engine is a lightweight, offline-first facade that wires validation, scoring, and storage without bundling any backend. You provide a `ContextStore` implementation that fits your app (SQLite, files, or custom DB). The engine validates inputs and materializes TTL defaults; the store atomically enforces persisted limits and expiry. Unsupported configured guarantees must fail explicitly.
 
 ## Concepts
 
@@ -18,10 +18,15 @@ import {
   type ContextStore,
   type ContextItem,
 } from 'react-native-amaryllis/context';
+import { ContextPolicyUnsupportedError } from '@micrantha/amaryllis';
 
+// Adapter skeleton: replace with an application-owned transactional store.
+// This skeleton refuses writes rather than silently ignoring configured bounds.
 const store: ContextStore = {
-  async put(items: ContextItem[]) {
-    // Persist items in your storage backend.
+  async put(items: ContextItem[], policy) {
+    throw new ContextPolicyUnsupportedError(
+      'Implement atomic persistence and policy enforcement in this adapter'
+    );
   },
   async query(query) {
     // Return candidate items matching query filters.
@@ -31,7 +36,9 @@ const store: ContextStore = {
     // Optional cleanup.
   },
   async compact(policy) {
-    // Enforce eviction/TTL policy in your store.
+    throw new ContextPolicyUnsupportedError(
+      'Implement atomic eviction and TTL compaction in this adapter'
+    );
   },
   async stats() {
     return { itemCount: 0 };
@@ -53,6 +60,7 @@ const engine = new ContextEngine({
   defaultQueryFactory: (prompt) => ({ text: prompt, limit: 6 }),
 });
 
+// This call succeeds only after the application implements the adapter above.
 await engine.add([
   {
     id: 'mem-1',
@@ -156,12 +164,25 @@ type MediaReference = {
 };
 ```
 
-## Storage Expectations
+## ContextStore migration and enforcement ownership
 
-Your `ContextStore` should:
-- honor `ContextPolicy` in `compact()`
-- apply TTL and eviction strategies as appropriate
-- return results ordered if you want to override scoring
+The pre-1.0 write signature changed:
+
+```ts
+// Old
+put(items: ContextItem[]): Promise<void>;
+
+// New (required, not optional)
+put(items: ContextItem[], policy: ContextPolicy): Promise<void>;
+```
+
+**Engine authority:** validate the policy and incoming items, apply `defaultTtlSeconds` only when `item.ttlSeconds` is absent, and pass the effective policy to every write (an explicit `{}` when no policy is configured). `setPolicy()` changes defaults for *future* writes, without retroactively changing prior record TTLs. The engine does not use `stats()` to perform a non-atomic check-then-write.
+
+**Store authority:** atomically enforce `maxItems`, `maxBytes`, supported eviction strategy, and stored TTL expiry; never return expired records from `query()`. `compact(policy)` removes expired records and applies current limits. TTL is measured from the item's `createdAt` timestamp in milliseconds plus `ttlSeconds * 1000`. Configured guarantees that a store cannot satisfy must reject the write/compaction with a typed `ContextPolicyUnsupportedError` instead of silently ignoring the limit.
+
+For a functional, **in-memory demonstration only**, see [ContextMemoryStore.ts](../example/src/ContextMemoryStore.ts). That adapter supports `maxItems`, recency eviction, and TTL exclusion/compaction. It deliberately rejects `maxBytes`, `lru` and `size` eviction and is not a durable or encrypted persistence backend. Production adapters must use a transaction or equivalent atomic storage primitive for multi-writer correctness and must document their byte-accounting and LRU semantics.
+
+A policy failure should never leave a partially accepted, falsely successful write. A missing/unknown `stats().totalBytes` is *not* evidence that `maxBytes` is satisfied. Retrieved records remain untrusted even when locally stored: Amaryllis revalidates their structure/media bounds before formatting or scoring.
 
 If your store does not order results, the engine can apply a `ContextScorer` to rank them.
 
