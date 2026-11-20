@@ -114,7 +114,7 @@ registry.register('summary-card', {
   implementationIdentity: 'app/components/SummaryCard',
 });
 
-const registered = registry.get('summary-card');
+const registered = registry.get(`summary-card@${spec.metadata.version}`);
 if (!registered) {
   throw new Error('summary-card was not registered');
 }
