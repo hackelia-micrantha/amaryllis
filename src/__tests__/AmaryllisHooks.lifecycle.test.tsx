@@ -82,6 +82,7 @@ describe('useInferenceAsync lifecycle', () => {
         }),
       { wrapper: createWrapper(pipe) }
     );
+    await act(async () => {});
 
     await act(async () => {
       await result.current({ prompt: 'first' });
@@ -120,6 +121,7 @@ describe('useInferenceAsync lifecycle', () => {
         }),
       { wrapper: createWrapper(pipe) }
     );
+    await act(async () => {});
 
     await act(async () => {
       await result.current({ prompt: 'first' });
@@ -158,6 +160,7 @@ describe('useInferenceAsync lifecycle', () => {
         }),
       { wrapper: createWrapper(pipe) }
     );
+    await act(async () => {});
 
     let cancel: (() => void) | undefined;
     await act(async () => {
@@ -188,6 +191,7 @@ describe('useInferenceAsync lifecycle', () => {
     const { result } = renderHook(() => useInferenceAsync({ onError }), {
       wrapper: createWrapper(pipe),
     });
+    await act(async () => {});
 
     let cancelFirst: (() => void) | undefined;
     await act(async () => {
@@ -215,6 +219,7 @@ describe('useInferenceAsync lifecycle', () => {
     const { result } = renderHook(() => useInferenceAsync({ onComplete }), {
       wrapper: createWrapper(pipe),
     });
+    await act(async () => {});
 
     await act(async () => {
       await result.current({ prompt: 'first' });
@@ -241,6 +246,7 @@ describe('useInferenceAsync lifecycle', () => {
       () => useInferenceAsync({ onError, onComplete }),
       { wrapper: createWrapper(pipe) }
     );
+    await act(async () => {});
 
     let cancel: (() => void) | undefined;
     await act(async () => {
@@ -264,6 +270,7 @@ describe('useInferenceAsync lifecycle', () => {
       () => useInferenceAsync({ onComplete }),
       { wrapper: createWrapper(pipe) }
     );
+    await act(async () => {});
 
     await act(async () => {
       await result.current({ prompt: 'test' });
@@ -287,6 +294,7 @@ describe('useContextInferenceAsync lifecycle', () => {
       () => useContextInferenceAsync({ contextEngine }),
       { wrapper: createWrapper(pipe) }
     );
+    await act(async () => {});
 
     let pendingGeneration: Promise<() => void> | undefined;
     act(() => {
@@ -302,6 +310,50 @@ describe('useContextInferenceAsync lifecycle', () => {
     expect(pipe.generateAsync).not.toHaveBeenCalled();
   });
 
+  it('retains a pending context request when onGenerate changes', async () => {
+    const deferredSearch = createDeferred<never[]>();
+    const contextEngine = createContextEngine({
+      search: jest.fn(() => deferredSearch.promise),
+    });
+    const { callbacks, pipe } = createPipe();
+    const onError = jest.fn();
+    const previousOnGenerate = jest.fn();
+    const currentOnGenerate = jest.fn();
+    const { result, rerender } = renderHook(
+      ({ onGenerate }: { onGenerate: () => void }) =>
+        useContextInferenceAsync({ contextEngine, onError, onGenerate }),
+      {
+        initialProps: { onGenerate: previousOnGenerate },
+        wrapper: createWrapper(pipe),
+      }
+    );
+    await act(async () => {});
+
+    let pending: Promise<() => void> | undefined;
+    act(() => {
+      pending = result.current({ prompt: 'first' });
+    });
+
+    // onGenerate is a dependency of the inner generateBase callback. It
+    // must not retire an unrelated in-flight context lookup.
+    rerender({ onGenerate: currentOnGenerate });
+    await act(async () => {
+      await result.current({ prompt: 'overlap' });
+    });
+    expect(onError).toHaveBeenCalledWith(expect.any(GenerationInProgressError));
+    expect(contextEngine.search).toHaveBeenCalledTimes(1);
+    expect(pipe.generateAsync).not.toHaveBeenCalled();
+
+    await act(async () => {
+      deferredSearch.resolve([]);
+      await pending;
+      callbacks[0]?.onEvent?.({ type: 'final', text: 'done' });
+    });
+    expect(pipe.generateAsync).toHaveBeenCalledTimes(1);
+    expect(previousOnGenerate).toHaveBeenCalledTimes(1);
+    expect(currentOnGenerate).not.toHaveBeenCalled();
+  });
+
   it('rejects concurrent context retrieval before results can reorder', async () => {
     const deferredSearch = createDeferred<never[]>();
     const contextEngine = createContextEngine({
@@ -313,6 +365,7 @@ describe('useContextInferenceAsync lifecycle', () => {
       () => useContextInferenceAsync({ contextEngine, onError }),
       { wrapper: createWrapper(pipe) }
     );
+    await act(async () => {});
 
     let firstGeneration: Promise<() => void> | undefined;
     act(() => {
