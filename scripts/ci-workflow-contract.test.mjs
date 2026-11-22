@@ -61,6 +61,11 @@ test('compatibility and SBOM jobs cancel only superseded PR runs', () => {
     const source = actionSources.get(`.github/workflows/${name}`);
     assert.ok(source, `missing ${name}`);
     const header = source.slice(0, source.indexOf('jobs:'));
+    assert.equal(
+      (header.match(/^concurrency:$/gm) || []).length,
+      1,
+      `${name} must declare workflow concurrency exactly once`,
+    );
     assert.ok(
       header.includes(`\n${expected}\n`),
       `${name} must have workflow-level per-PR cancellation`,
