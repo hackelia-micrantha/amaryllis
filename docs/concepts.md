@@ -51,6 +51,14 @@ It provides:
 
 It does not define component policy, govern rendering authority, or make retrieved content trustworthy.
 
+### ComponentRegistry version authority
+
+Component implementations are bound to exact `component-name@SemVer` identities.
+`registry.get('card@1.2.3')` and `registry.getExact('card@1.2.3')` perform exact lookups.
+`registry.get('card')` does not silently pick a newer implementation.
+Explicit tooling/development selection uses `registry.getLatest('card')` (highest stable version, falling back to prerelease only when no stable version exists); `getLatest('card', { includePrerelease: true })` includes prereleases by SemVer precedence.
+Registry spec/contract FNV hashes are non-cryptographic fingerprints, not integrity or authorization proofs.
+
 ### ContextStore
 
 The application-provided persistence interface used by the Context Engine. Implementations may use SQLite, files, another database, or a custom service.

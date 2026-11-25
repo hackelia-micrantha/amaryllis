@@ -1,0 +1,5 @@
+# GitHub Pages builds the public documentation from docs/.
+# Internal agent implementation plans are source artifacts, not website pages.
+# Their TSX examples contain literal {{ }} expressions that Jekyll parses as Liquid.
+exclude:
+  - superpowers
