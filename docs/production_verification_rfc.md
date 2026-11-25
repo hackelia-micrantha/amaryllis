@@ -275,6 +275,14 @@ Application/model quality evidence must include the identity and version of the 
 
 Operational compatibility and semantic/model-quality evaluation must remain separable. For example, a model may satisfy memory and latency budgets while failing an application quality threshold.
 
+#### Research application — physical-device and quantized-artifact qualification
+
+[Mobile AI Factory (Li et al., arXiv:2611.13509v1)](https://arxiv.org/abs/2611.13509v1) reports 288 successful configurations of 364 attempted on Android, with 41 of 76 failures not predictable from model weight size alone. Nominally equivalent quantization labels also yielded different task-quality results across engines and recipes. These findings are not evidence of Amaryllis, MediaPipe or iOS compatibility; the study's cool/idle devices, short workloads and repeatedly consulted selection data limit transfer.
+
+For the existing [attached-device qualification work (#117)](https://github.com/hackelia-micrantha/amaryllis/issues/117), start with an already provisioned supported artifact and synthetic application fixtures. Bind quality and performance to the exact executable artifact digest, quantization/conversion provenance, application/runtime build, backend, OS/device and evaluation profile. Record observed configuration failures and unavailable measurements, not just successful throughput. Keep a frozen final quality suite separate from model selection, validate the existing lifecycle/cancellation checks and compare with a simpler baseline where applicable. A model fitting in storage or running on an advertised accelerator does not establish compatibility. The application owns acceptance budgets; a re-quantized artifact requires its own applicable evidence and [#101](https://github.com/hackelia-micrantha/amaryllis/issues/101) lifecycle decision.
+
+The proposed bounded comparison remains dependent on #116 and the native adapters. It does not introduce a schema revision, training orchestrator, hosted device farm, content-bearing evidence or mandatory CI gate. Existing Verify privacy and fail-explicit decision semantics remain unchanged; no independent reproduction is claimed.
+
 ### Unavailable evidence
 
 Unavailable or unsupported measurements are first-class data.
