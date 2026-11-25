@@ -1,22 +1,24 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReactGenerator = void 0;
+const layout_1 = require("./layout");
 const TS_IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 class ReactGenerator {
     generate(spec, options = {}) {
         const { metadata, props, ui, target } = spec;
         const componentName = this.toPascalCase(metadata.name);
-        const propsType = this.generatePropsType(props, ui?.slots, ui?.designTokens);
-        const layout = this.safeLayout(ui?.layout || this.getDefaultLayout(target.runtime));
+        const slots = ui?.slots ?? [];
+        const propsType = this.generatePropsType(props, slots, ui?.designTokens);
+        const layout = this.safeLayout(ui?.layout || this.getDefaultLayout(target.runtime), target.runtime, slots);
         const imports = this.generateImports(target.runtime);
         const propKeys = [
             ...Object.keys(props.properties),
-            ...(ui?.slots || []),
+            ...slots,
             ...(ui?.designTokens ? ['designTokens'] : []),
             'variant',
             'children',
         ];
-        const variantLogic = this.generateVariantLogic(ui?.variants, layout);
+        const variantLogic = this.generateVariantLogic(ui?.variants, layout, target.runtime, slots);
         const provenance = this.generateProvenance(metadata.version, options);
         return `
 ${imports}
@@ -34,18 +36,20 @@ export const ${componentName}: React.FC<${componentName}Props> = ({
 };
 `;
     }
-    generateVariantLogic(variants, defaultLayout) {
+    generateVariantLogic(variants, defaultLayout, runtime, slots) {
         if (!variants || Object.keys(variants).length === 0) {
-            return `return (\n    ${this.wrapWithLayout(defaultLayout)}\n  );`;
+            return `return (\n    ${defaultLayout}\n  );`;
         }
         const cases = Object.entries(variants).map(([name, config]) => {
-            const layout = this.safeLayout(config.layout || defaultLayout);
-            return `    case '${name}':\n      return (\n        ${this.wrapWithLayout(layout)}\n      );`;
+            const layout = this.safeLayout(config.layout || defaultLayout, runtime, slots);
+            return `    case '${name}':\n      return (\n        ${layout}\n      );`;
         });
         return `switch (variant) {
 ${cases.join('\n')}
     default:
-      return (\n        ${this.wrapWithLayout(defaultLayout)}\n      );
+      return (
+        ${defaultLayout}
+      );
   }`;
     }
     toPascalCase(str) {
@@ -153,23 +157,12 @@ ${properties.join('\n')}
             ? '<View>{children}</View>'
             : '<div>{children}</div>';
     }
-    wrapWithLayout(layout, slots) {
-        // Basic substitution for slots if they exist in layout as {slotName}
-        let result = layout;
-        if (slots) {
-            slots.forEach((slot) => {
-                // Replace both {slot} and {slots.slot} for flexibility
-                result = result.split(`{${slot}}`).join(`{${slot}}`);
-                result = result.split(`{slots.${slot}}`).join(`{${slot}}`);
-            });
+    safeLayout(layout, runtime, slots) {
+        const result = (0, layout_1.validateAndNormalizeLayout)(layout, runtime, slots);
+        if (!result.layout) {
+            throw new Error(result.error ?? 'Unsafe component layout.');
         }
-        return result;
-    }
-    safeLayout(layout) {
-        if (/(<script\b|\bimport\s+|\bexport\s+|\brequire\s*\(|\beval\s*\(|new\s+Function\s*\()/i.test(layout)) {
-            throw new Error('Unsafe layout contains executable code or import/export syntax.');
-        }
-        return layout;
+        return result.layout;
     }
     generateProvenance(specVersion, options) {
         return [

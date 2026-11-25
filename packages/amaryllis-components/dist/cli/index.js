@@ -1,38 +1,5 @@
 #!/usr/bin/env node
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -42,10 +9,9 @@ const crypto_1 = __importDefault(require("crypto"));
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const yaml_1 = require("../parser/yaml");
-const engine_1 = require("../policy/engine");
+const validation_1 = require("./validation");
 const react_1 = require("../generator/react");
 const schema_1 = require("../generator/schema");
-const jsonpatch = __importStar(require("fast-json-patch"));
 const diff_1 = require("./diff");
 const program = new commander_1.Command();
 function hashContent(content) {
@@ -71,15 +37,7 @@ program
             process.exit(1);
         }
         const content = fs_1.default.readFileSync(specPath, 'utf8');
-        const spec = (0, yaml_1.parseComponentSpec)(content);
-        // Validate with Policy Engine
-        const policyEngine = new engine_1.PolicyEngine();
-        const policyResult = policyEngine.validateSpec(spec);
-        if (!policyResult.valid) {
-            console.error('Policy Validation Failed:');
-            policyResult.errors.forEach((err) => console.error(` - ${err}`));
-            process.exit(1);
-        }
+        const spec = (0, validation_1.validateSpecForGeneration)((0, yaml_1.parseComponentSpec)(content));
         // Generate React Code
         const generator = new react_1.ReactGenerator();
         const generatedCode = generator.generate(spec, {
@@ -138,19 +96,11 @@ program
         const specPath = path_1.default.resolve(options.spec);
         const patchPath = path_1.default.resolve(options.patch);
         const specContent = fs_1.default.readFileSync(specPath, 'utf8');
-        const spec = (0, yaml_1.parseComponentSpec)(specContent);
+        const spec = (0, validation_1.validateSpecForGeneration)((0, yaml_1.parseComponentSpec)(specContent));
         const patchContent = fs_1.default.readFileSync(patchPath, 'utf8');
         const patch = JSON.parse(patchContent);
-        // Apply patch
-        const patchedSpec = jsonpatch.applyPatch(spec, patch).newDocument;
-        // Validate patched spec
-        const policyEngine = new engine_1.PolicyEngine();
-        const policyResult = policyEngine.validateSpec(patchedSpec);
-        if (!policyResult.valid) {
-            console.error('Patched Spec Policy Validation Failed:');
-            policyResult.errors.forEach((err) => console.error(` - ${err}`));
-            process.exit(1);
-        }
+        // A JSON Patch invalidates prior validation; verify the entire candidate.
+        const patchedSpec = (0, validation_1.applyCustomizationAndValidate)(spec, patch);
         // Generate
         const generator = new react_1.ReactGenerator();
         const oldCode = generator.generate(spec, {
