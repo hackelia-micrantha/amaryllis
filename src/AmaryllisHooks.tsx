@@ -369,14 +369,18 @@ export const useContextInferenceAsync = (props: ContextInferenceProps = {}) => {
         }
         return cancel;
       } catch (err) {
-        if (!cancelled && mountedRef.current) {
+        if (
+          !cancelled &&
+          mountedRef.current &&
+          activeRequestRef.current === requestId
+        ) {
           onError?.(
             err instanceof Error ? err : new Error('An unknown error occurred')
           );
           if (activeRequestRef.current === requestId) {
             activeRequestRef.current = null;
+            onComplete?.();
           }
-          onComplete?.();
         }
         return cancel;
       }
