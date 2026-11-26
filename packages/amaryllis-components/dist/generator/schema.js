@@ -3,7 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.JSONSchemaGenerator = void 0;
 class JSONSchemaGenerator {
     generate(spec) {
-        const { metadata, props, ui } = spec;
+        const { metadata, props, ui, ai } = spec;
+        const allowsJsonPatch = ai.generationContract?.output === 'json-patch';
         const schema = {
             $schema: 'http://json-schema.org/draft-07/schema#',
             title: `${metadata.name} Personalization Contract`,
@@ -26,7 +27,9 @@ class JSONSchemaGenerator {
                     ? {
                         type: 'object',
                         properties: ui.slots.reduce((acc, slot) => {
-                            acc[slot] = { type: 'string' };
+                            acc[slot] = props.properties[slot]
+                                ? this.mapProperty(props.properties[slot])
+                                : { type: 'string' };
                             return acc;
                         }, {}),
                         additionalProperties: false,
@@ -39,23 +42,25 @@ class JSONSchemaGenerator {
                         additionalProperties: false,
                     }
                     : undefined,
-                patches: {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        properties: {
-                            op: {
-                                type: 'string',
-                                enum: ['add', 'remove', 'replace', 'move', 'copy', 'test'],
+                patches: allowsJsonPatch
+                    ? {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                op: {
+                                    type: 'string',
+                                    enum: ['add', 'remove', 'replace', 'move', 'copy', 'test'],
+                                },
+                                path: { type: 'string' },
+                                from: { type: 'string' },
+                                value: {},
                             },
-                            path: { type: 'string' },
-                            from: { type: 'string' },
-                            value: {},
+                            required: ['op', 'path'],
+                            additionalProperties: false,
                         },
-                        required: ['op', 'path'],
-                        additionalProperties: false,
-                    },
-                },
+                    }
+                    : undefined,
             },
             additionalProperties: false,
         };
@@ -74,6 +79,8 @@ class JSONSchemaGenerator {
             ...(value.description && { description: value.description }),
             ...(value.enum && { enum: value.enum }),
             ...(value.default !== undefined && { default: value.default }),
+            ...(value.minLength !== undefined && { minLength: value.minLength }),
+            ...(value.maxLength !== undefined && { maxLength: value.maxLength }),
             ...(value.items && { items: this.mapProperty(value.items) }),
             ...(value.properties && {
                 properties: this.mapProperties(value.properties),
