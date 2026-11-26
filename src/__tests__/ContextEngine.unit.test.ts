@@ -6,12 +6,15 @@ import {
 import type {
   ContextEngine as ContextEngineContract,
   ContextItem,
+  ContextPolicy,
   ContextQuery,
   ContextStore,
 } from '../ContextTypes';
 
 const createStore = (): ContextStore => ({
-  put: jest.fn(() => Promise.resolve()),
+  put: jest.fn((_items: ContextItem[], _policy: ContextPolicy) =>
+    Promise.resolve()
+  ),
   query: jest.fn(() => Promise.resolve([])),
   delete: jest.fn(() => Promise.resolve()),
   compact: jest.fn(() => Promise.resolve()),

@@ -1,5 +1,6 @@
 import { ContextEngine } from '../ContextEngine';
 import type { ContextItem, ContextPolicy, ContextStore } from '../ContextTypes';
+import { ContextPolicyUnsupportedError } from '@micrantha/amaryllis';
 import { ValidationError } from '../Errors';
 
 const createStore = (): ContextStore => ({
@@ -74,6 +75,30 @@ describe('ContextPolicy enforcement ownership', () => {
       nextPolicy
     );
     expect(store.compact).toHaveBeenCalledWith(nextPolicy);
+  });
+
+  it('propagates unsupported persistence policy without a fallback write', async () => {
+    const failure = new ContextPolicyUnsupportedError('maxBytes unsupported');
+    const store = createStore();
+    store.put = jest.fn(async () => {
+      throw failure;
+    });
+    store.compact = jest.fn(async () => {
+      throw failure;
+    });
+    const policy: ContextPolicy = { maxBytes: 1024 };
+    const engine = new ContextEngine({ store, policy });
+    const source = item();
+
+    await expect(engine.add([source])).rejects.toBe(failure);
+    expect(store.put).toHaveBeenCalledTimes(1);
+    expect(store.put).toHaveBeenCalledWith([source], policy);
+    expect(store.compact).not.toHaveBeenCalled();
+    await expect(engine.compact()).rejects.toBe(failure);
+    expect(store.compact).toHaveBeenCalledTimes(1);
+    expect(store.compact).toHaveBeenCalledWith(policy);
+    expect(store.put).toHaveBeenCalledTimes(1);
+    expect(store.stats).not.toHaveBeenCalled();
   });
 
   it('rejects invalid input and media before calling the store', async () => {

@@ -176,6 +176,8 @@ put(items: ContextItem[]): Promise<void>;
 put(items: ContextItem[], policy: ContextPolicy): Promise<void>;
 ```
 
+**Migration is semantic, not just syntactic.** TypeScript permits an implementation with fewer parameters to satisfy this interface, and JavaScript can ignore extra arguments. An old adapter can therefore type-check while ignoring the policy. Update every adapter explicitly, including its query and compaction behavior, and verify its configured limits, expiry and rejection behavior before use. The engine cannot establish atomic persistence guarantees for arbitrary application-owned code. Do not use a legacy or unverified adapter for retention or resource-limit guarantees.
+
 **Engine authority:** validate the policy and incoming items, apply `defaultTtlSeconds` only when `item.ttlSeconds` is absent, and pass the effective policy to every write (an explicit `{}` when no policy is configured). `setPolicy()` changes defaults for *future* writes, without retroactively changing prior record TTLs. The engine does not use `stats()` to perform a non-atomic check-then-write.
 
 **Store authority:** atomically enforce `maxItems`, `maxBytes`, supported eviction strategy, and stored TTL expiry; never return expired records from `query()`. `compact(policy)` removes expired records and applies current limits. TTL is measured from the item's `createdAt` timestamp in milliseconds plus `ttlSeconds * 1000`. Configured guarantees that a store cannot satisfy must reject the write/compaction with a typed `ContextPolicyUnsupportedError` instead of silently ignoring the limit.
