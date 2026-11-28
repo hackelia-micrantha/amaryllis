@@ -116,7 +116,8 @@
       "^@micrantha/react-native-amaryllis$": "<rootDir>/src/index.tsx",
       "^@micrantha/react-native-amaryllis/context$": "<rootDir>/src/context.ts",
       "^@micrantha/amaryllis$": "<rootDir>/packages/amaryllis/src/index.ts",
-      "^@micrantha/amaryllis/context$": "<rootDir>/packages/amaryllis/src/context.ts"
+      "^@micrantha/amaryllis/context$": "<rootDir>/packages/amaryllis/src/context.ts",
+      "^@micrantha/amaryllis-components$": "<rootDir>/packages/amaryllis-components/src/index.ts"
     },
     "modulePathIgnorePatterns": [
       "<rootDir>/example/node_modules",

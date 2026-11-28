@@ -13,12 +13,14 @@ import { useModelImportViewModel } from './modelImport/useModelImportViewModel';
 
 export type ModelImportScreenProps = {
   onComplete?: (paths: ModelImportPaths, result: ModelImportResult) => void;
+  onPreviewAudience?: () => void;
   requireImageEmbedder?: boolean;
   requireObjectDetector?: boolean;
 };
 
 export default function ModelImportScreen({
   onComplete,
+  onPreviewAudience,
   requireImageEmbedder = false,
   requireObjectDetector = false,
 }: ModelImportScreenProps) {
@@ -38,6 +40,22 @@ export default function ModelImportScreen({
         files into app storage. Configure the SDK from these internal paths, not
         from public Downloads.
       </Text>
+
+      {onPreviewAudience ? (
+        <Pressable
+          accessibilityRole="button"
+          disabled={state.importing !== null}
+          onPress={onPreviewAudience}
+          style={[
+            styles.secondaryButton,
+            state.importing !== null && styles.disabledButton,
+          ]}
+        >
+          <Text style={styles.secondaryButtonText}>
+            Try audience preview without a model
+          </Text>
+        </Pressable>
+      ) : null}
 
       {state.specs.map((spec) => {
         const imported = state.models[spec.kind];
