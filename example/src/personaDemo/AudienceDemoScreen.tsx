@@ -95,7 +95,10 @@ export function AudienceDemoScreen() {
             accessibilityRole="button"
             accessibilityState={{ selected: resolution.audience === id }}
             onPress={() => setManual(id)}
-            style={styles.button}
+            style={[
+              styles.button,
+              resolution.audience === id && styles.selectedButton,
+            ]}
           >
             <Text>{label}</Text>
           </TouchableOpacity>
@@ -166,5 +169,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#d1d5db',
     borderRadius: 999,
+  },
+  selectedButton: {
+    backgroundColor: '#dbeafe',
+    borderColor: '#2563eb',
   },
 });
