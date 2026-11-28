@@ -362,7 +362,7 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Cache turborepo for Android
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.TURBO_CACHE_DIR }}
           key: ${{ runner.os }}-turborepo-android-${{ hashFiles('yarn.lock', 'flake.nix', 'flake.lock', 'android/gradle.properties', 'example/android/build.gradle', 'example/android/gradle/wrapper/gradle-wrapper.properties') }}
@@ -407,7 +407,7 @@ jobs:
 
       - name: Cache Gradle
         if: env.turbo_cache_hit != 1
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.gradle/wrapper
@@ -443,7 +443,7 @@ jobs:
         run: node .yarn/releases/yarn-3.6.1.cjs install --immutable
 
       - name: Cache turborepo for iOS
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.TURBO_CACHE_DIR }}
           key: ${{ runner.os }}-turborepo-ios-${{ hashFiles('yarn.lock') }}
