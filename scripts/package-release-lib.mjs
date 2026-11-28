@@ -1,5 +1,55 @@
 import { builtinModules } from 'node:module';
 
+export const publishOrder = Object.freeze([
+  '@micrantha/amaryllis',
+  '@micrantha/react-native-amaryllis',
+  '@micrantha/amaryllis-components',
+]);
+
+export function validateReleaseArtifactManifest(manifest) {
+  if (
+    !manifest ||
+    manifest.schemaVersion !== 1 ||
+    !Array.isArray(manifest.publishOrder) ||
+    !Array.isArray(manifest.packages) ||
+    manifest.publishOrder.length !== publishOrder.length ||
+    manifest.packages.length !== publishOrder.length ||
+    manifest.publishOrder.some((name, i) => name !== publishOrder[i])
+  ) {
+    throw new Error('Unexpected release artifact manifest');
+  }
+
+  const packagesByName = Object.create(null);
+  for (const entry of manifest.packages) {
+    if (
+      !entry ||
+      !publishOrder.includes(entry.name) ||
+      Object.hasOwn(packagesByName, entry.name) ||
+      typeof entry.version !== 'string' ||
+      !semverPattern.test(entry.version) ||
+      typeof entry.filename !== 'string' ||
+      !/^[A-Za-z0-9][A-Za-z0-9._-]*\.tgz$/.test(entry.filename)
+    ) {
+      throw new Error('Invalid package release artifact entry');
+    }
+    packagesByName[entry.name] = entry;
+  }
+
+  if (publishOrder.some((name) => !packagesByName[name])) {
+    throw new Error('Release artifact manifest is missing an expected package');
+  }
+  return packagesByName;
+}
+
+export function assertPackedArtifactIdentity(entry, packedManifest) {
+  if (
+    packedManifest?.name !== entry.name ||
+    packedManifest?.version !== entry.version
+  ) {
+    throw new Error(`Packed release artifact identity mismatch: ${entry.name}@${entry.version}`);
+  }
+}
+
 const runtimeDependencySections = [
   'dependencies',
   'peerDependencies',
