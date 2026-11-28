@@ -30,10 +30,6 @@ const assertRecord = (value: unknown, field: string): void => {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new ValidationError(`${field} must be an object`);
   }
-  const prototype = Object.getPrototypeOf(value);
-  if (prototype !== Object.prototype && prototype !== null) {
-    throw new ValidationError(`${field} must be a plain object`);
-  }
 };
 
 const assertNonEmpty = (value: string, field: string): void => {
