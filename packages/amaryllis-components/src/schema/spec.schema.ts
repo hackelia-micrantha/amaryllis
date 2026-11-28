@@ -1,5 +1,6 @@
 import { valid as validSemver } from 'semver';
 import { z } from 'zod';
+import type { JsonSchemaValue } from '../types/spec';
 
 const JS_IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 const COMPONENT_NAME = /^[a-z][a-z0-9-]*$/;
@@ -66,7 +67,7 @@ function validateLayout(
 }
 
 export const StabilitySchema = z.enum(['experimental', 'stable', 'deprecated']);
-export const JsonSchemaValueSchema: z.ZodType = z.lazy(() =>
+export const JsonSchemaValueSchema: z.ZodType<JsonSchemaValue> = z.lazy(() =>
   z
     .object({
       type: z
@@ -85,7 +86,7 @@ export const JsonSchemaValueSchema: z.ZodType = z.lazy(() =>
       default: z.unknown().optional(),
       maxLength: z.number().int().nonnegative().optional(),
       items: JsonSchemaValueSchema.optional(),
-      properties: z.record(JsonSchemaValueSchema).optional(),
+      properties: z.record(z.string(), JsonSchemaValueSchema).optional(),
       required: z.array(z.string()).optional(),
       additionalProperties: z
         .union([z.boolean(), JsonSchemaValueSchema])
@@ -96,10 +97,11 @@ export const JsonSchemaValueSchema: z.ZodType = z.lazy(() =>
 
 export const ComponentMetadataSchema = z.object({
   name: z.string().min(1).regex(COMPONENT_NAME),
-  version: z.string().refine(
-    (value) => validSemver(value) === value.split('+', 1)[0],
-    { message: 'version must be exact SemVer' }
-  ),
+  version: z
+    .string()
+    .refine((value) => validSemver(value) === value.split('+', 1)[0], {
+      message: 'version must be exact SemVer',
+    }),
   owner: z.string().optional(),
   stability: StabilitySchema.optional(),
 });
@@ -113,7 +115,7 @@ export const ComponentTargetSchema = z.object({
 export const ComponentPropsSchema = z
   .object({
     type: z.literal('object'),
-    properties: z.record(JsonSchemaValueSchema),
+    properties: z.record(z.string(), JsonSchemaValueSchema),
     required: z.array(z.string()).optional(),
   })
   .superRefine((props, ctx) => {
@@ -146,9 +148,10 @@ export const ComponentUISchema = z
     slots: z.array(z.string()).optional(),
     variants: z
       .record(
+        z.string(),
         z.object({
           layout: z.string().optional(),
-          props: z.record(z.unknown()).optional(),
+          props: z.record(z.string(), z.unknown()).optional(),
         })
       )
       .optional(),
@@ -206,7 +209,7 @@ export const ComponentUISchema = z
   });
 
 export const ComponentBehaviorSchema = z.object({
-  state: z.record(z.unknown()).optional(),
+  state: z.record(z.string(), z.unknown()).optional(),
   events: z.array(z.string()).optional(),
   sideEffects: z.array(z.string()).optional(),
   constraints: z.array(z.string()).optional(),

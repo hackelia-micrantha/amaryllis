@@ -8,7 +8,7 @@ export interface PersonalizedComponentValidationEvent {
     diagnostics?: PersonalizationDiagnostics;
 }
 export interface PersonalizedComponentProps {
-    /** Name of the registered component to render */
+    /** Exact name@SemVer identity of the registered component to render */
     name: string;
     /** Base props to pass to the component */
     baseProps?: Record<string, unknown>;

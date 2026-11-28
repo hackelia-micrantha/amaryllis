@@ -19,7 +19,6 @@ export declare class ReactGenerator {
     private formatPropertyKey;
     private generateImports;
     private getDefaultLayout;
-    private wrapWithLayout;
     private safeLayout;
     private generateProvenance;
 }

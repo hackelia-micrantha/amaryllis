@@ -1,17 +1,19 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ComponentSpecSchema = exports.ComponentPolicySchema = exports.ComponentAISchema = exports.AIExecutionEnvironmentSchema = exports.AIExecutionModeSchema = exports.ComponentBehaviorSchema = exports.ComponentUISchema = exports.ComponentPropsSchema = exports.ComponentTargetSchema = exports.ComponentMetadataSchema = exports.JsonSchemaValueSchema = exports.StabilitySchema = void 0;
+const semver_1 = require("semver");
 const zod_1 = require("zod");
 const JS_IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 const COMPONENT_NAME = /^[a-z][a-z0-9-]*$/;
-const SEMVERISH = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/;
+const JS_TRIVIA = String.raw `(?:\s|\/\*[\s\S]*?\*\/|\/\/[^\r\n]*(?:\r?\n|$))*`;
 const UNSAFE_LAYOUT_PATTERNS = [
     /<script\b/i,
-    /\bimport\s+/,
-    /\bexport\s+/,
-    /\brequire\s*\(/,
-    /\beval\s*\(/,
-    /new\s+Function\s*\(/,
+    /\bimport\s+/i,
+    new RegExp(String.raw `\bimport${JS_TRIVIA}\(`, 'i'),
+    /\bexport\s+/i,
+    new RegExp(String.raw `\brequire${JS_TRIVIA}\(`, 'i'),
+    new RegExp(String.raw `\beval${JS_TRIVIA}\(`, 'i'),
+    new RegExp(String.raw `\b(?:new${JS_TRIVIA})?Function${JS_TRIVIA}\(`, 'i'),
 ];
 function addIdentifierIssue(ctx, path, message) {
     ctx.addIssue({
@@ -60,8 +62,9 @@ exports.JsonSchemaValueSchema = zod_1.z.lazy(() => zod_1.z
     description: zod_1.z.string().optional(),
     enum: zod_1.z.array(zod_1.z.unknown()).optional(),
     default: zod_1.z.unknown().optional(),
+    maxLength: zod_1.z.number().int().nonnegative().optional(),
     items: exports.JsonSchemaValueSchema.optional(),
-    properties: zod_1.z.record(exports.JsonSchemaValueSchema).optional(),
+    properties: zod_1.z.record(zod_1.z.string(), exports.JsonSchemaValueSchema).optional(),
     required: zod_1.z.array(zod_1.z.string()).optional(),
     additionalProperties: zod_1.z
         .union([zod_1.z.boolean(), exports.JsonSchemaValueSchema])
@@ -70,7 +73,9 @@ exports.JsonSchemaValueSchema = zod_1.z.lazy(() => zod_1.z
     .passthrough());
 exports.ComponentMetadataSchema = zod_1.z.object({
     name: zod_1.z.string().min(1).regex(COMPONENT_NAME),
-    version: zod_1.z.string().regex(SEMVERISH),
+    version: zod_1.z.string().refine((value) => (0, semver_1.valid)(value) === value.split('+', 1)[0], {
+        message: 'version must be exact SemVer',
+    }),
     owner: zod_1.z.string().optional(),
     stability: exports.StabilitySchema.optional(),
 });
@@ -82,7 +87,7 @@ exports.ComponentTargetSchema = zod_1.z.object({
 exports.ComponentPropsSchema = zod_1.z
     .object({
     type: zod_1.z.literal('object'),
-    properties: zod_1.z.record(exports.JsonSchemaValueSchema),
+    properties: zod_1.z.record(zod_1.z.string(), exports.JsonSchemaValueSchema),
     required: zod_1.z.array(zod_1.z.string()).optional(),
 })
     .superRefine((props, ctx) => {
@@ -107,9 +112,9 @@ exports.ComponentUISchema = zod_1.z
     layout: zod_1.z.string().optional(),
     slots: zod_1.z.array(zod_1.z.string()).optional(),
     variants: zod_1.z
-        .record(zod_1.z.object({
+        .record(zod_1.z.string(), zod_1.z.object({
         layout: zod_1.z.string().optional(),
-        props: zod_1.z.record(zod_1.z.unknown()).optional(),
+        props: zod_1.z.record(zod_1.z.string(), zod_1.z.unknown()).optional(),
     }))
         .optional(),
     designTokens: zod_1.z
@@ -139,7 +144,7 @@ exports.ComponentUISchema = zod_1.z
     validateIdentifierList(ui.designTokens?.colorRoles, ctx, ['designTokens', 'colorRoles'], 'design token names must be safe JavaScript identifiers');
 });
 exports.ComponentBehaviorSchema = zod_1.z.object({
-    state: zod_1.z.record(zod_1.z.unknown()).optional(),
+    state: zod_1.z.record(zod_1.z.string(), zod_1.z.unknown()).optional(),
     events: zod_1.z.array(zod_1.z.string()).optional(),
     sideEffects: zod_1.z.array(zod_1.z.string()).optional(),
     constraints: zod_1.z.array(zod_1.z.string()).optional(),

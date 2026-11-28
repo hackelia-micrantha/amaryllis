@@ -1,5 +1,8 @@
 import type { ComponentType } from 'react';
-import { ComponentSpecSchema, type ValidatedComponentSpec } from '../schema/spec.schema';
+import {
+  ComponentSpecSchema,
+  type ValidatedComponentSpec,
+} from '../schema/spec.schema';
 import { createTestComponentRegistry } from './testRegistry';
 import {
   ComponentRegistry,
@@ -275,7 +278,11 @@ describe('ComponentRegistry identity binding', () => {
       metadata: { ...baseSpec.metadata, version },
     });
     const registry = createTestComponentRegistry();
-    registry.register('registry-card', { component: Component, spec, contract });
+    registry.register('registry-card', {
+      component: Component,
+      spec,
+      contract,
+    });
 
     const key = `registry-card@${version}`;
     expect(registry.getExact(key)?.version).toBe(version);

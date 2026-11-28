@@ -6,54 +6,42 @@ const react_1 = require("react");
 const engine_1 = require("./engine");
 const primitives_1 = require("./primitives");
 const registryContext_1 = require("./registryContext");
+const EMPTY_PROPS = Object.freeze({});
 /**
  * A wrapper component that handles on-device personalization.
  * It validates AI output against the component's contract before rendering.
  */
-const PersonalizedComponent = ({ name, baseProps = {}, personalizationData, loading, fallback, primitives, onValidation, warnOnValidationFailure = false, }) => {
+const PersonalizedComponent = ({ name, baseProps = EMPTY_PROPS, personalizationData, loading, fallback, primitives, onValidation, warnOnValidationFailure = false, }) => {
     const registry = (0, registryContext_1.useRegistry)();
     const registered = registry.get(name);
     const engine = (0, react_1.useMemo)(() => new engine_1.PersonalizationEngine(), []);
     const { View, Text } = (0, react_1.useMemo)(() => (0, primitives_1.resolveUiPrimitives)(primitives), [primitives]);
-    const [finalProps, setFinalProps] = (0, react_1.useState)(baseProps);
-    const [error, setError] = (0, react_1.useState)(null);
+    // Derived render state must be computed from current inputs, not restored in
+    // a passive effect after a previous component/audience has already rendered.
+    const validation = (0, react_1.useMemo)(() => {
+        if (!registered || !personalizationData)
+            return null;
+        return engine.validate(registered.contract, personalizationData);
+    }, [registered, personalizationData, engine]);
+    const finalProps = (0, react_1.useMemo)(() => {
+        if (!validation?.valid)
+            return baseProps;
+        return engine.apply(baseProps, validation.data ?? {});
+    }, [baseProps, validation, engine]);
+    const error = validation && !validation.valid ? 'Invalid personalization data' : null;
     (0, react_1.useEffect)(() => {
-        if (!registered)
+        if (!validation)
             return;
-        if (personalizationData) {
-            const result = engine.validate(registered.contract, personalizationData);
-            onValidation?.({
-                name,
-                valid: result.valid,
-                errors: result.errors,
-                diagnostics: result.diagnostics,
-            });
-            if (result.valid) {
-                setFinalProps(engine.apply(baseProps, result.data ?? {}));
-                setError(null);
-            }
-            else {
-                if (warnOnValidationFailure) {
-                    console.warn(`Personalization validation failed for ${name}:`, result.errors);
-                }
-                setError('Invalid personalization data');
-                // Revert to base props on failure
-                setFinalProps(baseProps);
-            }
+        onValidation?.({
+            name,
+            valid: validation.valid,
+            errors: validation.errors,
+            diagnostics: validation.diagnostics,
+        });
+        if (!validation.valid && warnOnValidationFailure) {
+            console.warn(`Personalization validation failed for ${name}:`, validation.errors);
         }
-        else {
-            setFinalProps(baseProps);
-            setError(null);
-        }
-    }, [
-        name,
-        personalizationData,
-        baseProps,
-        registered,
-        engine,
-        onValidation,
-        warnOnValidationFailure,
-    ]);
+    }, [name, validation, onValidation, warnOnValidationFailure]);
     if (!registered) {
         return (0, jsx_runtime_1.jsx)(jsx_runtime_1.Fragment, { children: fallback || null });
     }
