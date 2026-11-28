@@ -89,10 +89,12 @@ def find_continue(root: ET.Element) -> tuple[ET.Element, bool]:
     parent = {child: node for node in root.iter() for child in node}
     matches = [
         node for node in nodes(root)
-        if node.get("text") == "Continue" or node.get("content-desc") == "Continue"
+        if node.get("package") == PACKAGE
+        and node.get("clickable") == "true"
+        and (node.get("text") == "Continue" or node.get("content-desc") == "Continue")
     ]
     if len(matches) != 1:
-        raise AssertionError(f"expected one visible Continue control, found {len(matches)}")
+        raise AssertionError(f"expected one actionable Continue control, found {len(matches)}")
     target = matches[0]
     current = target
     enabled = True
