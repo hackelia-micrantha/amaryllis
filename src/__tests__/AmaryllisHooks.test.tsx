@@ -34,6 +34,7 @@ describe('useInferenceAsync', () => {
         },
       })
     );
+    await act(async () => {});
 
     const params: LlmRequestParams = { prompt: 'test' };
 
@@ -57,6 +58,7 @@ describe('useInferenceAsync', () => {
 
   it('should handle cancellation', async () => {
     const { result } = renderHook(() => useInferenceAsync());
+    await act(async () => {});
 
     let cancel: () => void;
     await act(async () => {
@@ -85,6 +87,7 @@ describe('useInferenceAsync', () => {
         },
       })
     );
+    await act(async () => {});
 
     await act(async () => {
       await result.current?.({ prompt: 'test' });
@@ -108,6 +111,7 @@ describe('useInference', () => {
         },
       })
     );
+    await act(async () => {});
 
     const params: LlmRequestParams = { prompt: 'test' };
 
@@ -134,6 +138,7 @@ describe('useInference', () => {
         },
       })
     );
+    await act(async () => {});
 
     await act(async () => {
       await result.current?.({ prompt: 'test' });
@@ -187,6 +192,7 @@ describe('context-aware hooks', () => {
       () => useContextInference({ contextEngine: propEngine, query }),
       { wrapper: createWrapper(providerEngine) }
     );
+    await act(async () => {});
 
     await act(async () => {
       await result.current?.({ prompt: 'hello' });
@@ -212,6 +218,7 @@ describe('context-aware hooks', () => {
     const { result } = renderHook(() => useContextInference({ query }), {
       wrapper: createWrapper(engine),
     });
+    await act(async () => {});
 
     await act(async () => {
       await result.current?.({ prompt: 'hello' });
@@ -233,6 +240,7 @@ describe('context-aware hooks', () => {
     const { result } = renderHook(() => useContextInference(), {
       wrapper: createWrapper(engine),
     });
+    await act(async () => {});
 
     await act(async () => {
       await result.current?.({ prompt: 'hello' });
@@ -259,6 +267,7 @@ describe('context-aware hooks', () => {
       () => useContextInference({ query, onError: (err) => (received = err) }),
       { wrapper: createWrapper(engine) }
     );
+    await act(async () => {});
 
     await act(async () => {
       await result.current?.({ prompt: 'hello' });
@@ -280,6 +289,7 @@ describe('context-aware hooks', () => {
     const { result } = renderHook(() => useContextInferenceAsync({ query }), {
       wrapper: createWrapper(engine),
     });
+    await act(async () => {});
 
     await act(async () => {
       await result.current?.({ prompt: 'hello' });
@@ -325,6 +335,7 @@ describe('context-aware hooks', () => {
         ),
       }
     );
+    await act(async () => {});
 
     await act(async () => {
       await result.current?.({ prompt: 'hello' });
