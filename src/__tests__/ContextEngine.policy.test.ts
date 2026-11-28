@@ -145,4 +145,33 @@ describe('ContextPolicy enforcement ownership', () => {
     );
     expect(store.stats).not.toHaveBeenCalled();
   });
+
+  it.each([null, {}, ''])(
+    'rejects malformed retrieved collections before scoring or formatting: %j',
+    async (input) => {
+      const store = createStore();
+      store.query = async () => input as unknown as ContextItem[];
+      const engine = new ContextEngine({ store });
+
+      await expect(engine.search({ text: 'memory' })).rejects.toBeInstanceOf(
+        ValidationError
+      );
+      expect(() =>
+        engine.formatRequest({
+          prompt: 'question',
+          items: input as unknown as ContextItem[],
+          request: { prompt: 'question' },
+        })
+      ).toThrow(ValidationError);
+    }
+  );
+
+  it('preserves empty retrieved results and unaugmented requests', async () => {
+    const engine = new ContextEngine({ store: createStore() });
+    const request = { prompt: 'question' };
+    await expect(engine.search({ text: 'memory' })).resolves.toEqual([]);
+    expect(
+      engine.formatRequest({ prompt: request.prompt, items: [], request })
+    ).toBe(request);
+  });
 });
