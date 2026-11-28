@@ -50,7 +50,7 @@ describe('Context validation properties', () => {
 
   it('rejects malformed runtime metadata, tags and media with typed errors', () => {
     const malformed = fc.oneof(
-      fc.constantFrom(
+      fc.constantFrom<Record<string, unknown>>(
         { tags: null },
         { tags: 'tag' },
         { metadata: [] },
@@ -78,7 +78,10 @@ describe('Context validation properties', () => {
       fc.integer({ min: 1025 }).map((sizeBytes) => ({ sizeBytes })),
       fc.integer({ min: 257 }).map((width) => ({ width })),
       fc.integer({ min: 257 }).map((height) => ({ height })),
-      fc.constantFrom({ uri: 'https://example.invalid/x' }, { uri: 'relative' })
+      fc.constantFrom(
+        { uri: 'https://example.invalid/x' },
+        { uri: 'relative' }
+      )
     );
     fc.assert(
       fc.property(boundedItem, violation, (item, patch) => {
