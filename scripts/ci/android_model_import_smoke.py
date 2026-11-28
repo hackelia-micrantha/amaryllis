@@ -149,15 +149,16 @@ def await_welcome(serial: str, timeout_seconds: int = 150, diagnostic_dir: Path 
     raise AssertionError(f"Model Imports not ready after {timeout_seconds}s: {last_error}")
 
 
-def scroll_to_continue(serial: str) -> bytes:
+def scroll_to_continue(serial: str, evidence: Path, phase: str) -> bytes:
     dimensions = adb(serial, "shell", "wm", "size")
     match = re.search(r"(\d+)x(\d+)", dimensions)
     if not match:
         raise AssertionError(f"unrecognized emulator size: {dimensions}")
     width, height = map(int, match.groups())
     last = ""
-    for _ in range(9):
+    for attempt in range(9):
         data = snapshot(serial)
+        (evidence / f'{phase}-scroll-{attempt}.xml').write_bytes(data)
         try:
             find_continue(ET.fromstring(data))
             return data
@@ -200,7 +201,7 @@ def smoke(evidence: Path) -> None:
 
     (evidence / "launch.xml").write_bytes(await_welcome(serial, diagnostic_dir=evidence))
     print("PASS: installed debug app renders Model Imports / Not imported")
-    initial = scroll_to_continue(serial)
+    initial = scroll_to_continue(serial, evidence, 'initial')
     (evidence / "before-tap.xml").write_bytes(initial)
     x, y = assert_continue(ET.fromstring(initial), expected_enabled=False)
     print("PASS: Continue is disabled without required model assets")
@@ -214,7 +215,7 @@ def smoke(evidence: Path) -> None:
 
     launch(serial)
     (evidence / "relaunch.xml").write_bytes(await_welcome(serial))
-    after_restart = scroll_to_continue(serial)
+    after_restart = scroll_to_continue(serial, evidence, 'restart')
     (evidence / "after-restart.xml").write_bytes(after_restart)
     assert_continue(ET.fromstring(after_restart), expected_enabled=False)
     print("PASS: model-import requirement persists after stop/relaunch")
