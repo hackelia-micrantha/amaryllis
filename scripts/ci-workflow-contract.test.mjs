@@ -455,6 +455,33 @@ test('SBOM schema validation uses an executable pinned flake validator without D
   assert.doesNotMatch(validator, /\bdocker\b/i);
 });
 
+// Preserve the existing action-version floors independently of exact pins.
+// Version comments are reviewed metadata, not cryptographic tag attestations.
+const actionMajorFloors = new Map([
+  ['actions/checkout', 7],
+  ['actions/setup-node', 7],
+  ['actions/cache', 5],
+  ['actions/setup-java', 5],
+  ['actions/upload-artifact', 7],
+  ['actions/github-script', 9],
+  ['github/codeql-action', 4],
+  ['android-actions/setup-android', 4],
+]);
+
+function assertSupportedActionVersion(value, comment, location) {
+  const repository = value.split('@')[0].split('/').slice(0, 2).join('/').toLowerCase();
+  assert.notEqual(repository, 'marocchino/sticky-pull-request-comment',
+    location + ' must not reintroduce the replaced coverage-comment action');
+  const floor = actionMajorFloors.get(repository);
+  if (floor === undefined) {
+    return;
+  }
+
+  const major = /^v(\d+)(?:\.\d+)*(?:\s|$)/.exec(comment);
+  assert.ok(major && Number(major[1]) >= floor,
+    location + ' must declare supported ' + repository + ' version >= v' + floor);
+}
+
 function assertImmutableReferences(source, path) {
   const actionRef = /^[^@\s]+@[0-9a-f]{40}$/;
   const dockerRef = /^docker:\/\/[^@\s]+@sha256:[0-9a-f]{64}$/;
@@ -472,6 +499,7 @@ function assertImmutableReferences(source, path) {
       comment && /\d/.test(comment),
       path + ':' + lineNumber + ' must include a readable upstream version/revision comment',
     );
+    assertSupportedActionVersion(value, comment, path + ':' + lineNumber);
   }
 }
 
@@ -485,6 +513,27 @@ test('immutable references reject mutable action and image versions', () => {
   assertImmutableReferences('- uses: ./.github/actions/setup', 'fixture.yml');
   assertImmutableReferences('- uses: actions/checkout@0123456789abcdef0123456789abcdef01234567 # v7', 'fixture.yml');
   assertImmutableReferences('- uses: docker://alpine@sha256:' + 'a'.repeat(64) + ' # 3.22', 'fixture.yml');
+});
+
+test('immutable action pins retain existing version floors and exclusions', () => {
+  const sha = 'a'.repeat(40);
+  for (const [repository, floor] of actionMajorFloors) {
+    const action = repository === 'github/codeql-action' ? repository + '/init' : repository;
+    assert.throws(
+      () => assertImmutableReferences('- uses: ' + action + '@' + sha + ' # v' + (floor - 1), 'fixture.yml'),
+      /must declare supported/,
+    );
+    assert.throws(
+      () => assertImmutableReferences('- uses: ' + action + '@' + sha + ' # release 2026', 'fixture.yml'),
+      /must declare supported/,
+    );
+    assertImmutableReferences('- uses: ' + action + '@' + sha + ' # v' + floor + '.0.0', 'fixture.yml');
+    assertImmutableReferences('- uses: ' + action + '@' + sha + ' # v' + (floor + 1), 'fixture.yml');
+  }
+  assert.throws(
+    () => assertImmutableReferences('- uses: marocchino/sticky-pull-request-comment@' + sha + ' # v2', 'fixture.yml'),
+    /must not reintroduce/,
+  );
 });
 
 test('external workflow and composite-action references are immutable', () => {
