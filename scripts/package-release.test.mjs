@@ -192,4 +192,13 @@ test('production release gates the checked-out tagged commit inside the project 
   assert.match(preflight, /sha=\$\(git rev-parse HEAD\)/);
   assert.match(preflight, /TARGET_SHA: \$\{\{ steps\.target\.outputs\.sha \}\}/);
   assert.doesNotMatch(preflight, /TARGET_SHA: \$\{\{ github\.sha \}\}/);
+  const tagValidation = preflight.slice(
+    preflight.indexOf('      - name: Validate release tag'),
+    preflight.indexOf('      - name: Wait for required workflows')
+  );
+  assert.ok(tagValidation.includes('TAG_NAME: ${{ github.ref_name }}'));
+  assert.ok(
+    tagValidation.includes('run: node scripts/validate-release-tag.mjs "$TAG_NAME"')
+  );
+  assert.doesNotMatch(tagValidation, /run:.*\$\{\{/);
 });
