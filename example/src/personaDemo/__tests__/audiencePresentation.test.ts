@@ -1,6 +1,5 @@
 import { audiencePresentation } from '../audiencePresentation';
-import type { Audience } from '../audienceResolver';
-import { resolveAudience } from '../audienceResolver';
+import { resolveAudience, type Audience } from '../audienceResolver';
 import { personas } from '../domain';
 
 const cases = [
