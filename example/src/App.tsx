@@ -12,10 +12,12 @@ import { ModelProvider, useModelContext } from './ModelContext';
 import { default as WelcomeScreen } from './ImportModels';
 import { registerExampleAiComponents } from './ai/registerComponents';
 import { PersonaDemoScreen } from './personaDemo/PersonaDemoScreen';
+import { AudienceDemoScreen } from './personaDemo/AudienceDemoScreen';
 import { ModelSettingsScreen } from './modelSettings/ModelSettingsScreen';
 
 function AppGate() {
   const { paths: models, setPaths: setModelsReady } = useModelContext();
+  const [showAudiencePreview, setShowAudiencePreview] = useState(false);
 
   const contextEngine = useMemo(() => {
     return createContextEngine({
@@ -26,7 +28,23 @@ function AppGate() {
   }, []);
 
   if (!models) {
-    return <WelcomeScreen onComplete={(paths) => setModelsReady(paths)} />;
+    return showAudiencePreview ? (
+      <SafeAreaProvider>
+        <View style={styles.demoContainer}>
+          <DemoTab
+            label="Back to model imports"
+            selected={false}
+            onPress={() => setShowAudiencePreview(false)}
+          />
+          <AudienceDemoScreen />
+        </View>
+      </SafeAreaProvider>
+    ) : (
+      <WelcomeScreen
+        onComplete={(paths) => setModelsReady(paths)}
+        onPreviewAudience={() => setShowAudiencePreview(true)}
+      />
+    );
   }
 
   return (
@@ -45,7 +63,7 @@ function AppGate() {
   );
 }
 
-type DemoScreen = 'chat' | 'persona-demo' | 'settings';
+type DemoScreen = 'chat' | 'persona-demo' | 'audience' | 'settings';
 
 type DemoTabProps = {
   label: string;
@@ -96,6 +114,11 @@ function DemoExperience() {
             onPress={() => setScreen('persona-demo')}
           />
           <DemoTab
+            label="Audience"
+            selected={screen === 'audience'}
+            onPress={() => setScreen('audience')}
+          />
+          <DemoTab
             label="Settings"
             selected={screen === 'settings'}
             onPress={() => setScreen('settings')}
@@ -106,6 +129,8 @@ function DemoExperience() {
           <Chat />
         ) : screen === 'persona-demo' ? (
           <PersonaDemoScreen />
+        ) : screen === 'audience' ? (
+          <AudienceDemoScreen />
         ) : (
           <ModelSettingsScreen />
         )}
@@ -131,6 +156,7 @@ const styles = StyleSheet.create({
   },
   demoSwitcher: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 12,
