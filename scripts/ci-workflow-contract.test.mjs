@@ -50,6 +50,38 @@ const actionSources = new Map(
   ].map(path => [relative('.', path), readFileSync(path, 'utf8')]),
 );
 
+test('compatibility and SBOM jobs cancel only superseded PR runs', () => {
+  const expected = [
+    'concurrency:',
+    "  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}",
+    "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
+  ].join('\n');
+
+  for (const name of ['compat-matrix.yml', 'sbom.yml']) {
+    const source = actionSources.get(`.github/workflows/${name}`);
+    assert.ok(source, `missing ${name}`);
+    const header = source.slice(0, source.indexOf('jobs:'));
+    assert.equal(
+      (header.match(/^concurrency:$/gm) || []).length,
+      1,
+      `${name} must declare workflow concurrency exactly once`,
+    );
+    assert.ok(
+      header.includes(`\n${expected}\n`),
+      `${name} must have workflow-level per-PR cancellation`,
+    );
+    assert.doesNotMatch(
+      header,
+      /cancel-in-progress:\s*true\b/,
+      `${name} must not cancel release, main, or manual runs`,
+    );
+  }
+
+  const sbom = actionSources.get('.github/workflows/sbom.yml');
+  assert.match(sbom, /push:\n    branches:\n      - main/);
+  assert.match(sbom, /tags:\n      - 'v\*'/);
+});
+
 test('change classifier exposes every CI dimension', () => {
   const changes = jobBlock('changes');
 
@@ -78,7 +110,7 @@ test('change classifier activates the project toolchain before Node entrypoints'
 });
 
 test('stable root jobs retain lightweight and expensive paths', () => {
-  for (const name of ['lint', 'test']) {
+  for (const name of ['lint']) {
     const block = jobBlock(name);
     assertContainsAll(block, [
       'needs: changes',
@@ -87,6 +119,29 @@ test('stable root jobs retain lightweight and expensive paths', () => {
       'uses: ./.github/actions/setup',
     ]);
   }
+});
+
+test('PR root tests and coverage use a single read-only execution', () => {
+  const root = jobBlock('test');
+  assertContainsAll(root, [
+    'needs: changes',
+    "github.event_name == 'pull_request' || needs.changes.result == 'success'",
+    "if: github.event_name != 'pull_request' && needs.changes.outputs.run_root == 'true'",
+    "if: github.event_name == 'pull_request'",
+    'yarn test --maxWorkers=2 --coverage',
+    'Validate coverage thresholds',
+    "MIN_LINES: '76'",
+    "MIN_STATEMENTS: '76'",
+    "MIN_FUNCTIONS: '77'",
+    "MIN_BRANCHES: '63'",
+    'persist-credentials: false',
+    'uses: ./.github/actions/setup',
+  ]);
+  assert.doesNotMatch(root, /pull-requests: write/);
+  const report = jobBlock('coverage-report');
+  assertContainsAll(report, ['needs: test', 'pull-requests: write', 'COVERAGE_COMMENT:', 'JSON.parse(process.env.COVERAGE_COMMENT)']);
+  assert.doesNotMatch(report, /actions\/checkout|\.\/\.github\/actions\/setup|yarn test/);
+  assert.equal(actionSources.has('.github/workflows/coverage-gate.yml'), false);
 });
 
 test('components job retains stable acknowledgement and validation paths', () => {
@@ -99,10 +154,11 @@ test('components job retains stable acknowledgement and validation paths', () =>
     'yarn workspace @micrantha/amaryllis-components test --runInBand',
     'yarn workspace @micrantha/amaryllis-components typecheck',
     'yarn workspace @micrantha/amaryllis-components build',
+    'npm pack --dry-run',
   ]);
 });
 
-test('root library job retains the stable build boundary', () => {
+test('root library job independently validates package outputs', () => {
   const block = jobBlock('build-library');
 
   assertContainsAll(block, [
@@ -110,6 +166,8 @@ test('root library job retains the stable build boundary', () => {
     "if: needs.changes.outputs.run_root != 'true'",
     "if: needs.changes.outputs.run_root == 'true'",
     'run: yarn prepare',
+    'run: node scripts/validate-packages.mjs',
+    'run: npm pack --dry-run',
   ]);
 });
 
@@ -212,15 +270,7 @@ test('hosted iOS bootstrap stays separate from the self-hosted Nix boundary', ()
   ]);
   assert.doesNotMatch(ios, /uses: \.\/\.github\/actions\/setup|nix flake check|nix build/);
 
-  for (const name of [
-    'changes',
-    'lint',
-    'test',
-    'components-package',
-    'build-library',
-    'package-preflight',
-    'build-android',
-  ]) {
+  for (const name of ['changes', 'lint', 'test', 'components-package', 'build-library', 'package-preflight', 'build-android']) {
     assert.doesNotMatch(
       jobBlock(name),
       /actions\/setup-node@/,
@@ -333,9 +383,7 @@ test('workflow actions use current releases and repository tooling uses Nix', ()
     }
   }
 
-  const coverage = actionSources.get('.github/workflows/coverage-gate.yml');
-  assert.ok(coverage, 'missing coverage workflow');
-  assert.match(coverage, /actions\/github-script@v9\b/);
+  assert.match(jobBlock('coverage-report'), /actions\/github-script@v9\b/);
 
   const sbom = actionSources.get('.github/workflows/sbom.yml');
   assert.ok(sbom, 'missing SBOM workflow');
