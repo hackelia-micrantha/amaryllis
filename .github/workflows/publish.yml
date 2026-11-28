@@ -26,7 +26,9 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Validate release tag
-        run: node scripts/validate-release-tag.mjs "${{ github.ref_name }}"
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: node scripts/validate-release-tag.mjs "$TAG_NAME"
 
       - name: Wait for required workflows
         uses: actions/github-script@v9
