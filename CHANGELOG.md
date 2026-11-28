@@ -9,10 +9,12 @@ future **minor** or **major** bump is required for similar changes.
 ## Unreleased
 
 ### Upgrade impact
+- Breaking pre-1.0 ContextStore migration: `put(items)` becomes required `put(items, policy)`; persistence adapters must atomically enforce configured limits and TTL, or reject unsupported invariants.
 - Breaking pre-1.0 component registry: `ComponentRegistry.get()` now resolves exact `name@SemVer` keys only; moving selection requires explicit `getLatest(name)` with SemVer-correct stable/prerelease rules. Runtime personalization call sites must specify exact component identities.
 - Breaking pre-1.0 cleanup: the RxJS-shaped `createLLMObservable` API and `LLMObservableResult` type are removed.
 
 ### Changed
+- Context Engine materializes default TTL on writes, forwards the explicit effective policy, and revalidates retrieved data; the example memory adapter enforces recency, maxItems and TTL while refusing unsupported constraints.
 - `useInferenceAsync` now accumulates request-scoped `LlmCallbacks.onEvent` deltas directly without a stream-library bridge.
 - Low-level streaming consumers should use `LlmCallbacks.onEvent`; React consumers should use `useInferenceAsync` for cumulative result snapshots.
 

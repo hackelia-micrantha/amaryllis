@@ -8,7 +8,9 @@ import type {
 import { ValidationError } from '../Errors';
 
 const createStore = (): ContextStore => ({
-  put: jest.fn(() => Promise.resolve()),
+  put: jest.fn((_items: ContextItem[], _policy: ContextPolicy) =>
+    Promise.resolve()
+  ),
   query: jest.fn(() => Promise.resolve([])),
   delete: jest.fn(() => Promise.resolve()),
   compact: jest.fn(() => Promise.resolve()),

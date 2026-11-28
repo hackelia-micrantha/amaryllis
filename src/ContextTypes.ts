@@ -51,8 +51,18 @@ export interface ContextStoreStats {
   totalBytes?: number;
 }
 
+/**
+ * Application-owned persistence authority.
+ *
+ * Writes must atomically enforce configured retention/resource limits or reject
+ * the operation. Unknown or unsupported enforcement must not report success.
+ * Query implementations must not return TTL-expired items.
+ * TypeScript allows implementations to omit parameters: a legacy one-argument
+ * put can still type-check. Adapter authors must migrate and verify enforcement;
+ * this interface alone does not prove persistence or expiry guarantees.
+ */
 export interface ContextStore {
-  put(items: ContextItem[]): Promise<void>;
+  put(items: ContextItem[], policy: ContextPolicy): Promise<void>;
   query(query: ContextQuery): Promise<ContextItem[]>;
   delete(ids: string[]): Promise<void>;
   compact(policy: ContextPolicy): Promise<void>;
