@@ -2,6 +2,10 @@ import { execFile } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { promisify } from 'node:util';
+import {
+  assertPackedArtifactIdentity,
+  validateReleaseArtifactManifest,
+} from './package-release-lib.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -28,13 +32,7 @@ async function main() {
   const manifestPath = resolve(options.manifest);
   const artifactDirectory = dirname(manifestPath);
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
-  if (manifest.schemaVersion !== 1 || !Array.isArray(manifest.publishOrder)) {
-    throw new Error('Unsupported package release manifest');
-  }
-
-  const packagesByName = Object.fromEntries(
-    manifest.packages.map((entry) => [entry.name, entry])
-  );
+  const packagesByName = validateReleaseArtifactManifest(manifest);
   const published = [];
 
   for (const packageName of manifest.publishOrder) {
@@ -49,6 +47,12 @@ async function main() {
     }
 
     try {
+      const { stdout: packedJson } = await execFileAsync(
+        'tar',
+        ['-xOf', tarball, 'package/package.json'],
+        { maxBuffer: 1024 * 1024 }
+      );
+      assertPackedArtifactIdentity(entry, JSON.parse(packedJson));
       await execFileAsync('npm', args, {
         env: process.env,
         maxBuffer: 20 * 1024 * 1024,
