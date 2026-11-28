@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import test from 'node:test';
@@ -159,6 +160,32 @@ function extractUsesReferences(source, path) {
     });
   }
 
+  // Parse YAML independently to detect references the comment-preserving
+  // line scanner cannot recognize, including escaped keys and aliases.
+  const parsed = JSON.parse(execFileSync('yq', [
+    'eval', '-o=json', '-I=0', 'explode(.)', '-',
+  ], { input: source, encoding: 'utf8' }));
+  const semanticReferences = [];
+  function visit(node) {
+    if (Array.isArray(node)) {
+      node.forEach(visit);
+    } else if (node !== null && typeof node === 'object') {
+      for (const [key, value] of Object.entries(node)) {
+        if (key === 'uses') {
+          assert.equal(typeof value, 'string', path + ': uses must be a scalar string');
+          semanticReferences.push(value);
+        } else {
+          visit(value);
+        }
+      }
+    }
+  }
+  visit(parsed);
+  assert.deepEqual(
+    references.map(reference => reference.value).sort(),
+    semanticReferences.sort(),
+    path + ': unsupported YAML uses syntax or ambiguous action references',
+  );
   return references;
 }
 
@@ -173,6 +200,14 @@ test('unsupported YAML uses key shapes fail closed', () => {
   }
   assert.throws(
     () => extractUsesReferences('- {uses: actions/checkout@v7}', 'fixture.yml'),
+    /unsupported YAML uses syntax/,
+  );
+  assert.throws(
+    () => extractUsesReferences('- "u\\u0073es": actions/checkout@v7', 'fixture.yml'),
+    /unsupported YAML uses syntax/,
+  );
+  assert.throws(
+    () => extractUsesReferences('steps:\n  - &step\n    uses: actions/checkout@v7\n  - *step', 'fixture.yml'),
     /unsupported YAML uses syntax/,
   );
   assert.equal(
@@ -345,11 +380,11 @@ test('hosted iOS bootstrap stays separate from the self-hosted Nix boundary', ()
   const ios = jobBlock('build-ios');
   assertContainsAll(ios, [
     'runs-on: macos-15',
-    'uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7',
     'node-version-file: .nvmrc',
     'node .yarn/releases/yarn-3.6.1.cjs install --immutable',
     'node .yarn/releases/yarn-3.6.1.cjs turbo run build:ios',
   ]);
+  assert.match(ios, /uses: actions\/setup-node@[0-9a-f]{40} # \S+/);
   assert.doesNotMatch(ios, /uses: \.\/\.github\/actions\/setup|nix flake check|nix build/);
 
   for (const name of ['changes', 'lint', 'test', 'components-package', 'build-library', 'build-android']) {
@@ -420,37 +455,52 @@ test('SBOM schema validation uses an executable pinned flake validator without D
   assert.doesNotMatch(validator, /\bdocker\b/i);
 });
 
-test('external workflow and composite-action references are immutable', () => {
-  const immutableRef = /^[^@\s]+@[0-9a-f]{40}$/;
-
-  for (const [path, source] of actionSources) {
-    for (const { value, comment, lineNumber } of extractUsesReferences(source, path)) {
-      if (value.startsWith('./')) {
-        continue;
-      }
-
-      assert.match(
-        value,
-        immutableRef,
-        `${path}:${lineNumber} must pin external uses to a full 40-character commit SHA`,
-      );
-      assert.ok(
-        comment && /\d/.test(comment),
-        `${path}:${lineNumber} must include a readable upstream version/revision comment`,
-      );
+function assertImmutableReferences(source, path) {
+  const actionRef = /^[^@\s]+@[0-9a-f]{40}$/;
+  const dockerRef = /^docker:\/\/[^@\s]+@sha256:[0-9a-f]{64}$/;
+  for (const { value, comment, lineNumber } of extractUsesReferences(source, path)) {
+    if (value.startsWith('./')) {
+      continue;
     }
-  }
 
-  assert.match(jobBlock('coverage-report'), /actions\/github-script@[0-9a-f]{40} # v9/);
+    assert.match(
+      value,
+      value.startsWith('docker://') ? dockerRef : actionRef,
+      path + ':' + lineNumber + ' must pin external uses to an immutable commit SHA or image digest',
+    );
+    assert.ok(
+      comment && /\d/.test(comment),
+      path + ':' + lineNumber + ' must include a readable upstream version/revision comment',
+    );
+  }
+}
+
+test('immutable references reject mutable action and image versions', () => {
+  for (const value of ['actions/checkout@v7', 'actions/checkout@main', 'docker://alpine:latest']) {
+    assert.throws(
+      () => assertImmutableReferences('- uses: ' + value + ' # v7', 'fixture.yml'),
+      /must pin external uses/,
+    );
+  }
+  assertImmutableReferences('- uses: ./.github/actions/setup', 'fixture.yml');
+  assertImmutableReferences('- uses: actions/checkout@0123456789abcdef0123456789abcdef01234567 # v7', 'fixture.yml');
+  assertImmutableReferences('- uses: docker://alpine@sha256:' + 'a'.repeat(64) + ' # 3.22', 'fixture.yml');
+});
+
+test('external workflow and composite-action references are immutable', () => {
+  for (const [path, source] of actionSources) {
+    assertImmutableReferences(source, path);
+  }
+  assert.match(jobBlock('coverage-report'), /actions\/github-script@[0-9a-f]{40} # \S+/);
 
   const sbom = actionSources.get('.github/workflows/sbom.yml');
   assert.ok(sbom, 'missing SBOM workflow');
   assert.match(
     sbom,
-    /actions\/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7\.0\.1/,
+    /actions\/checkout@[0-9a-f]{40} # \S+/,
   );
   assert.match(
     sbom,
-    /actions\/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7\.0\.1/,
+    /actions\/upload-artifact@[0-9a-f]{40} # \S+/,
   );
 });

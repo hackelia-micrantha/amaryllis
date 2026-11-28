@@ -5,6 +5,7 @@ exports.stableStringify = stableStringify;
 exports.fnv1aHash = fnv1aHash;
 exports.getRegistryKey = getRegistryKey;
 exports.createRegistryIdentity = createRegistryIdentity;
+const semver_1 = require("semver");
 function stableStringify(value) {
     if (value === undefined) {
         return 'undefined';
@@ -51,13 +52,15 @@ function createRegistryIdentity(entry, hash = fnv1aHash) {
 }
 class ComponentRegistry {
     components = new Map();
-    latestByName = new Map();
     hash;
     constructor(options = {}) {
         this.hash = options.hash ?? fnv1aHash;
     }
     register(name, entry, options = {}) {
         const identity = createRegistryIdentity(entry, this.hash);
+        if ((0, semver_1.valid)(identity.version) !== identity.version.split('+', 1)[0]) {
+            throw new Error(`invalid SemVer for component ${identity.componentName}: ${identity.version}`);
+        }
         this.assertRegistrationMatches(name, entry, identity);
         if (!options.replace && this.components.has(identity.key)) {
             throw new Error(`Component ${identity.key} is already registered. Pass { replace: true } to replace it.`);
@@ -66,10 +69,27 @@ class ComponentRegistry {
             ...entry,
             ...identity,
         });
-        this.updateLatest(identity.componentName);
     }
-    get(name) {
-        return this.components.get(name) ?? this.getLatestByComponentName(name);
+    /** Exact versioned identity only: never select an executable implicitly. */
+    get(key) {
+        return this.components.get(key);
+    }
+    getExact(key) {
+        return this.components.get(key);
+    }
+    /** Explicitly opt into moving version selection (e.g. development/tooling). */
+    getLatest(componentName, options = {}) {
+        const candidates = Array.from(this.components.values()).filter((entry) => entry.componentName === componentName);
+        const stable = candidates.filter((entry) => (0, semver_1.prerelease)(entry.version) === null);
+        const eligible = options.includePrerelease
+            ? candidates
+            : stable.length > 0
+                ? stable
+                : candidates;
+        return eligible
+            .sort((left, right) => (0, semver_1.compare)(left.version, right.version) ||
+            left.version.localeCompare(right.version))
+            .at(-1);
     }
     list() {
         return Array.from(this.components.keys());
@@ -88,6 +108,13 @@ class ComponentRegistry {
     }
     hydrate(entries, resolveComponent, options = {}) {
         entries.forEach((entry) => {
+            // Validate the snapshot before executing the application resolver:
+            // invalid identity metadata must not select a component implementation.
+            const identity = createRegistryIdentity(entry, this.hash);
+            if ((0, semver_1.valid)(identity.version) !== identity.version.split('+', 1)[0]) {
+                throw new Error(`invalid SemVer for component ${identity.componentName}: ${identity.version}`);
+            }
+            this.assertRegistrationMatches(entry.key, entry, identity);
             this.register(entry.key, {
                 ...entry,
                 component: resolveComponent(entry),
@@ -116,21 +143,5 @@ class ComponentRegistry {
             throw new Error('runtimeContractHash does not match contract');
         }
     }
-    getLatestByComponentName(componentName) {
-        const key = this.latestByName.get(componentName);
-        return key ? this.components.get(key) : undefined;
-    }
-    updateLatest(componentName) {
-        const keys = Array.from(this.components.keys()).filter((key) => key.startsWith(`${componentName}@`));
-        const latest = keys.sort(compareRegistryKeys).at(-1);
-        if (latest) {
-            this.latestByName.set(componentName, latest);
-        }
-    }
 }
 exports.ComponentRegistry = ComponentRegistry;
-function compareRegistryKeys(left, right) {
-    const leftVersion = left.slice(left.lastIndexOf('@') + 1);
-    const rightVersion = right.slice(right.lastIndexOf('@') + 1);
-    return leftVersion.localeCompare(rightVersion, undefined, { numeric: true });
-}

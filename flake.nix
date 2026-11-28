@@ -52,6 +52,7 @@
               pkgs.python3
               pkgs.gh
               pkgs.actionlint
+              pkgs.yq-go
             ];
           };
           androidPkgs = import nixpkgs {
@@ -202,6 +203,7 @@
             test "$(yarn --version)" = "3.6.1"
             gh --version >/dev/null
             actionlint -version >/dev/null
+            yq --version >/dev/null
             touch "$out"
           '';
         }

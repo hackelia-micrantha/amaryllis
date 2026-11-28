@@ -27,6 +27,53 @@ ai:
     expect(spec.target.runtime).toBe('web');
   });
 
+  it('preserves nested schema, variant props, and behavior state records', () => {
+    const yaml = `
+apiVersion: amaryllis/v1alpha1
+kind: ComponentSpec
+metadata:
+  name: record-test
+  version: 1.0.0
+target:
+  framework: react
+  runtime: web
+props:
+  type: object
+  properties:
+    details:
+      type: object
+      properties:
+        label:
+          type: string
+      required:
+        - label
+ui:
+  variants:
+    compact:
+      props:
+        visible: true
+        label: compact
+behavior:
+  state:
+    count: 0
+    enabled: true
+ai:
+  mode: scaffold
+  execution: build
+`;
+    const spec = parseComponentSpec(yaml);
+    expect(spec.props.properties.details).toEqual({
+      type: 'object',
+      properties: { label: { type: 'string' } },
+      required: ['label'],
+    });
+    expect(spec.ui?.variants?.compact?.props).toEqual({
+      visible: true,
+      label: 'compact',
+    });
+    expect(spec.behavior?.state).toEqual({ count: 0, enabled: true });
+  });
+
   it('should throw error for invalid spec', () => {
     const yaml = `
 apiVersion: amaryllis/v1alpha1
