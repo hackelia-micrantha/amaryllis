@@ -18,6 +18,8 @@ import {
   assertNoWorkspaceProtocols,
   assertRuntimeImportsDeclared,
   materializePublishedManifest,
+  publishOrder,
+  validateReleaseArtifactManifest,
 } from './package-release-lib.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -42,12 +44,6 @@ const packageConfigs = [
     expectedName: '@micrantha/amaryllis-components',
     requiredFields: ['main', 'types', 'bin'],
   },
-];
-
-const publishOrder = [
-  '@micrantha/amaryllis',
-  '@micrantha/react-native-amaryllis',
-  '@micrantha/amaryllis-components',
 ];
 
 function parseArgs(argv) {
@@ -376,6 +372,7 @@ async function main() {
         filename: state.filename,
       })),
     };
+    validateReleaseArtifactManifest(artifactManifest);
     await writeFile(
       resolve(options.outputDirectory, 'package-release.json'),
       `${JSON.stringify(artifactManifest, null, 2)}\n`
