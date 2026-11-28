@@ -5,6 +5,7 @@ import { LLMProvider } from '../AmaryllisContext';
 import { useInferenceAsync } from '../AmaryllisHooks';
 import { GenerationInProgressError } from '../Errors';
 import type {
+  LlmCallbacks,
   LlmEngineConfig,
   LlmEventEmitter,
   LlmNativeEngine,
@@ -203,9 +204,8 @@ describe('real provider and pipe at the native event boundary', () => {
 
     await pipe.newSession({ enableVisionModality: true });
     const events: unknown[] = [];
-    await pipe.generateAsync(request, {
-      onEvent: (event) => events.push(event),
-    });
+    const callbacks: LlmCallbacks = { onEvent: (event) => events.push(event) };
+    await pipe.generateAsync(request, callbacks);
     const failedId = native.requestId();
     native.fail('unable to generate response', 'ERR_INFER');
     expect(events).toEqual([
@@ -219,9 +219,7 @@ describe('real provider and pipe at the native event boundary', () => {
     ]);
     expect(native.listenerCount).toBe(0);
 
-    await pipe.generateAsync({ prompt: 'retry' }, {
-      onEvent: (event) => events.push(event),
-    });
+    await pipe.generateAsync({ prompt: 'retry' }, callbacks);
     native.emit('onError', {
       requestId: failedId,
       message: 'stale failure',
@@ -240,11 +238,10 @@ describe('real provider and pipe at the native event boundary', () => {
     const next = new LlmPipe(native);
     const events: unknown[] = [];
     const lifecycle: unknown[] = [];
+    const callbacks: LlmCallbacks = { onEvent: (event) => events.push(event) };
     owner.subscribeAsyncLifecycle((event) => lifecycle.push(event));
     await owner.init(config);
-    await owner.generateAsync({ prompt: 'first' }, {
-      onEvent: (event) => events.push(event),
-    });
+    await owner.generateAsync({ prompt: 'first' }, callbacks);
     const retiredId = native.requestId();
 
     owner.close();
@@ -253,9 +250,7 @@ describe('real provider and pipe at the native event boundary', () => {
     expect(events).toEqual([]);
 
     await next.init(config);
-    await next.generateAsync({ prompt: 'next' }, {
-      onEvent: (event) => events.push(event),
-    });
+    await next.generateAsync({ prompt: 'next' }, callbacks);
     native.emit('onCancelled', { requestId: retiredId });
     native.emit('onFinalResult', { requestId: retiredId, text: 'stale' });
     native.finish('next', 'next');
