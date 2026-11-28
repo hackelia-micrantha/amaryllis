@@ -41,20 +41,23 @@ describe('deterministic audience resolution', () => {
   });
 
   it.each([
-    [],
-    [''],
-    ['Developer'],
-    [' developer'],
-    ['developer '],
-    ['security-reviewer'],
-    ['developer', 'developer'],
-    ['developer', 'security_reviewer'],
-    ['__proto__'],
-    ['<script>alert(1)</script>'],
-    [null],
-    [42],
-    [{ toString: () => 'developer' }],
-  ])('rejects malformed or repeated query occurrences', (...queryValues) => {
+    { label: 'absent', queryValues: [] },
+    { label: 'empty', queryValues: [''] },
+    { label: 'case mismatch', queryValues: ['Developer'] },
+    { label: 'leading whitespace', queryValues: [' developer'] },
+    { label: 'trailing whitespace', queryValues: ['developer '] },
+    { label: 'legacy persona ID', queryValues: ['security-reviewer'] },
+    { label: 'duplicate', queryValues: ['developer', 'developer'] },
+    {
+      label: 'conflict',
+      queryValues: ['developer', 'security_reviewer'],
+    },
+    { label: 'prototype key', queryValues: ['__proto__'] },
+    { label: 'markup', queryValues: ['<script>alert(1)</script>'] },
+    { label: 'null', queryValues: [null] },
+    { label: 'number', queryValues: [42] },
+    { label: 'coercible object', queryValues: [{ toString: () => 'developer' }] },
+  ])('rejects $label query occurrences', ({ queryValues }) => {
     expect(
       resolveAudience({
         queryValues,
