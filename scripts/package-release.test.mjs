@@ -3,9 +3,12 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
   assertInternalDependencyCompatibility,
+  assertPackedArtifactIdentity,
   assertRuntimeImportsDeclared,
   materializePublishedManifest,
+  publishOrder,
   satisfiesSimpleRange,
+  validateReleaseArtifactManifest,
 } from './package-release-lib.mjs';
 
 function workflowJobBlock(source, name) {
@@ -134,6 +137,83 @@ test('implements the release ranges used by staged package manifests', () => {
   assert.equal(
     satisfiesSimpleRange('0.1.0-canary.1', '^0.1.0'),
     false
+  );
+});
+
+test('release artifact publisher accepts only the expected package DAG and flat files', () => {
+  const packages = [
+    {
+      name: '@micrantha/amaryllis',
+      version: '0.1.0',
+      filename: 'micrantha-amaryllis-0.1.0.tgz',
+    },
+    {
+      name: '@micrantha/react-native-amaryllis',
+      version: '0.1.7',
+      filename: 'micrantha-react-native-amaryllis-0.1.7.tgz',
+    },
+    {
+      name: '@micrantha/amaryllis-components',
+      version: '0.1.0',
+      filename: 'micrantha-amaryllis-components-0.1.0.tgz',
+    },
+  ];
+  const manifest = {
+    schemaVersion: 1,
+    publishOrder: [...publishOrder],
+    packages,
+  };
+  assert.deepEqual(
+    Object.keys(validateReleaseArtifactManifest(manifest)),
+    [...publishOrder]
+  );
+  assert.throws(
+    () =>
+      validateReleaseArtifactManifest({
+        ...manifest,
+        publishOrder: [...publishOrder].reverse(),
+      }),
+    /Unexpected release artifact manifest/
+  );
+  assert.throws(
+    () =>
+      validateReleaseArtifactManifest({
+        ...manifest,
+        packages: [
+          { ...packages[0], filename: '../outside.tgz' },
+          ...packages.slice(1),
+        ],
+      }),
+    /Invalid package release artifact entry/
+  );
+  assert.throws(
+    () =>
+      validateReleaseArtifactManifest({
+        ...manifest,
+        packages: [packages[0], packages[1], packages[0]],
+      }),
+    /Invalid package release artifact entry/
+  );
+  assert.doesNotThrow(() =>
+    assertPackedArtifactIdentity(packages[0], {
+      name: packages[0].name,
+      version: packages[0].version,
+    })
+  );
+  assert.throws(
+    () =>
+      assertPackedArtifactIdentity(packages[0], {
+        name: packages[0].name,
+        version: '9.0.0',
+      }),
+    /Packed release artifact identity mismatch/
+  );
+
+  const publisher = readFileSync('scripts/publish-package-artifacts.mjs', 'utf8');
+  assert.match(publisher, /execFileAsync\(\s*'tar'/);
+  assert.ok(
+    publisher.indexOf('assertPackedArtifactIdentity(entry,') <
+      publisher.indexOf("await execFileAsync('npm'")
   );
 });
 
