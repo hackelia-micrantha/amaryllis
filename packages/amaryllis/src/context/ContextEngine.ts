@@ -98,7 +98,7 @@ export class ContextEngine implements ContextEngineContract {
     validateContextQuery(query);
     const results = await this.store.query(query);
     // Store output remains untrusted even when persistence is application-owned.
-    if (results.length > 0) {
+    if (!Array.isArray(results) || results.length > 0) {
       validateContextItems(results, this.policy);
     }
     if (results.length <= 1) {
@@ -130,7 +130,7 @@ export class ContextEngine implements ContextEngineContract {
   formatRequest(params: ContextFormatParams): LlmRequestParams {
     // Direct callers may supply their own retrieved items rather than using
     // search(); every item crosses the same untrusted-context boundary.
-    if (params.items.length > 0) {
+    if (!Array.isArray(params.items) || params.items.length > 0) {
       validateContextItems(params.items, this.policy);
     }
     return this.formatter(params);
