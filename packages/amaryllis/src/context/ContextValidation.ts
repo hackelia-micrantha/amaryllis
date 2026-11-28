@@ -22,8 +22,18 @@ const isPositiveNumber = (value: number | undefined): value is number => {
   return value !== undefined && Number.isFinite(value) && value > 0;
 };
 
-const isNonEmptyString = (value: string | undefined): value is string => {
-  return value !== undefined && value.trim().length > 0;
+const isNonEmptyString = (value: unknown): value is string => {
+  return typeof value === 'string' && value.trim().length > 0;
+};
+
+const assertRecord = (value: unknown, field: string): void => {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new ValidationError(`${field} must be an object`);
+  }
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new ValidationError(`${field} must be a plain object`);
+  }
 };
 
 const assertNonEmpty = (value: string, field: string): void => {
@@ -33,6 +43,9 @@ const assertNonEmpty = (value: string, field: string): void => {
 };
 
 const validateStringList = (values: string[], field: string): void => {
+  if (!Array.isArray(values)) {
+    throw new ValidationError(`${field} must be an array`);
+  }
   if (values.length === 0) {
     throw new ValidationError(`${field} must not be empty`);
   }
@@ -44,9 +57,10 @@ const validateStringList = (values: string[], field: string): void => {
 export const validateContextPolicy = (
   policy: ContextPolicy | undefined
 ): void => {
-  if (!policy) {
+  if (policy === undefined) {
     return;
   }
+  assertRecord(policy, 'ContextPolicy');
 
   const { maxBytes, maxItems, defaultTtlSeconds, evictionStrategy, media } =
     policy;
@@ -82,20 +96,22 @@ export const validateContextPolicy = (
 export const validateMediaPolicy = (
   policy: MediaValidationPolicy | undefined
 ): void => {
-  if (!policy) {
+  if (policy === undefined) {
     return;
+  }
+  assertRecord(policy, 'MediaValidationPolicy');
+  if (
+    policy.requireAbsoluteUri !== undefined &&
+    typeof policy.requireAbsoluteUri !== 'boolean'
+  ) {
+    throw new ValidationError('requireAbsoluteUri must be a boolean');
   }
 
   const { allowedUriSchemes, maxMediaBytes, maxMediaWidth, maxMediaHeight } =
     policy;
 
-  if (allowedUriSchemes) {
-    if (allowedUriSchemes.length === 0) {
-      throw new ValidationError('allowedUriSchemes must not be empty');
-    }
-    for (const scheme of allowedUriSchemes) {
-      assertNonEmpty(scheme, 'allowedUriSchemes item');
-    }
+  if (allowedUriSchemes !== undefined) {
+    validateStringList(allowedUriSchemes, 'allowedUriSchemes');
   }
 
   if (maxMediaBytes !== undefined && !isPositiveNumber(maxMediaBytes)) {
@@ -113,7 +129,15 @@ export const validateMediaReference = (
   reference: MediaReference,
   policy?: MediaValidationPolicy
 ): void => {
+  assertRecord(reference, 'MediaReference');
   assertNonEmpty(reference.uri, 'MediaReference.uri');
+  if (
+    reference.mimeType !== undefined &&
+    typeof reference.mimeType !== 'string'
+  ) {
+    throw new ValidationError('MediaReference.mimeType must be a string');
+  }
+  validateMediaPolicy(policy);
 
   if (policy?.requireAbsoluteUri) {
     const scheme = getScheme(reference.uri);
@@ -189,13 +213,15 @@ export const validateMediaReferences = (
   references: MediaReference[] | undefined,
   policy?: MediaValidationPolicy
 ): void => {
-  if (!references) {
+  if (references === undefined) {
     return;
+  }
+  if (!Array.isArray(references)) {
+    throw new ValidationError('media must be an array');
   }
   if (references.length === 0) {
     throw new ValidationError('media must not be an empty array');
   }
-  validateMediaPolicy(policy);
   for (const reference of references) {
     validateMediaReference(reference, policy);
   }
@@ -205,6 +231,7 @@ export const validateContextItem = (
   item: ContextItem,
   policy?: ContextPolicy
 ): void => {
+  assertRecord(item, 'ContextItem');
   assertNonEmpty(item.id, 'ContextItem.id');
   assertNonEmpty(item.text, 'ContextItem.text');
 
@@ -227,11 +254,12 @@ export const validateContextItem = (
     );
   }
 
-  if (item.tags) {
+  if (item.tags !== undefined) {
     validateStringList(item.tags, 'ContextItem.tags');
   }
 
-  if (item.metadata) {
+  if (item.metadata !== undefined) {
+    assertRecord(item.metadata, 'ContextItem.metadata');
     const entries = Object.entries(item.metadata);
     for (const [key, value] of entries) {
       assertNonEmpty(key, 'ContextItem.metadata key');
@@ -246,6 +274,9 @@ export const validateContextItems = (
   items: ContextItem[],
   policy?: ContextPolicy
 ): void => {
+  if (!Array.isArray(items)) {
+    throw new ValidationError('items must be an array');
+  }
   if (items.length === 0) {
     throw new ValidationError('items must not be empty');
   }
@@ -256,7 +287,14 @@ export const validateContextItems = (
 };
 
 export const validateContextQuery = (query: ContextQuery): void => {
+  assertRecord(query, 'ContextQuery');
   assertNonEmpty(query.text, 'ContextQuery.text');
+  if (
+    query.useSemantic !== undefined &&
+    typeof query.useSemantic !== 'boolean'
+  ) {
+    throw new ValidationError('ContextQuery.useSemantic must be a boolean');
+  }
 
   if (query.limit !== undefined && !isPositiveNumber(query.limit)) {
     throw new ValidationError('ContextQuery.limit must be a positive number');
@@ -266,10 +304,11 @@ export const validateContextQuery = (query: ContextQuery): void => {
       'ContextQuery.recencyBias must be a finite number'
     );
   }
-  if (query.tags) {
+  if (query.tags !== undefined) {
     validateStringList(query.tags, 'ContextQuery.tags');
   }
-  if (query.filters) {
+  if (query.filters !== undefined) {
+    assertRecord(query.filters, 'ContextQuery.filters');
     const entries = Object.entries(query.filters);
     for (const [key, value] of entries) {
       assertNonEmpty(key, 'ContextQuery.filters key');
