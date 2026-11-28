@@ -227,3 +227,7 @@ For more detail, see:
 - [Security model](./security-model.md)
 - [Threat model](./threat-model.md)
 - [Amaryllis Components RFC](./amaryllis_ai_component_module_rfc.md)
+
+## Proposed predictive and decision intelligence
+
+The [predictive intelligence RFC](predictive-intelligence-rfc.md) explores optional local classifiers, decision models, inference routing and predictive world models. It is experimental and does not change the current runtime, component authority, public API or release requirements. See #170 and #171 for research tracking.
