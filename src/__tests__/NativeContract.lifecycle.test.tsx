@@ -78,10 +78,7 @@ function createNativeFixture() {
       return active?.cancelling ?? false;
     },
     get listenerCount() {
-      return [...listeners.values()].reduce(
-        (sum, group) => sum + group.size,
-        0
-      );
+      return [...listeners.values()].reduce((sum, group) => sum + group.size, 0);
     },
     acknowledgeCancellation() {
       if (!active?.cancelling) throw new Error('Cancellation not requested');
