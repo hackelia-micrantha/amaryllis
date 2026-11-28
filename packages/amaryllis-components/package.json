@@ -28,6 +28,11 @@
     "components",
     "generative-ui"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hackelia-micrantha/amaryllis.git",
+    "directory": "packages/amaryllis-components"
+  },
   "author": "Ryan Jennings",
   "license": "MIT",
   "publishConfig": {

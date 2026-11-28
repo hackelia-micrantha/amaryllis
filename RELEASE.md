@@ -1,249 +1,115 @@
 # Release Process
 
-This document describes the automated release process for `@micrantha/react-native-amaryllis`.
+Amaryllis releases a dependency-complete npm package set rather than publishing the repository root in isolation.
 
-## 🎯 Overview
+## Publishable packages
 
-Automated npm publishing with GitHub Actions OIDC trusted publishing, ensuring secure, zero-token deployments with full quality validation.
+```text
+@micrantha/amaryllis
+        ↓
+@micrantha/react-native-amaryllis
 
-## 🔄 Release Process
-
-### Development Workflow
-
-1. **Make Changes**
-
-   ```bash
-   # Standard development
-   npm test && npm run lint && npm run typecheck
-
-   # Commit changes
-   git commit -m "feat: new feature"
-   ```
-
-2. **Push Changes**
-   ```bash
-   git push origin main  # Triggers CI but no publish
-   ```
-
-### Automated Release Workflow
-
-1. **Version Bump & Tag**
-
-   ```bash
-   # Standard release (updates package.json, creates tag, pushes both)
-   npm version patch    # Creates v0.1.3
-
-   # Major release (breaking changes)
-   npm version major     # Creates v1.0.0
-
-   # Minor release (new features)
-   npm version minor     # Creates v0.2.0
-   ```
-
-2. **Automated Publishing**
-   ```bash
-   git push origin main --follow-tags  # Pushes commit + tag
-   # → GitHub Actions automatically publishes to npm
-   ```
-
-## 🏗️ Architecture
-
-### GitHub Actions Workflows
-
-#### Test Workflow (`.github/workflows/test-publish.yml`)
-
-- **Trigger**: Manual (`workflow_dispatch`)
-- **Purpose**: Safe testing without publishing
-- **Features**: Dry-run npm pack, full validation
-- **Usage**:
-  ```bash
-  gh workflow run "Test Publish Workflow"
-  ```
-
-#### Production Workflow (`.github/workflows/publish.yml`)
-
-- **Trigger**: Tag pushes (`v*`)
-- **Purpose**: Automated npm publishing
-- **Features**:
-  - OIDC trusted publisher authentication
-  - Waits for `CI`, `Dependency Audit`, and `Security - CodeQL` to pass for the tagged commit before publishing
-  - Full package validation before publish
-  - Automatic provenance generation
-  - Zero npm tokens required
-
-#### Enhanced CI Workflow (`.github/workflows/ci.yml`)
-
-- **Updates**: Node.js v24, latest stable action versions
-- **Features**: Improved caching, mobile builds, comprehensive testing
-
-## 🔐 Security Features
-
-### OIDC Trusted Publisher
-
-- **Configuration**:
-  - Organization: `hackelia-micrantha`
-  - Repository: `amaryllis`
-  - Workflow: `publish.yml`
-  - npm CLI: `>= 11.5.1` for trusted publishing
-- **Benefits**:
-  - Zero npm tokens needed
-  - Short-lived, cryptographically-signed credentials
-  - Automatic provenance generation
-  - Enhanced security posture
-
-### Tag Protection
-
-- **Rules**: Only `ryjen` and `hackelia-micrantha` team can create `v*` tags
-- **Protection**: Requires status checks, prevents force pushes
-- **Benefits**: Prevents unauthorized releases
-
-## 🚀 Quality Gates
-
-All automated releases include comprehensive validation:
-
-### Pre-Publish Validation
-
-```bash
-npm test              # Full test suite
-npm run lint          # Code quality checks
-npm run typecheck      # TypeScript validation
-yarn prepare          # Build package
+@micrantha/amaryllis-components
 ```
 
-### Package Validation
+The shared core must be published before the React Native package that depends on it. Components is validated with the same artifact set and then published independently.
 
-```bash
-# Verify built files and metadata
-node -e "console.log('Package:', JSON.parse(require('fs').readFileSync('./package.json', 'utf8')).name)"
-node -e "console.log('Version:', JSON.parse(require('fs').readFileSync('./package.json', 'utf8')).version)"
-ls -la lib/           # Verify build artifacts
+## Release architecture
+
+Production releases use two trust boundaries:
+
+```text
+runner-amaryllis
+  repository-owned Nix toolchain
+  tests / typechecks / builds
+  clean-consumer package preflight
+  exact .tgz artifacts
+        ↓ GitHub Actions artifacts
+ubuntu-latest
+  npm trusted publishing (OIDC)
+  publishes the exact .tgz files
 ```
 
-## 📦 Publishing Command
+No package is rebuilt after the preflight/publish handoff.
 
-### Automated Publishing
+The GitHub-hosted publish job alone receives `id-token: write`. The self-hosted preflight job has read-only repository/actions permissions.
 
-```bash
-npm publish --provenance --access public
-```
+## Before tagging
 
-- **Authentication**: OIDC (no tokens)
-- **Provenance**: Automatic cryptographic proof
-- **Registry**: npmjs.org
-- **Access**: Public
+A release commit must have successful required validation for the exact commit. The package preflight additionally proves that:
 
-## 📊 Workflow Status Monitoring
+- all three packages build;
+- staged manifests contain no unresolved `workspace:` dependency;
+- the root package points at the core version in the same release set;
+- built JavaScript has no undeclared bare runtime import;
+- exact package tarballs install outside the monorepo;
+- the core root and `/context` exports execute in the clean consumer;
+- the React Native root/context and components package entrypoints resolve from their tarballs.
 
-### Check Recent Runs
+The same contract is exercised in CI and by the manual `Test Publish Workflow`.
 
-```bash
-# List recent workflows
-gh run list --limit=10
+## Production release
 
-# Check specific workflow
-gh run view <workflow-id>
+Create and push the release commit/tag using the repository's normal versioning process. A `v*` tag starts `.github/workflows/publish.yml`.
 
-# Monitor running workflow
-gh run view --job=<job-id>
-```
+The workflow:
 
-### Debug Publishing Issues
+1. waits for `CI`, `Dependency Audit`, and `Security - CodeQL` evidence for the tagged commit;
+2. runs project-owned package preflight on `runner-amaryllis`;
+3. uploads the exact tarballs and `package-release.json`;
+4. crosses to `ubuntu-latest`;
+5. publishes, in order:
+   - `@micrantha/amaryllis`;
+   - `@micrantha/react-native-amaryllis`;
+   - `@micrantha/amaryllis-components`;
+6. uploads the same tarballs to the GitHub Release.
 
-```bash
-# Check failed publish workflow
-gh run view <workflow-id> --log-failed
+If npm accepts only part of the sequence, the workflow records the already-published and pending versions. Do not rebuild during recovery; confirm registry state and resume from the same artifact set.
 
-# Common issues:
-# - "NEEDAUTH" error: Trusted publisher not configured
-# - Cache failures: Temporary GitHub Actions issue
-# - Tag exists: Use new tag name
-```
+## Canary release
 
-## 🛠 Troubleshooting
+`.github/workflows/canary-publish.yml` uses the same build/preflight/publish split. It materializes related prerelease versions for all three packages and publishes the exact tarballs with the `canary` dist-tag.
 
-### Common Issues & Solutions
+Changes under the core or components workspace also trigger canary validation/publication.
 
-#### "npm error code ENEEDAUTH"
+## npm trusted-publisher configuration
 
-- **Cause**: Trusted publisher not configured correctly or npm CLI is too old
-- **Solution**:
-  1. Check npmjs.com trusted publisher settings
-  2. Verify organization: `hackelia-micrantha`
-  3. Verify repository: `amaryllis`
-  4. Verify workflow: `publish.yml`
-  5. Ensure npm CLI is `>= 11.5.1`
+Trusted publishing must be configured on npmjs.com for every package that the workflow publishes.
 
-#### Tag Already Exists
+Use:
 
-- **Cause**: Git tag already exists locally
-- **Solution**:
-  ```bash
-  git tag -d v0.1.2
-  git tag v0.1.3
-  ```
+- organization: `hackelia-micrantha`;
+- repository: `amaryllis`;
+- production workflow: `publish.yml`;
+- production environment: `production` when the npm publisher entry is environment-scoped;
+- canary workflow: `canary-publish.yml` when canary OIDC publication is enabled.
 
-#### Workflow Not Triggered
+The workflow uses Node 24 and npm 11.5.1 or later. npm trusted publishing automatically generates provenance for eligible public packages; no long-lived npm publish token is required.
 
-- **Cause**: Tag push not triggering publish workflow
-- **Solution**:
-  1. Check tag format (must be `v*`)
-  2. Verify workflow trigger configuration
-  3. Check tag protection rules
+## Manual release validation
 
-#### CI Cache Failures
+Run the `Test Publish Workflow` to exercise the package graph without publication. It builds all publishable packages, stages publishable manifests, creates tarballs, and installs them in a temporary clean consumer.
 
-- **Cause**: Temporary GitHub Actions caching issues
-- **Solution**:
-  1. Re-run workflow
-  2. Caches are ephemeral, retry usually works
-  3. Check cache action configuration
+## Troubleshooting
 
-## 📝 Best Practices
+### `ENEEDAUTH`
 
-### Release Validation
+Verify that the npm trusted-publisher entry exactly matches the package, organization, repository, workflow filename, and environment. The publish job must be running on GitHub-hosted `ubuntu-latest` with `id-token: write`.
 
-- [ ] All tests pass locally
-- [ ] Code follows linting rules
-- [ ] TypeScript compilation succeeds
-- [ ] Build completes without errors
-- [ ] Package.json is valid
+### Clean consumer fails
 
-### Security Checks
+Treat this as a package-integrity failure. Do not add monorepo-only hoisting or a hidden runtime dependency to make the test pass. Fix the packed manifest, package file set, entrypoint, or declared dependency instead.
 
-- [ ] Two-factor authentication enabled on npmjs.com
-- [ ] "Require 2FA and disallow tokens" enabled
-- [ ] Tag protection rules configured
-- [ ] Only authorized team members can create release tags
+### Partial npm publication
 
-### Documentation Updates
+Read the structured failure evidence from `publish-package-artifacts.mjs`, verify which exact versions exist in npm, and reuse the original workflow artifacts. Do not create a second build to finish the same release.
 
-- [ ] CHANGELOG.md updated with release notes
-- [ ] GitHub release created (optional)
-- [ ] Documentation reflects new features
+### GitHub Actions substrate failure
 
-## 🎯 Benefits Achieved
+Classify action/runtime failures separately from package-preflight failures. Do not widen the Amaryllis project runner merely to work around a generic action-runtime defect.
 
-### Before Automation
+## Related release work
 
-❌ Manual `npm publish` commands
-❌ Token management overhead
-❌ Risk of token exposure
-❌ Manual provenance generation (optional)
-❌ Release process prone to human error
-
-### After Automation
-
-✅ Zero npm tokens needed
-✅ OIDC secure authentication
-✅ Automatic provenance generation
-✅ Full quality validation before publish
-✅ Consistent, repeatable process
-✅ Enhanced security controls
-✅ Manual control maintained via tag creation
-✅ Streamlined development workflow
-
----
-
-**Last Updated**: 2025-01-12  
-**Version**: 1.0  
-**Status**: Production Ready ✅
+- #90: dependency-complete package validation/publication;
+- #132: bind exact package tarball bytes to package SBOMs;
+- #67: validate the complete release/SBOM/provenance flow on a real `v*` tag.
