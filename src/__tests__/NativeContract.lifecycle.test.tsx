@@ -19,7 +19,7 @@ function createNativeFixture() {
   const listeners = new Map<string, Set<(payload: unknown) => void>>();
   let active: { id: string; cancelling: boolean } | undefined;
   let initialized = false;
-  let visionSession = false;
+  let session: { enableVisionModality: boolean } | undefined;
 
   const emit = (event: string, payload: unknown) => {
     [...(listeners.get(event) ?? [])].forEach((listener) => listener(payload));
@@ -45,7 +45,9 @@ function createNativeFixture() {
       return Promise.resolve();
     },
     newSession(params) {
-      visionSession = params?.enableVisionModality === true;
+      session = {
+        enableVisionModality: params?.enableVisionModality === true,
+      };
       return Promise.resolve();
     },
     generate() {
@@ -55,7 +57,9 @@ function createNativeFixture() {
       if (!initialized || active) {
         return Promise.reject(new Error('Native request cannot start'));
       }
-      if (params.images?.length && !visionSession) {
+      // Native adapters require a session whenever an image array is supplied.
+      // Actual vision capability is validated by MediaPipe, not this fake.
+      if (params.images !== undefined && !session) {
         return Promise.reject(
           Object.assign(new Error('session is required'), {
             code: 'ERR_SESSION',
@@ -70,7 +74,7 @@ function createNativeFixture() {
     },
     close() {
       initialized = false;
-      visionSession = false;
+      session = undefined;
       active = undefined;
     },
   };
@@ -85,6 +89,9 @@ function createNativeFixture() {
     eventEmitter,
     emit,
     requestId,
+    get visionEnabled() {
+      return session?.enableVisionModality ?? false;
+    },
     get cancelling() {
       return active?.cancelling ?? false;
     },
@@ -202,7 +209,13 @@ describe('real provider and pipe at the native event boundary', () => {
     });
     expect(native.listenerCount).toBe(0);
 
+    await expect(
+      pipe.generateAsync({ prompt: 'describe', images: [] })
+    ).rejects.toMatchObject({ code: 'ERR_SESSION' });
+    expect(native.listenerCount).toBe(0);
+
     await pipe.newSession({ enableVisionModality: true });
+    expect(native.visionEnabled).toBe(true);
     const events: unknown[] = [];
     const callbacks: LlmCallbacks = { onEvent: (event) => events.push(event) };
     await pipe.generateAsync(request, callbacks);
@@ -249,10 +262,32 @@ describe('real provider and pipe at the native event boundary', () => {
     expect(native.listenerCount).toBe(0);
     expect(events).toEqual([]);
 
+    next.subscribeAsyncLifecycle((event) => lifecycle.push(event));
     await next.init(config);
     await next.generateAsync({ prompt: 'next' }, callbacks);
-    native.emit('onCancelled', { requestId: retiredId });
+    const replacementId = native.requestId();
+    expect(replacementId).not.toBe(retiredId);
     native.emit('onFinalResult', { requestId: retiredId, text: 'stale' });
+    expect(events).toEqual([]);
+
+    next.cancelAsync();
+    expect(native.cancelling).toBe(true);
+    const listenerCount = native.listenerCount;
+    expect(listenerCount).toBeGreaterThan(0);
+    native.emit('onCancelled', { requestId: retiredId });
+    expect(lifecycle).toEqual([{ type: 'closed' }]);
+    expect(native.listenerCount).toBe(listenerCount);
+    expect(native.requestId()).toBe(replacementId);
+    await expect(
+      owner.generateAsync({ prompt: 'overlap' })
+    ).rejects.toBeInstanceOf(GenerationInProgressError);
+
+    native.acknowledgeCancellation();
+    expect(lifecycle).toEqual([{ type: 'closed' }, { type: 'cancelled' }]);
+    expect(native.listenerCount).toBe(0);
+    expect(events).toEqual([]);
+
+    await next.generateAsync({ prompt: 'restart' }, callbacks);
     native.finish('next', 'next');
     expect(events).toEqual([{ type: 'final', text: 'next' }]);
     expect(native.listenerCount).toBe(0);
