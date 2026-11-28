@@ -10,6 +10,8 @@ on:
 jobs:
   nightly:
     runs-on: runner-amaryllis
+    env:
+      AMARYLLIS_PROPERTY_NIGHTLY: 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -25,3 +27,6 @@ jobs:
 
       - name: Run unit tests
         run: yarn test --maxWorkers=2
+
+      - name: Run Components tests
+        run: yarn workspace @micrantha/amaryllis-components test --runInBand
