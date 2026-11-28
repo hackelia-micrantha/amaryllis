@@ -1,0 +1,152 @@
+name: Android Model Import Gate (opt-in pilot)
+on:
+  push:
+    branches: [pilot/android-model-import-gate-158]
+    paths:
+      - '.github/workflows/android-model-import-pilot.yml'
+      - 'scripts/ci/android_model_import_smoke.py'
+      - 'example/**'
+      - 'android/**'
+      - 'src/**'
+      - 'yarn.lock'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+concurrency:
+  group: android-model-import-pilot-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  installed-app:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      AVD_NAME: amaryllis-model-import
+      ANDROID_AVD_HOME: ${{ github.workspace }}/.android-avds
+      MODEL_IMPORT_DEBUG_APK: ${{ github.workspace }}/example/android/app/build/outputs/apk/debug/app-debug.apk
+    steps:
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Node from repository version file
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+      - name: Java 21
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install immutable JavaScript dependencies
+        run: node .yarn/releases/yarn-3.6.1.cjs install --immutable
+      - name: Install emulator host audio library
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libpulse0
+
+      - name: Install Android SDK and emulator image
+        run: |
+          set -euo pipefail
+          test -n "$ANDROID_HOME"
+          {
+            echo "$ANDROID_HOME/cmdline-tools/latest/bin"
+            echo "$ANDROID_HOME/platform-tools"
+            echo "$ANDROID_HOME/emulator"
+          } >> "$GITHUB_PATH"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
+            'platforms;android-35' 'build-tools;35.0.0' \
+            'ndk;27.1.12297006' \
+            'system-images;android-35;google_apis;x86_64'
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --list_installed |
+            grep -E 'platforms;android-35|build-tools;35.0.0|ndk;27.1.12297006|system-images;android-35;google_apis;x86_64'
+          "$ANDROID_HOME/platform-tools/adb" version
+          "$ANDROID_HOME/emulator/emulator" -version | head -n 1
+      - name: Build actual debug APK
+        working-directory: example/android
+        run: ./gradlew :app:assembleDebug -PreactNativeArchitectures=x86_64 --no-daemon --console=plain
+      - name: Start existing Metro debug bundler
+        run: |
+          set -euo pipefail
+          node .yarn/releases/yarn-3.6.1.cjs example start --port 8081 \
+            > "$RUNNER_TEMP/amaryllis-metro.log" 2>&1 &
+          for _ in {1..80}; do
+            if curl --fail --silent http://127.0.0.1:8081/status | grep -q 'packager-status:running'; then
+              exit 0
+            fi
+            sleep 2
+          done
+          tail -n 30 "$RUNNER_TEMP/amaryllis-metro.log"
+          exit 1
+      - name: Boot disposable emulator (job-scoped KVM access)
+        run: |
+          set -euo pipefail
+          test -c /dev/kvm || {
+            echo 'BLOCKED: hosted runner does not expose /dev/kvm'
+            exit 1
+          }
+          # Limit device access to the ephemeral runner's primary group.
+          sudo chgrp "$(id -gn)" /dev/kvm
+          sudo chmod g+rw /dev/kvm
+          test -r /dev/kvm && test -w /dev/kvm || {
+            echo 'BLOCKED: KVM remains inaccessible after scoped permission adjustment'
+            exit 1
+          }
+          mkdir -p "$ANDROID_AVD_HOME"
+          avdmanager create avd --force \
+            --name "$AVD_NAME" \
+            --package 'system-images;android-35;google_apis;x86_64' \
+            --device 'pixel_6'
+          emulator -list-avds | grep -Fx -- "$AVD_NAME" || {
+            echo 'BLOCKED: AVD creation did not produce a discoverable device'
+            echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME"
+            find "$ANDROID_AVD_HOME" "$HOME/.android/avd" -maxdepth 2 -type f -name '*.ini' -print 2>/dev/null || true
+            exit 1
+          }
+          emulator -avd "$AVD_NAME" -no-window -no-audio -no-snapshot \
+            -no-boot-anim -gpu swiftshader_indirect \
+            > "$RUNNER_TEMP/android-emulator.log" 2>&1 &
+          if ! timeout 120s adb wait-for-device; then
+            echo 'BLOCKED: emulator did not register with ADB within 120 seconds'
+            tail -n 80 "$RUNNER_TEMP/android-emulator.log" || true
+            exit 1
+          fi
+          for _ in {1..100}; do
+            if [[ "$(adb shell getprop sys.boot_completed | tr -d '\r')" == '1' ]]; then
+              adb shell input keyevent 82
+              exit 0
+            fi
+            sleep 3
+          done
+          tail -n 50 "$RUNNER_TEMP/android-emulator.log"
+          exit 1
+      - name: Verify Metro can serve the Android bundle
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --max-time 180 \
+            'http://127.0.0.1:8081/index.bundle?platform=android&dev=true&minify=false' \
+            --output /dev/null
+      - name: Verify model-import gate and deliberately false oracle
+        run: python3 scripts/ci/android_model_import_smoke.py run "$RUNNER_TEMP/amaryllis-model-import-evidence"
+      - name: Retain device and negative-oracle evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: android-model-import-pilot-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/amaryllis-model-import-evidence/
+            ${{ runner.temp }}/amaryllis-metro.log
+            ${{ runner.temp }}/android-emulator.log
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Summarize exact candidate
+        if: always()
+        run: |
+          {
+            echo "## Android model-import CI pilot"
+            echo "- Commit: $GITHUB_SHA"
+            echo "- Existing debug example, disposable Android 35 x86_64, no model downloads"
+            echo "- False enabled-Continue oracle must exit nonzero"
+            echo "- Inspect job steps and actual device XML; missing evidence is not a pass"
+          } >> "$GITHUB_STEP_SUMMARY"
