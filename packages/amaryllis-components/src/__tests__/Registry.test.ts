@@ -291,7 +291,12 @@ describe('ComponentRegistry identity binding', () => {
     restored.hydrate(registry.snapshot(), () => Component);
     expect(restored.getExact(key)).toEqual(registry.getExact(key));
 
-    for (const invalidVersion of ['v1.2.3', '01.2.3', '1.2.3-beta..1']) {
+    for (const invalidVersion of [
+      'v1.2.3',
+      '01.2.3',
+      '1.2.3-beta..1',
+      '1.2.3+build..7',
+    ]) {
       expect(
         ComponentSpecSchema.safeParse({
           ...baseSpec,
