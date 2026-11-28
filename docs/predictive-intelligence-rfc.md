@@ -122,6 +122,8 @@ Predeclare task success and meaningful improvement over a deterministic baseline
 
 Stages: deterministic baseline; lightweight decision comparator; conditional bandit and predictive routing; conditional state/world-model research; conditional device qualification and API review. For each, record adopt/defer/reject with evidence and maintenance trade-offs. Stop when a simpler solution is sufficient. No new mandatory CI, package, native runtime or stable API until independently justified and reviewed.
 
+The [research-informed experiment plans](research-experiments.md) consolidate the conditional E3 decision/routing and E4 state-model comparisons following the completed [#174 research review](https://github.com/hackelia-micrantha/amaryllis/issues/174). Representation quality, transition prediction and downstream task success are separate measurements. A similar latent observation cannot stand in for canonical state or goal attainment; reobserve state and authorize each effect independently. A distilled visual encoder is not a complete planner. The proposed numeric pilot thresholds are not accepted product requirements. #170/#171 retain sequencing and the baseline-first stop rule.
+
 ## References
 
 - [Li et al., A Contextual-Bandit Approach to Personalized News Article Recommendation](https://doi.org/10.1145/1772690.1772758)

@@ -231,3 +231,9 @@ For more detail, see:
 ## Proposed predictive and decision intelligence
 
 The [predictive intelligence RFC](predictive-intelligence-rfc.md) explores optional local classifiers, decision models, inference routing and predictive world models. It is experimental and does not change the current runtime, component authority, public API or release requirements. See #170 and #171 for research tracking.
+
+## Research evidence and experiment sequence
+
+The [completed research review (#174)](https://github.com/hackelia-micrantha/amaryllis/issues/174) supports retaining the existing runtime, storage and component boundaries. Prefer deterministic resolution, then optional lightweight decision/prediction, and only invoke generation when the application task warrants it. These are proposed capability-selection choices, not an implemented router. Admission precedes retrieval/inference; canonical application state and effect-time policy remain authoritative.
+
+The [research-informed experiment plans](research-experiments.md) define conditional comparisons for structured generation, physical-device inference, decision models, latent planning, context retrieval, reversible personalization and optional UI exploration. Existing owner issues retain priority, acceptance and qualification. No result is independently reproduced and no runtime migration or new dependency follows from literature review alone.
