@@ -28,23 +28,39 @@ Do not conflate a decision model with an authorization mechanism, an embedding w
 
 ```mermaid
 flowchart TD
-    A[Application state and explicit preferences] --> B[Bounded context]
-    A --> C[Deterministic resolver]
-    B --> P[Optional predictor or scorer]
-    P -->|Advisory hint| C
-    C --> D[Application policy and permitted options]
-    D -->|Admitted generation request if needed| L[Existing generative runtime]
+    A[Application state and explicit preferences] --> I[Application input and capability admission]
+    I -->|Admitted retrieval| B[Bounded context]
+    I -->|Explicit preference or default| C[Deterministic resolver]
+    B --> J[Feature and predictor invocation admission]
+    J -->|Admitted features and options| P[Optional predictor or scorer]
+    P -->|Untrusted result| H[Validate hint and current request binding]
+    H -->|Valid advisory hint| C
+    H -->|Abstain or reject| C
+    J -->|No predictor permitted| C
+    C --> D[Current application policy and permitted options]
+    D -->|Admitted generation request and inputs| L[Existing generative runtime]
     D -->|Admitted variant| V[Registered contract validation]
     L -->|Untrusted output| V
-    V --> E[Application semantic checks]
+    V --> E[Application semantic and current-context checks]
     E --> F[Exact registered implementation]
-    V -->|Invalid data| G[Base props or safe default]
+    F -->|Requested effect| T[Effect-time application authorization]
+    T -->|Allowed| U[Application-owned effect]
+    I -->|Denied| G[Authorized static presentation or no effect]
+    D -->|Denied| G
+    V -->|Invalid data| G
     E -->|Denied| G
+    T -->|Denied| G
 ```
 
-Policy must precede sensitive input disclosure and inference invocation as well as any downstream application effect. The diagram shows the logical data path, not an automatic complete-policy implementation in today's runtime. Current programmatic personalization validates the registered JSON contract, unsafe keys and patch bounds; full package PolicyEngine mediation is not implicit. Applications must compose semantic, capability, accessibility and network policy independently. See [runtime personalization](runtime-personalization.md) and [security model](security-model.md).
+Policy must precede retrieval, model input disclosure and each inference invocation as well as any downstream application effect. Denial of optional prediction permits only the independently authorized deterministic path, never a substitute model or a less restrictive route. Recheck the actual action and current authority at effect time; rendering a valid component is not authorization to execute its callbacks. The diagram shows the logical data path, not an automatic complete-policy implementation in today's runtime. Current programmatic personalization validates the registered JSON contract, unsafe keys and patch bounds; full package PolicyEngine mediation is not implicit. Applications must compose semantic, capability, accessibility and network policy independently. See [runtime personalization](runtime-personalization.md) and [security model](security-model.md).
 
 An optional predictor cannot register components, choose arbitrary implementation versions, change specs or introduce executable source. Recommendations for navigation or actions are distinct from performing them; actual effects require current application authorization. On policy denial use a safe non-effect state, not another model or a less restrictive route.
+
+## Dependency direction and feature admission
+
+Application rules and deterministic resolution are pure functions wherever practical. Keep framework, model runtime and persistence details outside the policy-owning boundary. Inject an optional, narrow prediction function at the application composition point only when needed; pass the admitted immutable input snapshot rather than a context store, network client, registry mutation capability or ambient application authority. Native/runtime adapters own initialization, cancellation and cleanup, not business decisions. Reuse the ContextStore, existing renderer and lifecycle. Do not add a universal model interface, factory hierarchy or DI framework. Test real rules and small deterministic model implementations directly; use controlled clocks and failure adapters at genuine effect boundaries, and verify actual production wiring separately when introduced.
+
+Before retrieval or prediction, the application authorizes purpose, provider/artifact and resource budget. A task-specific allowlist describes permitted feature names, types, ranges, source/provenance, freshness, size and missing-value semantics. Derived features are rechecked before inference; reject or omit undeclared, stale, untrusted-for-purpose or sensitive fields according to the declared contract. Pass only the minimum admitted snapshot and finite option set. Context retrieval does not confer trust or permission. First experiments use synthetic non-sensitive inputs only; no persistent feature logs, hidden telemetry, inferred sensitive attributes, real visitor profiling or network fallback. Later retention or learning requires a separate decision.
 
 ## Initial experiment: adaptive components
 
@@ -52,7 +68,19 @@ Extend the #131 demo after its deterministic contract is accepted. Preserve the 
 
 Compare the deterministic baseline with a small linear classifier or decision tree. If the baseline is adequate, stop. Only consider a contextual bandit if there is a demonstrated choice problem, suitable outcome data, and an ethically acceptable evaluation design. Offline logged-bandit evaluation requires known action support and propensities or an otherwise justified estimator; observational logs alone cannot establish counterfactual utility. No production exploration or persistent online learning is implied.
 
-Candidate response semantics (illustrative, not a new exported API): a finite allowed variant identifier, a model/artifact identity, a score whose semantics are specified per model, and a request/context revision. Absence of a result is abstention. Reject nonfinite/out-of-range scores where a range is defined, unknown options, malformed data, mismatched identity, expired context and results delivered after cancellation or a changed preference. Recheck admissibility at use time. Do not call arbitrary scores calibrated probabilities.
+Candidate response semantics (illustrative, not a new exported API): a finite allowed variant identifier, a model/artifact identity, a score whose semantics are specified per model, and a request/context revision. Use a cohesive named result (illustrative discriminated outcomes below), not an ambiguous nullable success. Reject nonfinite/out-of-range scores where a range is defined, unknown options, malformed data, mismatched identity, expired context and results delivered after cancellation or a changed preference. Recheck admissibility at use time. Do not call arbitrary scores calibrated probabilities.
+
+| Outcome | Application behavior |
+| --- | --- |
+| Candidate | Validate identity, option, score semantics, request and policy before considering it |
+| Abstained | Continue with independently authorized deterministic default; no retry |
+| Invalid or stale | Discard result, use authorized current fallback and record only sanitized reason |
+| Deadline exceeded | Cancel or invalidate request, discard late completions, use authorized fallback if request still current |
+| Canceled or superseded | Discard output; do not commit UI or effects for that request |
+| Runtime unavailable or failed | Use authorized deterministic fallback; sanitized diagnostic, no implicit retry/network switch |
+| Policy denied | No denied invocation or effect; only independently authorized presentation |
+
+The application owns request identity and deadline, and checks them immediately before committing output. Cancellation is not proof native work stopped: adapters must manage resource cleanup and prevent late results from reentering the resolver. These are proposed semantics, not a new exported type.
 
 ## Predictive inference routing
 
@@ -86,7 +114,7 @@ No pricing, eligibility, access-control decisions, sensitive identity inference,
 
 ## Evidence and progression
 
-Predeclare task success and meaningful improvement over a deterministic baseline, allowable regression, uncertainty reporting and resource budgets. Record exact application/model/configuration identities, data splits, seeds, environment and evaluation protocol. Use independent expected outcomes; prevent train/test leakage. Measure task quality, calibration or appropriate score semantics, abstention, invalid/denied outputs, fallback, latency and memory. Measure energy or thermals only with defensible collectors.
+Predeclare task success and meaningful improvement over a deterministic baseline, allowable regression, uncertainty reporting and resource budgets. Record exact application/model/configuration identities, data splits, seeds, environment and evaluation protocol. Use independent expected outcomes; prevent train/test leakage. Freeze representative scenarios and their task oracle independently of the learned model and fixture generator; separate fitting, tuning/calibration and untouched final evaluation, splitting by scenario family where variants share structure. Compare against an honestly tuned deterministic rule and simple majority/default baseline with identical admitted features, options and budgets. Include ambiguous, missing-feature and shifted-distribution cases, not only easy labeled examples. Report paired task outcomes, uncertainty, coverage/abstention and any regressions; reject circular synthetic labels generated by the candidate or baselines deliberately weakened to make a model win. Synthetic utility is a simulated result, not an observed user benefit. Measure task quality, calibration or appropriate score semantics, abstention, invalid/denied outputs, fallback, latency and memory. Measure energy or thermals only with defensible collectors.
 
 - Synthetic tests establish contract and policy behavior, not real user utility.
 - Device qualification under #117 establishes supported hardware/runtime observations, not broad compatibility. Simulators are not physical evidence.
