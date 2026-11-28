@@ -61,7 +61,9 @@ describe('ComponentSpec customization properties', () => {
   });
 
   it('rejects invalid final structure and policy without mutating the base', () => {
-    const invalid = fc.constantFrom(
+    const invalid = fc.constantFrom<
+      Array<{ op: string; path: string; value: unknown }>
+    >(
       [{ op: 'replace', path: '/props', value: 'invalid' }],
       [{ op: 'replace', path: '/kind', value: 'Untrusted' }],
       [
