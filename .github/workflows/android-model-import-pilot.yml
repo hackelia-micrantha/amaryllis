@@ -121,6 +121,12 @@ jobs:
           done
           tail -n 50 "$RUNNER_TEMP/android-emulator.log"
           exit 1
+      - name: Verify Metro can serve the Android bundle
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --max-time 180 \
+            'http://127.0.0.1:8081/index.bundle?platform=android&dev=true&minify=false' \
+            --output /dev/null
       - name: Verify model-import gate and deliberately false oracle
         run: python3 scripts/ci/android_model_import_smoke.py run "$RUNNER_TEMP/amaryllis-model-import-evidence"
       - name: Retain device and negative-oracle evidence
@@ -128,7 +134,10 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: android-model-import-pilot-${{ github.sha }}
-          path: ${{ runner.temp }}/amaryllis-model-import-evidence/
+          path: |
+            ${{ runner.temp }}/amaryllis-model-import-evidence/
+            ${{ runner.temp }}/amaryllis-metro.log
+            ${{ runner.temp }}/android-emulator.log
           if-no-files-found: warn
           retention-days: 7
       - name: Summarize exact candidate
