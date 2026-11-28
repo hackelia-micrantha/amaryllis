@@ -235,9 +235,9 @@ test('release workflows reserve OIDC authority for hosted publication', () => {
 
     assert.match(publish, /runs-on: ubuntu-latest/);
     assert.match(publish, /id-token: write/);
-    assert.match(publish, /actions\/setup-node@v7/);
+    assert.match(publish, /actions\/setup-node@[0-9a-f]{40} # v7/);
     assert.match(publish, /package-manager-cache: false/);
-    assert.match(publish, /actions\/download-artifact@v7/);
+    assert.match(publish, /actions\/download-artifact@[0-9a-f]{40} # v7/);
     assert.match(publish, /scripts\/publish-package-artifacts\.mjs/);
   }
 });

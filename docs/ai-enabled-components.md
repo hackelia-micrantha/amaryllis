@@ -230,3 +230,7 @@ The component system is not intended to provide:
 - a universal generative UI protocol.
 
 The goal is declarative, governable, AI-enabled interfaces with explicit limits and accurately documented authority.
+
+## Proposed deterministic personalization demo
+
+The [audience-resolved personalization demo](components/personalized-components-demo.md) defines a deterministic, application-owned baseline for #131. It preserves exact registered component identity and application policy, and provides a comparator for the proposed [predictive intelligence research](predictive-intelligence-rfc.md). Neither the demo nor predictive model integration is claimed as shipped by this document.

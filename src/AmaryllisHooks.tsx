@@ -210,9 +210,17 @@ export const useInferenceAsync = (props: InferenceProps = {}) => {
 
   useLayoutEffect(() => {
     return () => {
-      activeGenerationRef.current?.cancel(false);
+      const generation = activeGenerationRef.current;
+      if (!generation) return;
+
+      // When the provider withdraws a controller, its lifecycle subscription
+      // can disappear before a native cancellation acknowledgement arrives.
+      // Retire this hook's generation locally; provider cleanup owns closing
+      // the underlying engine, and no post-withdrawal callbacks may publish.
+      generation.cancel(false);
+      finishGeneration(generation, false);
     };
-  }, [controller]);
+  }, [controller, finishGeneration]);
 
   return generate;
 };
@@ -272,6 +280,7 @@ export const useInference = (props: InferenceProps = {}) => {
 };
 
 export const useContextInferenceAsync = (props: ContextInferenceProps = {}) => {
+  const { controller } = useLLMContext();
   const { contextEngine, query, ...inferenceProps } = props;
   const { onComplete, onError } = inferenceProps;
   const augmentRequest = useContextAugmentation(contextEngine, query);
@@ -299,6 +308,15 @@ export const useContextInferenceAsync = (props: ContextInferenceProps = {}) => {
     onError: handleBaseError,
     onComplete: handleBaseComplete,
   });
+
+  // Only controller replacement retires this request lease. Callback identity
+  // changes must not release a still-active context lookup or stream.
+  // Clear the lease on withdrawal so stale retrieval cannot start generation.
+  useLayoutEffect(() => {
+    return () => {
+      activeRequestRef.current = null;
+    };
+  }, [controller]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -351,14 +369,18 @@ export const useContextInferenceAsync = (props: ContextInferenceProps = {}) => {
         }
         return cancel;
       } catch (err) {
-        if (!cancelled && mountedRef.current) {
+        if (
+          !cancelled &&
+          mountedRef.current &&
+          activeRequestRef.current === requestId
+        ) {
           onError?.(
             err instanceof Error ? err : new Error('An unknown error occurred')
           );
           if (activeRequestRef.current === requestId) {
             activeRequestRef.current = null;
+            onComplete?.();
           }
-          onComplete?.();
         }
         return cancel;
       }

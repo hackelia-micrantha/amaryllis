@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, renderHook } from '@testing-library/react-native';
+import { act, render, renderHook } from '@testing-library/react-native';
 import { LLMProvider } from '../AmaryllisContext';
 import { useContextInferenceAsync, useInferenceAsync } from '../AmaryllisHooks';
 import { GenerationInProgressError } from '../Errors';
@@ -63,10 +63,12 @@ const createContextEngine = (
 
 const createDeferred = <T,>() => {
   let resolve: (value: T) => void = () => {};
-  const promise = new Promise<T>((nextResolve) => {
+  let reject: (reason: Error) => void = () => {};
+  const promise = new Promise<T>((nextResolve, nextReject) => {
     resolve = nextResolve;
+    reject = nextReject;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 };
 
 describe('useInferenceAsync lifecycle', () => {
@@ -82,6 +84,7 @@ describe('useInferenceAsync lifecycle', () => {
         }),
       { wrapper: createWrapper(pipe) }
     );
+    await act(async () => {});
 
     await act(async () => {
       await result.current({ prompt: 'first' });
@@ -120,6 +123,7 @@ describe('useInferenceAsync lifecycle', () => {
         }),
       { wrapper: createWrapper(pipe) }
     );
+    await act(async () => {});
 
     await act(async () => {
       await result.current({ prompt: 'first' });
@@ -158,6 +162,7 @@ describe('useInferenceAsync lifecycle', () => {
         }),
       { wrapper: createWrapper(pipe) }
     );
+    await act(async () => {});
 
     let cancel: (() => void) | undefined;
     await act(async () => {
@@ -188,6 +193,7 @@ describe('useInferenceAsync lifecycle', () => {
     const { result } = renderHook(() => useInferenceAsync({ onError }), {
       wrapper: createWrapper(pipe),
     });
+    await act(async () => {});
 
     let cancelFirst: (() => void) | undefined;
     await act(async () => {
@@ -215,6 +221,7 @@ describe('useInferenceAsync lifecycle', () => {
     const { result } = renderHook(() => useInferenceAsync({ onComplete }), {
       wrapper: createWrapper(pipe),
     });
+    await act(async () => {});
 
     await act(async () => {
       await result.current({ prompt: 'first' });
@@ -241,6 +248,7 @@ describe('useInferenceAsync lifecycle', () => {
       () => useInferenceAsync({ onError, onComplete }),
       { wrapper: createWrapper(pipe) }
     );
+    await act(async () => {});
 
     let cancel: (() => void) | undefined;
     await act(async () => {
@@ -264,6 +272,7 @@ describe('useInferenceAsync lifecycle', () => {
       () => useInferenceAsync({ onComplete }),
       { wrapper: createWrapper(pipe) }
     );
+    await act(async () => {});
 
     await act(async () => {
       await result.current({ prompt: 'test' });
@@ -287,6 +296,7 @@ describe('useContextInferenceAsync lifecycle', () => {
       () => useContextInferenceAsync({ contextEngine }),
       { wrapper: createWrapper(pipe) }
     );
+    await act(async () => {});
 
     let pendingGeneration: Promise<() => void> | undefined;
     act(() => {
@@ -302,6 +312,158 @@ describe('useContextInferenceAsync lifecycle', () => {
     expect(pipe.generateAsync).not.toHaveBeenCalled();
   });
 
+  it('ignores stale retrieval rejection after controller replacement', async () => {
+    const firstSearch = createDeferred<never[]>();
+    const secondSearch = createDeferred<never[]>();
+    const search = jest
+      .fn()
+      .mockReturnValueOnce(firstSearch.promise)
+      .mockReturnValueOnce(secondSearch.promise);
+    const contextEngine = createContextEngine({ search });
+    const { pipe: firstPipe } = createPipe();
+    const { callbacks, pipe: secondPipe } = createPipe();
+    const onError = jest.fn();
+    const onComplete = jest.fn();
+    const onResult = jest.fn();
+    let generate: ReturnType<typeof useContextInferenceAsync> | undefined;
+    const Probe = () => {
+      generate = useContextInferenceAsync({
+        contextEngine,
+        onError,
+        onComplete,
+        onResult,
+      });
+      return null;
+    };
+    const { rerender, unmount } = render(
+      <LLMProvider config={config} llmPipe={firstPipe}>
+        <Probe />
+      </LLMProvider>
+    );
+    await act(async () => {});
+
+    let first: Promise<() => void> | undefined;
+    act(() => {
+      first = generate?.({ prompt: 'first' });
+    });
+    expect(search).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <LLMProvider config={config} llmPipe={secondPipe}>
+        <Probe />
+      </LLMProvider>
+    );
+    await act(async () => {});
+
+    let second: Promise<() => void> | undefined;
+    act(() => {
+      second = generate?.({ prompt: 'replacement' });
+    });
+    expect(search).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      firstSearch.reject(new Error('stale retrieval failure'));
+      await first;
+    });
+    expect(onError).not.toHaveBeenCalled();
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(firstPipe.generateAsync).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await generate?.({ prompt: 'overlap' });
+    });
+    expect(onError).toHaveBeenCalledWith(expect.any(GenerationInProgressError));
+    expect(search).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      secondSearch.resolve([]);
+      await second;
+      callbacks[0]?.onEvent?.({ type: 'final', text: 'replacement result' });
+    });
+    expect(secondPipe.generateAsync).toHaveBeenCalledTimes(1);
+    expect(onResult).toHaveBeenCalledWith('replacement result', true);
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledTimes(1);
+    unmount();
+  });
+
+  it('reports retrieval rejection for the current request', async () => {
+    const failure = new Error('current retrieval failure');
+    const contextEngine = createContextEngine({
+      search: jest
+        .fn()
+        .mockRejectedValueOnce(failure)
+        .mockResolvedValueOnce([]),
+    });
+    const { callbacks, pipe } = createPipe();
+    const onError = jest.fn();
+    const onComplete = jest.fn();
+    const { result, unmount } = renderHook(
+      () => useContextInferenceAsync({ contextEngine, onError, onComplete }),
+      { wrapper: createWrapper(pipe) }
+    );
+    await act(async () => {});
+    await act(async () => {
+      await result.current({ prompt: 'first' });
+    });
+    expect(onError).toHaveBeenCalledWith(failure);
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(pipe.generateAsync).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await result.current({ prompt: 'retry' });
+      callbacks[0]?.onEvent?.({ type: 'final', text: 'done' });
+    });
+    expect(pipe.generateAsync).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onComplete).toHaveBeenCalledTimes(2);
+    unmount();
+  });
+
+  it('retains a pending context request when onGenerate changes', async () => {
+    const deferredSearch = createDeferred<never[]>();
+    const contextEngine = createContextEngine({
+      search: jest.fn(() => deferredSearch.promise),
+    });
+    const { callbacks, pipe } = createPipe();
+    const onError = jest.fn();
+    const previousOnGenerate = jest.fn();
+    const currentOnGenerate = jest.fn();
+    const { result, rerender } = renderHook(
+      ({ onGenerate }: { onGenerate: () => void }) =>
+        useContextInferenceAsync({ contextEngine, onError, onGenerate }),
+      {
+        initialProps: { onGenerate: previousOnGenerate },
+        wrapper: createWrapper(pipe),
+      }
+    );
+    await act(async () => {});
+
+    let pending: Promise<() => void> | undefined;
+    act(() => {
+      pending = result.current({ prompt: 'first' });
+    });
+
+    // onGenerate is a dependency of the inner generateBase callback. It
+    // must not retire an unrelated in-flight context lookup.
+    rerender({ onGenerate: currentOnGenerate });
+    await act(async () => {
+      await result.current({ prompt: 'overlap' });
+    });
+    expect(onError).toHaveBeenCalledWith(expect.any(GenerationInProgressError));
+    expect(contextEngine.search).toHaveBeenCalledTimes(1);
+    expect(pipe.generateAsync).not.toHaveBeenCalled();
+
+    await act(async () => {
+      deferredSearch.resolve([]);
+      await pending;
+      callbacks[0]?.onEvent?.({ type: 'final', text: 'done' });
+    });
+    expect(pipe.generateAsync).toHaveBeenCalledTimes(1);
+    expect(previousOnGenerate).toHaveBeenCalledTimes(1);
+    expect(currentOnGenerate).not.toHaveBeenCalled();
+  });
+
   it('rejects concurrent context retrieval before results can reorder', async () => {
     const deferredSearch = createDeferred<never[]>();
     const contextEngine = createContextEngine({
@@ -313,6 +475,7 @@ describe('useContextInferenceAsync lifecycle', () => {
       () => useContextInferenceAsync({ contextEngine, onError }),
       { wrapper: createWrapper(pipe) }
     );
+    await act(async () => {});
 
     let firstGeneration: Promise<() => void> | undefined;
     act(() => {

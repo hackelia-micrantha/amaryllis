@@ -1,10 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ComponentSpecSchema = exports.ComponentPolicySchema = exports.ComponentAISchema = exports.AIExecutionEnvironmentSchema = exports.AIExecutionModeSchema = exports.ComponentBehaviorSchema = exports.ComponentUISchema = exports.ComponentPropsSchema = exports.ComponentTargetSchema = exports.ComponentMetadataSchema = exports.JsonSchemaValueSchema = exports.StabilitySchema = void 0;
+const semver_1 = require("semver");
 const zod_1 = require("zod");
 const JS_IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 const COMPONENT_NAME = /^[a-z][a-z0-9-]*$/;
-const SEMVERISH = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/;
 const JS_TRIVIA = String.raw `(?:\s|\/\*[\s\S]*?\*\/|\/\/[^\r\n]*(?:\r?\n|$))*`;
 const UNSAFE_LAYOUT_PATTERNS = [
     /<script\b/i,
@@ -73,7 +73,9 @@ exports.JsonSchemaValueSchema = zod_1.z.lazy(() => zod_1.z
     .passthrough());
 exports.ComponentMetadataSchema = zod_1.z.object({
     name: zod_1.z.string().min(1).regex(COMPONENT_NAME),
-    version: zod_1.z.string().regex(SEMVERISH),
+    version: zod_1.z.string().refine((value) => (0, semver_1.valid)(value) === value.split('+', 1)[0], {
+        message: 'version must be exact SemVer',
+    }),
     owner: zod_1.z.string().optional(),
     stability: exports.StabilitySchema.optional(),
 });

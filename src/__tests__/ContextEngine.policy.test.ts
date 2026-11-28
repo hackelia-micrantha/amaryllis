@@ -1,0 +1,177 @@
+import { ContextEngine } from '../ContextEngine';
+import type { ContextItem, ContextPolicy, ContextStore } from '../ContextTypes';
+import { ContextPolicyUnsupportedError } from '@micrantha/amaryllis';
+import { ValidationError } from '../Errors';
+
+const createStore = (): ContextStore => ({
+  put: jest.fn(async (_items: ContextItem[], _policy: ContextPolicy) => {}),
+  query: jest.fn(async () => []),
+  delete: jest.fn(async () => {}),
+  compact: jest.fn(async () => {}),
+  stats: jest.fn(async () => ({ itemCount: 0 })),
+});
+
+const item = (overrides: Partial<ContextItem> = {}): ContextItem => ({
+  id: 'note',
+  text: 'memory',
+  createdAt: Date.now(),
+  ...overrides,
+});
+
+describe('ContextPolicy enforcement ownership', () => {
+  it('passes the explicit empty effective policy on every unbounded write', async () => {
+    const store = createStore();
+    const engine = new ContextEngine({ store });
+    const source = item();
+
+    await engine.add([source]);
+
+    expect(store.put).toHaveBeenCalledWith([source], {});
+    expect(store.stats).not.toHaveBeenCalled();
+  });
+
+  it('materializes default TTL without mutating source items or overriding an explicit TTL', async () => {
+    const store = createStore();
+    const policy: ContextPolicy = { defaultTtlSeconds: 90, maxItems: 10 };
+    const engine = new ContextEngine({ store, policy });
+    const withoutTtl = item({ id: 'default' });
+    const withTtl = item({ id: 'explicit', ttlSeconds: 15 });
+
+    await engine.add([withoutTtl, withTtl]);
+
+    expect(store.put).toHaveBeenCalledWith(
+      [
+        { ...withoutTtl, ttlSeconds: 90 },
+        { ...withTtl, ttlSeconds: 15 },
+      ],
+      policy
+    );
+    expect(withoutTtl.ttlSeconds).toBeUndefined();
+    expect(withTtl.ttlSeconds).toBe(15);
+  });
+
+  it('applies changed policy to subsequent writes and compaction, not stored TTLs', async () => {
+    const store = createStore();
+    const engine = new ContextEngine({
+      store,
+      policy: { defaultTtlSeconds: 30, maxItems: 8 },
+    });
+    const first = item({ id: 'first' });
+    await engine.add([first]);
+    const nextPolicy: ContextPolicy = { defaultTtlSeconds: 5, maxItems: 2 };
+    engine.setPolicy(nextPolicy);
+    const second = item({ id: 'second' });
+    await engine.add([second]);
+    await engine.compact();
+
+    expect(store.put).toHaveBeenNthCalledWith(
+      1,
+      [{ ...first, ttlSeconds: 30 }],
+      { defaultTtlSeconds: 30, maxItems: 8 }
+    );
+    expect(store.put).toHaveBeenNthCalledWith(
+      2,
+      [{ ...second, ttlSeconds: 5 }],
+      nextPolicy
+    );
+    expect(store.compact).toHaveBeenCalledWith(nextPolicy);
+  });
+
+  it('propagates unsupported persistence policy without a fallback write', async () => {
+    const failure = new ContextPolicyUnsupportedError('maxBytes unsupported');
+    const store = createStore();
+    store.put = jest.fn(async () => {
+      throw failure;
+    });
+    store.compact = jest.fn(async () => {
+      throw failure;
+    });
+    const policy: ContextPolicy = { maxBytes: 1024 };
+    const engine = new ContextEngine({ store, policy });
+    const source = item();
+
+    await expect(engine.add([source])).rejects.toBe(failure);
+    expect(store.put).toHaveBeenCalledTimes(1);
+    expect(store.put).toHaveBeenCalledWith([source], policy);
+    expect(store.compact).not.toHaveBeenCalled();
+    await expect(engine.compact()).rejects.toBe(failure);
+    expect(store.compact).toHaveBeenCalledTimes(1);
+    expect(store.compact).toHaveBeenCalledWith(policy);
+    expect(store.put).toHaveBeenCalledTimes(1);
+    expect(store.stats).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid input and media before calling the store', async () => {
+    const store = createStore();
+    const engine = new ContextEngine({
+      store,
+      policy: { media: { maxMediaBytes: 512 } },
+    });
+
+    await expect(
+      engine.add([item({ media: [{ uri: 'file:///image', sizeBytes: 1024 }] })])
+    ).rejects.toBeInstanceOf(ValidationError);
+    expect(store.put).not.toHaveBeenCalled();
+  });
+
+  it('rejects untrusted items passed directly into a formatter', () => {
+    const engine = new ContextEngine({
+      store: createStore(),
+      policy: { media: { maxMediaBytes: 100 } },
+    });
+    const request = { prompt: 'question' };
+
+    expect(() =>
+      engine.formatRequest({
+        prompt: request.prompt,
+        items: [item({ media: [{ uri: 'file:///large', sizeBytes: 4096 }] })],
+        request,
+      })
+    ).toThrow(ValidationError);
+  });
+
+  it('revalidates retrieved storage content before using it as model context', async () => {
+    const store = createStore();
+    store.query = jest.fn(async () => [
+      item({ media: [{ uri: 'file:///unsafe', sizeBytes: 4096 }] }),
+    ]);
+    const engine = new ContextEngine({
+      store,
+      policy: { media: { maxMediaBytes: 1000 } },
+    });
+
+    await expect(engine.search({ text: 'memory' })).rejects.toBeInstanceOf(
+      ValidationError
+    );
+    expect(store.stats).not.toHaveBeenCalled();
+  });
+
+  it.each([null, {}, ''])(
+    'rejects malformed retrieved collections before scoring or formatting: %j',
+    async (input) => {
+      const store = createStore();
+      store.query = async () => input as unknown as ContextItem[];
+      const engine = new ContextEngine({ store });
+
+      await expect(engine.search({ text: 'memory' })).rejects.toBeInstanceOf(
+        ValidationError
+      );
+      expect(() =>
+        engine.formatRequest({
+          prompt: 'question',
+          items: input as unknown as ContextItem[],
+          request: { prompt: 'question' },
+        })
+      ).toThrow(ValidationError);
+    }
+  );
+
+  it('preserves empty retrieved results and unaugmented requests', async () => {
+    const engine = new ContextEngine({ store: createStore() });
+    const request = { prompt: 'question' };
+    await expect(engine.search({ text: 'memory' })).resolves.toEqual([]);
+    expect(
+      engine.formatRequest({ prompt: request.prompt, items: [], request })
+    ).toBe(request);
+  });
+});
