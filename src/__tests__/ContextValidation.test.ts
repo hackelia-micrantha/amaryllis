@@ -1,4 +1,6 @@
 import {
+  validateContextItem,
+  validateContextItems,
   validateContextPolicy,
   validateContextQuery,
   validateMediaPolicy,
@@ -6,6 +8,7 @@ import {
   validateMediaReferences,
 } from '../ContextValidation';
 import type {
+  ContextItem,
   ContextPolicy,
   ContextQuery,
   MediaReference,
@@ -128,6 +131,83 @@ describe('ContextValidation', () => {
     it('should allow valid query', () => {
       const query: ContextQuery = { text: 'hi', limit: 2, recencyBias: 0.5 };
       expect(() => validateContextQuery(query)).not.toThrow();
+    });
+  });
+
+  describe('untrusted JSON shapes', () => {
+    const valid: ContextItem = {
+      id: 'item',
+      text: 'memory',
+      createdAt: 1,
+      tags: ['note'],
+      metadata: { source: 'local' },
+      media: [{ uri: 'file:///image.png', sizeBytes: 32 }],
+    };
+
+    it.each([
+      { id: 42 },
+      { text: null },
+      { tags: 'note' },
+      { tags: [null] },
+      { tags: [] },
+      { metadata: 'local' },
+      { metadata: ['local'] },
+      { metadata: { source: 42 } },
+      { media: null },
+      { media: {} },
+      { media: [null] },
+      { media: [{ uri: 42 }] },
+      { media: [{ uri: 'file:///image', mimeType: false }] },
+    ])('rejects malformed item fields: %j', (overrides) => {
+      const item = { ...valid, ...overrides } as unknown as ContextItem;
+      expect(() => validateContextItem(item)).toThrow(ValidationError);
+    });
+
+    it.each([null, 0, {}, 'items', [null]])(
+      'rejects malformed item collections: %j',
+      (input) => {
+        expect(() =>
+          validateContextItems(input as unknown as ContextItem[])
+        ).toThrow(ValidationError);
+      }
+    );
+
+    it.each([
+      null,
+      false,
+      [],
+      { media: { allowedUriSchemes: 'file' } },
+      { media: { allowedUriSchemes: [null] } },
+      { media: { requireAbsoluteUri: 'false' } },
+    ])('rejects malformed policy shapes: %j', (input) => {
+      expect(() =>
+        validateContextPolicy(input as unknown as ContextPolicy)
+      ).toThrow(ValidationError);
+    });
+
+    it.each([
+      { text: 1 },
+      { text: 'note', tags: 'note' },
+      { text: 'note', filters: [] },
+      { text: 'note', filters: { source: null } },
+      { text: 'note', useSemantic: 'true' },
+    ])('rejects malformed query shapes: %j', (input) => {
+      expect(() =>
+        validateContextQuery(input as unknown as ContextQuery)
+      ).toThrow(ValidationError);
+    });
+
+    it('preserves a valid JSON round trip under configured media bounds', () => {
+      const policy: ContextPolicy = {
+        media: {
+          allowedUriSchemes: ['file'],
+          requireAbsoluteUri: true,
+          maxMediaBytes: 32,
+        },
+      };
+      const parsed: ContextItem = JSON.parse(JSON.stringify(valid));
+      expect(() => validateContextItems([parsed], policy)).not.toThrow();
+      expect(parsed).toEqual(valid);
     });
   });
 });
