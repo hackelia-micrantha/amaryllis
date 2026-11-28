@@ -18,6 +18,7 @@ function createNativeFixture() {
   const listeners = new Map<string, Set<(payload: unknown) => void>>();
   let active: { id: string; cancelling: boolean } | undefined;
   let initialized = false;
+  let visionSession = false;
 
   const emit = (event: string, payload: unknown) => {
     [...(listeners.get(event) ?? [])].forEach((listener) => listener(payload));
@@ -42,15 +43,23 @@ function createNativeFixture() {
       initialized = true;
       return Promise.resolve();
     },
-    newSession() {
-      return Promise.reject(new Error('Not exercised by this fixture'));
+    newSession(params) {
+      visionSession = params?.enableVisionModality === true;
+      return Promise.resolve();
     },
     generate() {
       return Promise.reject(new Error('Not exercised by this fixture'));
     },
-    generateAsync(_params, id) {
+    generateAsync(params, id) {
       if (!initialized || active) {
         return Promise.reject(new Error('Native request cannot start'));
+      }
+      if (params.images?.length && !visionSession) {
+        return Promise.reject(
+          Object.assign(new Error('session is required'), {
+            code: 'ERR_SESSION',
+          })
+        );
       }
       active = { id, cancelling: false };
       return Promise.resolve();
@@ -60,6 +69,7 @@ function createNativeFixture() {
     },
     close() {
       initialized = false;
+      visionSession = false;
       active = undefined;
     },
   };
@@ -89,6 +99,11 @@ function createNativeFixture() {
       const id = active.id;
       active = undefined;
       emit('onCancelled', { requestId: id });
+    },
+    fail(message: string, code: string) {
+      const id = requestId();
+      active = undefined;
+      emit('onError', { requestId: id, message, code });
     },
     finish(text: string, finalText: string) {
       const id = requestId();
@@ -173,5 +188,79 @@ describe('real provider and pipe at the native event boundary', () => {
     expect(completions).toBe(2);
     expect(native.listenerCount).toBe(0);
     unmount();
+  });
+
+  it('releases ownership on startup rejection and preserves native error codes', async () => {
+    const native = createNativeFixture();
+    const pipe = new LlmPipe(native);
+    await pipe.init(config);
+    const request = { prompt: 'describe', images: ['file:///image.png'] };
+
+    await expect(pipe.generateAsync(request)).rejects.toMatchObject({
+      code: 'ERR_SESSION',
+    });
+    expect(native.listenerCount).toBe(0);
+
+    await pipe.newSession({ enableVisionModality: true });
+    const events: unknown[] = [];
+    await pipe.generateAsync(request, {
+      onEvent: (event) => events.push(event),
+    });
+    const failedId = native.requestId();
+    native.fail('unable to generate response', 'ERR_INFER');
+    expect(events).toEqual([
+      {
+        type: 'error',
+        error: expect.objectContaining({
+          message: 'unable to generate response',
+          code: 'ERR_INFER',
+        }),
+      },
+    ]);
+    expect(native.listenerCount).toBe(0);
+
+    await pipe.generateAsync({ prompt: 'retry' }, {
+      onEvent: (event) => events.push(event),
+    });
+    native.emit('onError', {
+      requestId: failedId,
+      message: 'stale failure',
+      code: 'ERR_INFER',
+    });
+    native.finish('done', 'done');
+    expect(events).toHaveLength(2);
+    expect(events[1]).toEqual({ type: 'final', text: 'done' });
+    expect(native.listenerCount).toBe(0);
+    pipe.close();
+  });
+
+  it('retires an active stream on close and permits a new owner after init', async () => {
+    const native = createNativeFixture();
+    const owner = new LlmPipe(native);
+    const next = new LlmPipe(native);
+    const events: unknown[] = [];
+    const lifecycle: unknown[] = [];
+    owner.subscribeAsyncLifecycle((event) => lifecycle.push(event));
+    await owner.init(config);
+    await owner.generateAsync({ prompt: 'first' }, {
+      onEvent: (event) => events.push(event),
+    });
+    const retiredId = native.requestId();
+
+    owner.close();
+    expect(lifecycle).toEqual([{ type: 'closed' }]);
+    expect(native.listenerCount).toBe(0);
+    expect(events).toEqual([]);
+
+    await next.init(config);
+    await next.generateAsync({ prompt: 'next' }, {
+      onEvent: (event) => events.push(event),
+    });
+    native.emit('onCancelled', { requestId: retiredId });
+    native.emit('onFinalResult', { requestId: retiredId, text: 'stale' });
+    native.finish('next', 'next');
+    expect(events).toEqual([{ type: 'final', text: 'next' }]);
+    expect(native.listenerCount).toBe(0);
+    next.close();
   });
 });
