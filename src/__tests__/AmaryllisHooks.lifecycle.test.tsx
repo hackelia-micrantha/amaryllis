@@ -390,7 +390,10 @@ describe('useContextInferenceAsync lifecycle', () => {
   it('reports retrieval rejection for the current request', async () => {
     const failure = new Error('current retrieval failure');
     const contextEngine = createContextEngine({
-      search: jest.fn().mockRejectedValueOnce(failure).mockResolvedValueOnce([]),
+      search: jest
+        .fn()
+        .mockRejectedValueOnce(failure)
+        .mockResolvedValueOnce([]),
     });
     const { callbacks, pipe } = createPipe();
     const onError = jest.fn();
